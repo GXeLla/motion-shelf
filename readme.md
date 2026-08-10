@@ -35,7 +35,7 @@ Motion Shelf is designed to work locally as a simple HTML/CSS/JavaScript project
 
 **Live site:**
 
-https://g xella.github.io/motion-shelf/
+https://gxella.github.io/motion-shelf/
 
 > If the link above has not been enabled yet, follow the **GitHub Pages** instructions below.
 
