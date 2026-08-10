@@ -1,0 +1,644 @@
+/* ==================================================
+   ANIMATION GRID
+   ================================================== */
+
+.animation-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  gap: 18px;
+
+  align-items: stretch;
+}
+
+/* ==================================================
+     ANIMATION CARD
+     ================================================== */
+
+.animation-card {
+  min-width: 0;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow-sm);
+
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.animation-card:hover {
+  transform: translateY(-3px);
+
+  border-color: var(--border-strong);
+
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.animation-card.selected {
+  border-color: rgba(84, 169, 234, 0.65);
+
+  box-shadow:
+    0 0 0 2px rgba(84, 169, 234, 0.14),
+    0 10px 30px rgba(84, 169, 234, 0.08);
+}
+
+.animation-card.selected {
+  border-color: rgba(84, 169, 234, 0.65);
+
+  box-shadow:
+    0 0 0 2px rgba(84, 169, 234, 0.14),
+    0 10px 30px rgba(84, 169, 234, 0.08);
+}
+
+/* ==================================================
+     CARD PREVIEW
+     ================================================== */
+
+.card-preview {
+  position: relative;
+
+  width: 100%;
+
+  /*
+         * Keeps the image proportional to the card width.
+         * 16 / 9 gives a wider, cleaner preview.
+         */
+  aspect-ratio: 16 / 9;
+
+  flex: 0 0 auto;
+
+  overflow: hidden;
+
+  border-bottom: 1px solid var(--border);
+
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(84, 169, 234, 0.12),
+      transparent 55%
+    ),
+    #0c1212;
+
+  cursor: pointer;
+}
+
+.preview-image {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  user-select: none;
+}
+
+/* ==================================================
+     CARD PRESENCE
+     ================================================== */
+
+.card-presence {
+  position: absolute;
+
+  top: 14px;
+  right: 14px;
+
+  width: 10px;
+  height: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 5;
+}
+
+.card-presence-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: var(--text-muted);
+
+  opacity: 0.45;
+
+  transition:
+    background 180ms ease,
+    opacity 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.animation-card.animation-running .card-presence-dot {
+  background: #39d98a;
+
+  opacity: 1;
+
+  transform: scale(1.15);
+
+  box-shadow:
+    0 0 0 4px rgba(57, 217, 138, 0.12),
+    0 0 12px rgba(57, 217, 138, 0.65);
+}
+
+/* ==================================================
+     CARD SELECTION
+     ================================================== */
+
+.card-selection {
+  position: absolute;
+
+  z-index: 5;
+
+  top: 12px;
+  left: 12px;
+}
+
+.card-selection input {
+  width: 20px;
+  height: 20px;
+
+  accent-color: var(--primary);
+
+  cursor: pointer;
+}
+
+/* ==================================================
+     CARD CONTENT
+     ================================================== */
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+
+  flex: 1;
+
+  min-width: 0;
+
+  padding: 16px;
+}
+
+/* ==================================================
+     CARD TOPLINE
+     ================================================== */
+
+.card-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.card-title {
+  margin: 0;
+
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+/* ==================================================
+     CARD DESCRIPTION
+     ================================================== */
+
+.card-description {
+  display: -webkit-box;
+
+  margin: 7px 0 13px;
+
+  color: var(--text-muted);
+
+  font-size: 13px;
+  line-height: 1.5;
+
+  overflow: hidden;
+
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+
+  -webkit-box-orient: vertical;
+}
+
+/* ==================================================
+     TAG LIST
+     ================================================== */
+
+.tag-list {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  flex-wrap: wrap;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 4px 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--surface-2);
+
+  color: var(--text-muted);
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tag i {
+  font-size: 9px;
+
+  color: var(--tag-color, var(--text-muted));
+}
+
+/* ==================================================
+     GENERAL TAG COLORS
+     ================================================== */
+
+.tag.desktop {
+  --tag-color: #7ca8ff;
+}
+
+.tag.mobile {
+  --tag-color: #bd8cff;
+}
+
+.tag.hover {
+  --tag-color: #ffca6e;
+}
+
+.tag.infinite {
+  --tag-color: #1cb8ba;
+}
+
+.tag.interaction-appear {
+  --tag-color: #79d6ff;
+}
+
+.tag.disappear {
+  --tag-color: #ff7c91;
+}
+
+.tag.static {
+  --tag-color: #aaa;
+}
+
+.tag.d3,
+.tag.category-3d {
+  --tag-color: #b99cff;
+}
+
+.tag i {
+  color: var(--tag-color, var(--text-muted));
+}
+
+/* ==================================================
+     SYNCED TAG
+     ================================================== */
+
+.tag.synced {
+  color: var(--presence);
+
+  border-color: rgba(28, 184, 186, 0.25);
+
+  background: rgba(28, 184, 186, 0.08);
+}
+
+/* ==================================================
+     CARD CATEGORY COLORS
+     ================================================== */
+
+.animation-card .tag {
+  --tag-color: var(--text-muted);
+
+  border-color: color-mix(in srgb, var(--tag-color) 28%, var(--border));
+
+  color: var(--tag-color);
+
+  background: color-mix(in srgb, var(--tag-color) 7%, var(--surface-2));
+}
+
+/* ==================================================
+     CATEGORY COLORS
+     ================================================== */
+
+.animation-card .tag-image {
+  --tag-color: #79d6ff;
+}
+
+.animation-card .tag-photo {
+  --tag-color: #ff9f68;
+}
+
+.animation-card .tag-text {
+  --tag-color: #d6a8ff;
+}
+
+.animation-card .tag-scale {
+  --tag-color: #62e6a7;
+}
+
+.animation-card .tag-rotate {
+  --tag-color: #7ca8ff;
+}
+
+.animation-card .tag-slide {
+  --tag-color: #5ed7d9;
+}
+
+.animation-card .tag-fade {
+  --tag-color: #ff9bb0;
+}
+
+.animation-card .tag-3d {
+  --tag-color: #b99cff;
+}
+
+.animation-card .tag-spring {
+  --tag-color: #ffd166;
+}
+
+.animation-card .tag-magnetic {
+  --tag-color: #ff7cc8;
+}
+
+.animation-card .tag-elastic {
+  --tag-color: #9eff6e;
+}
+
+.animation-card .tag-timeline {
+  --tag-color: #8ab4ff;
+}
+
+.animation-card .tag-scroll {
+  --tag-color: #45d4ff;
+}
+
+.animation-card .tag-parallax {
+  --tag-color: #c58cff;
+}
+
+/* ==================================================
+     CATEGORY ICON
+     ================================================== */
+
+.animation-card .tag i {
+  color: var(--tag-color);
+}
+
+/* ==================================================
+     FILTER MATCH
+     ================================================== */
+
+.tag.filter-match {
+  position: relative;
+
+  overflow: hidden;
+
+  background: var(--surface-2);
+
+  color: var(--text-muted);
+
+  border-color: color-mix(
+    in srgb,
+    var(--tag-color, var(--accent)) 75%,
+    var(--border)
+  );
+
+  box-shadow:
+    0 0 0 1px
+      color-mix(in srgb, var(--tag-color, var(--accent)) 20%, transparent),
+    0 0 10px
+      color-mix(in srgb, var(--tag-color, var(--accent)) 28%, transparent),
+    0 0 20px
+      color-mix(in srgb, var(--tag-color, var(--accent)) 12%, transparent);
+
+  animation: filterMatchPulse 1.8s ease-in-out infinite;
+}
+
+.tag.filter-match::after {
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  background: linear-gradient(
+    110deg,
+    transparent 15%,
+    color-mix(in srgb, var(--tag-color, var(--accent)) 10%, transparent) 35%,
+    color-mix(in srgb, var(--tag-color, var(--accent)) 32%, transparent) 50%,
+    color-mix(in srgb, var(--tag-color, var(--accent)) 10%, transparent) 65%,
+    transparent 85%
+  );
+
+  transform: translateX(-130%);
+
+  pointer-events: none;
+
+  animation: filterMatchSweep 2.6s ease-in-out infinite;
+}
+
+/* ==================================================
+     SELECTED / FILTER MATCH
+     ================================================== */
+
+.animation-card .tag.filter-match {
+  border-color: color-mix(in srgb, var(--tag-color) 60%, var(--border));
+
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tag-color) 12%, transparent),
+    0 0 10px color-mix(in srgb, var(--tag-color) 10%, transparent);
+}
+
+/* ==================================================
+     DEVICE COLORS
+     ================================================== */
+
+.animation-card .tag.desktop {
+  --tag-color: #54a9ea;
+
+  border-color: color-mix(in srgb, var(--tag-color) 28%, var(--border));
+
+  color: var(--tag-color);
+
+  background: color-mix(in srgb, var(--tag-color) 7%, var(--surface-2));
+}
+
+.animation-card .tag.mobile {
+  --tag-color: #1cb8ba;
+
+  border-color: color-mix(in srgb, var(--tag-color) 28%, var(--border));
+
+  color: var(--tag-color);
+
+  background: color-mix(in srgb, var(--tag-color) 7%, var(--surface-2));
+}
+
+.animation-card .tag.desktop i,
+.animation-card .tag.mobile i {
+  color: var(--tag-color);
+}
+
+/* ==================================================
+     CARD DATE META
+     ================================================== */
+
+.card-date-meta {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px 14px;
+
+  margin-top: 10px;
+
+  color: var(--text-muted);
+
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.card-date-meta span {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 5px;
+}
+
+.card-date-meta i {
+  font-size: 10px;
+}
+
+/* ==================================================
+     CARD ACTIONS
+     Always pinned to bottom
+     ================================================== */
+
+.card-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin-top: auto;
+
+  padding-top: 16px;
+}
+
+/* ==================================================
+     CARD ACTION
+     ================================================== */
+
+.card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  min-height: 34px;
+
+  padding: 0 10px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: var(--surface-2);
+
+  color: var(--text-soft);
+
+  font-size: 12px;
+  font-weight: 700;
+
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition);
+}
+
+.card-action:hover {
+  background: var(--surface-3);
+
+  color: var(--text);
+
+  border-color: var(--border-strong);
+}
+
+/* ==================================================
+     CODE ACTION
+     ================================================== */
+
+.card-action.code {
+  color: var(--primary);
+}
+
+/* ==================================================
+     PRIMARY ACTION
+     ================================================== */
+
+.card-action.primary {
+  margin-left: auto;
+
+  border-color: rgba(84, 169, 234, 0.25);
+
+  background: rgba(84, 169, 234, 0.1);
+
+  color: var(--primary);
+}
+
+/* ==================================================
+     CODE SYNCED
+     ================================================== */
+
+.code-synced {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 5px;
+
+  color: var(--primary);
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ==================================================
+     RESPONSIVE
+     ================================================== */
+
+@media (max-width: 900px) {
+  .animation-grid {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .animation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-actions {
+    flex-wrap: wrap;
+  }
+
+  .card-action.primary {
+    margin-left: 0;
+  }
+}

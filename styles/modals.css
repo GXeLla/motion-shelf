@@ -1,0 +1,674 @@
+/* ==================================================
+MODAL BACKDROP
+================================================== */
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(3, 7, 7, 0.78);
+
+  backdrop-filter: blur(10px);
+
+  overflow-y: auto;
+
+  /* Same scroll behavior */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.modal-backdrop::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-backdrop::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-backdrop::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.modal-backdrop::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ==================================================
+  BASE MODAL
+  ================================================== */
+
+.modal {
+  position: relative;
+
+  width: min(100%, 720px);
+
+  max-height: calc(100vh - 48px);
+
+  overflow-y: auto;
+
+  border: 1px solid var(--border);
+  border-radius: 24px;
+
+  background: linear-gradient(180deg, #152020, #101818);
+
+  box-shadow: var(--shadow);
+
+  animation: modal-enter 180ms ease both;
+}
+
+/* ==================================================
+  MODAL SIZES
+  ================================================== */
+
+.detail-modal {
+  width: min(100%, 820px);
+}
+
+.editor-modal {
+  width: min(100%, 900px);
+}
+
+.small-modal {
+  width: min(100%, 520px);
+}
+
+/* ==================================================
+  MODAL CLOSE
+  ================================================== */
+
+.modal-close {
+  position: absolute;
+  z-index: 5;
+
+  top: 17px;
+  right: 17px;
+
+  width: 36px;
+  height: 36px;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  background: var(--surface-2);
+  color: var(--text-muted);
+
+  transition:
+    color var(--transition),
+    background var(--transition),
+    border-color var(--transition);
+}
+
+.modal-close:hover {
+  background: var(--surface-3);
+
+  border-color: var(--border-strong);
+
+  color: var(--text);
+}
+
+/* ==================================================
+  MODAL HEADING
+  ================================================== */
+
+.modal-heading {
+  padding: 30px 30px 0;
+}
+
+.modal-heading h2 {
+  margin: 7px 50px 5px 0;
+
+  font-size: 27px;
+  line-height: 1.15;
+}
+
+.modal-heading p {
+  margin: 0;
+
+  max-width: 650px;
+
+  color: var(--text-muted);
+
+  font-size: 14px;
+}
+
+/* ==================================================
+  DETAIL PREVIEW
+  ================================================== */
+
+.detail-preview {
+  position: relative;
+
+  margin: 24px 30px 0;
+
+  min-height: 280px;
+
+  display: grid;
+  place-items: center;
+
+  overflow: hidden;
+
+  border: 1px solid var(--border);
+  border-radius: 17px;
+
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(84, 169, 234, 0.12),
+      transparent 65%
+    ),
+    #0b1111;
+}
+
+.detail-preview img {
+  width: min(80%, 540px);
+
+  max-height: 320px;
+
+  object-fit: contain;
+}
+
+/* ==================================================
+  LIVE ANIMATION LABEL
+  ================================================== */
+
+.live-animation-label {
+  position: absolute;
+  z-index: 2;
+
+  top: 13px;
+  left: 14px;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  color: var(--presence);
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+}
+
+.live-animation-dot {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: var(--presence);
+
+  box-shadow:
+    0 0 0 3px rgba(28, 184, 186, 0.12),
+    0 0 12px rgba(28, 184, 186, 0.75);
+}
+
+/* ==================================================
+  DETAIL DESCRIPTION
+  ================================================== */
+
+.detail-description {
+  margin: 22px 30px 0;
+
+  color: var(--text-soft);
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ==================================================
+  DETAIL TAG LIST
+  ================================================== */
+
+.detail-modal .tag-list {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  flex-wrap: wrap;
+
+  margin: 18px 30px 0;
+}
+
+/* ==================================================
+  DETAIL TAG BASE
+  ================================================== */
+
+.detail-modal .tag {
+  --tag-color: var(--text-muted);
+
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 5px 9px;
+
+  border: 1px solid color-mix(in srgb, var(--tag-color) 28%, var(--border));
+
+  border-radius: 7px;
+
+  background: color-mix(in srgb, var(--tag-color) 7%, var(--surface-2));
+
+  color: var(--tag-color);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  line-height: 1;
+
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.detail-modal .tag i {
+  color: var(--tag-color);
+
+  font-size: 9px;
+}
+
+/* ==================================================
+  DETAIL TAG HOVER
+  ================================================== */
+
+.detail-modal .tag:hover {
+  transform: translateY(-1px);
+
+  color: var(--tag-color);
+
+  border-color: color-mix(in srgb, var(--tag-color) 55%, var(--border));
+
+  background: color-mix(in srgb, var(--tag-color) 12%, var(--surface-2));
+
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tag-color) 12%, transparent),
+    0 0 12px color-mix(in srgb, var(--tag-color) 16%, transparent);
+}
+
+.detail-modal .tag:hover i {
+  color: var(--tag-color);
+}
+
+/* ==================================================
+  DETAIL CATEGORY COLORS
+  ================================================== */
+
+/* Image */
+.detail-modal .tag.category-image {
+  --tag-color: #79d6ff;
+}
+
+/* Photo */
+.detail-modal .tag.category-photo {
+  --tag-color: #ff9f68;
+}
+
+/* Text */
+.detail-modal .tag.category-text {
+  --tag-color: #d6a8ff;
+}
+
+/* Scale */
+.detail-modal .tag.category-scale {
+  --tag-color: #62e6a7;
+}
+
+/* Rotate */
+.detail-modal .tag.category-rotate {
+  --tag-color: #7ca8ff;
+}
+
+/* Slide */
+.detail-modal .tag.category-slide {
+  --tag-color: #5ed7d9;
+}
+
+/* Fade */
+.detail-modal .tag.category-fade {
+  --tag-color: #ff9bb0;
+}
+
+/* 3D
+     Supports both:
+     category-3d
+     d3
+  */
+.detail-modal .tag.category-3d,
+.detail-modal .tag.d3 {
+  --tag-color: #b99cff;
+}
+
+/* Spring */
+.detail-modal .tag.category-spring {
+  --tag-color: #ffd166;
+}
+
+/* Magnetic */
+.detail-modal .tag.category-magnetic {
+  --tag-color: #ff7cc8;
+}
+
+/* Elastic */
+.detail-modal .tag.category-elastic {
+  --tag-color: #9eff6e;
+}
+
+/* Timeline */
+.detail-modal .tag.category-timeline {
+  --tag-color: #8ab4ff;
+}
+
+/* Scroll */
+.detail-modal .tag.category-scroll {
+  --tag-color: #45d4ff;
+}
+
+/* Parallax */
+.detail-modal .tag.category-parallax {
+  --tag-color: #c58cff;
+}
+
+/* ==================================================
+  DETAIL DEVICE COLORS
+  ================================================== */
+
+.detail-modal .tag.desktop {
+  --tag-color: #54a9ea;
+}
+
+.detail-modal .tag.mobile {
+  --tag-color: #1cb8ba;
+}
+
+.detail-modal .tag.both {
+  --tag-color: #79d6ff;
+}
+
+/* ==================================================
+  DETAIL INTERACTION COLORS
+  ================================================== */
+
+/* Hover interaction */
+.detail-modal .tag.hover,
+.detail-modal .tag.interaction-hover {
+  --tag-color: #ffca6e;
+}
+
+/* Appear interaction */
+.detail-modal .tag.interaction-appear {
+  --tag-color: #79d6ff;
+}
+
+/* Disappear interaction */
+.detail-modal .tag.disappear,
+.detail-modal .tag.interaction-disappear {
+  --tag-color: #ff7c91;
+}
+
+/* Infinite interaction */
+.detail-modal .tag.infinite,
+.detail-modal .tag.interaction-infinite {
+  --tag-color: #1cb8ba;
+}
+
+/* Static interaction */
+.detail-modal .tag.static,
+.detail-modal .tag.interaction-static {
+  --tag-color: #aaa;
+}
+
+/* ==================================================
+  DETAIL SYNC TAG
+  ================================================== */
+
+.detail-modal .tag.synced {
+  --tag-color: var(--presence);
+
+  color: var(--presence);
+
+  border-color: rgba(28, 184, 186, 0.25);
+
+  background: rgba(28, 184, 186, 0.08);
+}
+
+.detail-modal .tag.synced i {
+  color: var(--presence);
+}
+
+/* ==================================================
+  FILTER MATCH
+  ================================================== */
+
+.detail-modal .tag.filter-match {
+  position: relative;
+
+  overflow: hidden;
+
+  border-color: color-mix(
+    in srgb,
+    var(--tag-color, var(--accent)) 65%,
+    var(--border)
+  );
+
+  box-shadow:
+    0 0 0 1px
+      color-mix(in srgb, var(--tag-color, var(--accent)) 15%, transparent),
+    0 0 10px
+      color-mix(in srgb, var(--tag-color, var(--accent)) 18%, transparent);
+}
+
+/* ==================================================
+  CODE SECTION
+  ================================================== */
+
+.code-section {
+  margin: 25px 30px 0;
+}
+
+.code-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.code-section h3 {
+  margin: 0;
+
+  font-size: 15px;
+}
+
+.code-block {
+  margin: 10px 0 0;
+
+  max-height: 320px;
+
+  overflow: auto;
+
+  padding: 18px;
+
+  border: 1px solid var(--border);
+  border-radius: 13px;
+
+  background: #090e0e;
+
+  color: #c9d9d7;
+
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  font-size: 12px;
+
+  line-height: 1.6;
+
+  white-space: pre;
+}
+
+/* ==================================================
+  DETAIL ACTIONS
+  ================================================== */
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  margin: 24px 30px 30px;
+}
+
+.detail-synced {
+  margin-left: 5px;
+}
+
+/* ==================================================
+  DELETE OPTIONS
+  ================================================== */
+
+.delete-options {
+  display: grid;
+
+  gap: 10px;
+
+  padding: 25px 30px 30px;
+}
+
+.delete-option {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 15px;
+
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  background: var(--surface-2);
+  color: var(--text);
+
+  text-align: left;
+
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    transform var(--transition);
+}
+
+.delete-option:hover {
+  background: var(--surface-3);
+
+  border-color: var(--border-strong);
+
+  transform: translateY(-1px);
+}
+
+.delete-option-icon {
+  width: 42px;
+  height: 42px;
+
+  flex: 0 0 42px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 11px;
+
+  background: rgba(84, 169, 234, 0.1);
+
+  color: var(--primary);
+}
+
+.danger-icon {
+  background: var(--danger-soft);
+
+  color: var(--danger);
+}
+
+.delete-option strong {
+  display: block;
+
+  margin-bottom: 2px;
+}
+
+.delete-option small {
+  display: block;
+
+  color: var(--text-muted);
+}
+
+/* ==================================================
+  RESPONSIVE
+  ================================================== */
+
+@media (max-width: 650px) {
+  .modal-backdrop {
+    align-items: flex-end;
+
+    padding: 10px;
+  }
+
+  .modal {
+    max-height: calc(100vh - 20px);
+
+    border-radius: 20px;
+  }
+
+  .modal-heading {
+    padding: 25px 20px 0;
+  }
+
+  .detail-preview {
+    margin-left: 20px;
+    margin-right: 20px;
+
+    min-height: 230px;
+  }
+
+  .detail-preview img {
+    width: min(88%, 540px);
+  }
+
+  .detail-description,
+  .code-section {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  .detail-modal .tag-list {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  .detail-actions {
+    margin-left: 20px;
+    margin-right: 20px;
+
+    flex-wrap: wrap;
+  }
+
+  .delete-options {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}

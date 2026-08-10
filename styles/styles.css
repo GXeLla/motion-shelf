@@ -1,0 +1,88 @@
+:root {
+  --bg: #0b1010;
+  --bg-soft: #101717;
+  --surface: #121b1b;
+  --surface-2: #172121;
+  --surface-3: #1c2828;
+
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.15);
+
+  --text: #f2f7f7;
+  --text-soft: #a9b8b8;
+  --text-muted: #728181;
+
+  --primary: #54A9EA;
+  --primary-strong: #3575BD;
+  --primary-text: #07111A;
+  
+  --presence: #1CB8BA;
+  --presence-blue: #3575BD;
+  --presence-soft: rgba(28, 184, 186, 0.12);
+  --presence-blue-soft: rgba(53, 117, 189, 0.12);
+  
+  --danger: #ff6f78;
+  --danger-soft: rgba(255, 111, 120, 0.12);
+
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 22px;
+
+  --container: 1440px;
+
+  --transition: 160ms ease;
+
+  --font:
+    "Atkinson Hyperlegible", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-text);
+}

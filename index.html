@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="description"
+      content="Motion Shelf — a visual CSS animation library."
+    />
+
+    <title>Motion Shelf — Animation Library</title>
+
+    <!-- Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Font Awesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+
+    <!-- Global -->
+    <link rel="stylesheet" href="./styles/styles.css" />
+
+    <!-- Components -->
+    <link rel="stylesheet" href="./styles/base.css" />
+    <link rel="stylesheet" href="./styles/header.css" />
+    <link rel="stylesheet" href="./styles/filters.css" />
+    <link rel="stylesheet" href="./styles/cards.css" />
+    <link rel="stylesheet" href="./styles/modals.css" />
+    <link rel="stylesheet" href="./styles/forms.css" />
+    <link rel="stylesheet" href="./styles/toast.css" />
+
+    <!-- ONLY @keyframes -->
+    <link rel="stylesheet" href="./styles/keyframes.css" />
+  </head>
+
+  <body>
+    <div class="app-shell">
+      <!-- ==================================================
+    HEADER
+    ================================================== -->
+
+      <header class="site-header">
+        <div class="brand">
+          <div class="brand-mark">
+            <i class="fa-solid fa-wave-square"></i>
+          </div>
+
+          <div class="brand-copy">
+            <h1>Motion Shelf</h1>
+            <p>Copy animation. Paste anywhere.</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button
+            class="button primary new-button"
+            id="newAnimationButton"
+            type="button"
+          >
+            <i class="fa-solid fa-plus"></i>
+            <span>New</span>
+          </button>
+
+          <button
+            class="button secondary select-button"
+            id="selectModeButton"
+            type="button"
+          >
+            <i class="fa-solid fa-check-double"></i>
+            <span>Select</span>
+          </button>
+
+          <div class="legend" aria-label="Animation types">
+            <span
+              class="legend-item"
+              data-tooltip="Animations optimized for desktop screens."
+            >
+              <i class="fa-solid fa-desktop"></i>
+              <span>Desktop</span>
+            </span>
+
+            <span
+              class="legend-item"
+              data-tooltip="Animations optimized for mobile screens."
+            >
+              <i class="fa-solid fa-mobile-screen"></i>
+              <span>Mobile</span>
+            </span>
+
+            <span
+              class="legend-item"
+              data-tooltip="Animations triggered when you hover over an element."
+            >
+              <i class="fa-solid fa-hand-pointer"></i>
+              <span>Hover</span>
+            </span>
+
+            <span
+              class="legend-item"
+              data-tooltip="Animations that repeat continuously."
+            >
+              <i class="fa-solid fa-infinity"></i>
+              <span>Infinite</span>
+            </span>
+
+            <span
+              class="legend-item"
+              data-tooltip="Animations that use 3D transforms or perspective."
+            >
+              <i class="fa-solid fa-cube"></i>
+              <span>3D</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ==================================================
+    SELECTION BAR
+    ================================================== -->
+
+      <div class="selection-bar" id="selectionBar" hidden>
+        <div class="selection-info">
+          <strong id="selectedCount"> 0 selected </strong>
+
+          <span> Choose animations to remove. </span>
+        </div>
+
+        <div class="selection-actions">
+          <button
+            class="button secondary"
+            id="cancelSelectionButton"
+            type="button"
+          >
+            Cancel
+          </button>
+
+          <button
+            class="button danger"
+            id="deleteSelectedButton"
+            type="button"
+            disabled
+          >
+            <i class="fa-solid fa-trash"></i>
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <!-- ==================================================
+    MAIN
+    ================================================== -->
+
+      <main>
+        <section class="toolbar">
+          <div class="search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="Search animations..."
+              autocomplete="off"
+            />
+
+            <kbd>/</kbd>
+          </div>
+
+          <div
+            class="filter-list"
+            id="filterList"
+            aria-label="Animation filters"
+          ></div>
+        </section>
+
+        <div class="results-heading">
+          <div>
+            <span class="eyebrow"> LIBRARY </span>
+
+            <h2>Animations</h2>
+          </div>
+
+          <span class="result-count" id="resultCount"> 0 animations </span>
+        </div>
+
+        <!-- Cards are generated by JavaScript -->
+
+        <section class="animation-grid" id="animationGrid"></section>
+
+        <!-- ==================================================
+      EMPTY STATE
+      ================================================== -->
+
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">
+            <i class="fa-regular fa-face-frown"></i>
+          </div>
+
+          <h3>No animations yet</h3>
+
+          <p>Create your first animation with the New button.</p>
+
+          <button class="button primary" id="emptyNewButton" type="button">
+            <i class="fa-solid fa-plus"></i>
+            Create animation
+          </button>
+        </div>
+      </main>
+    </div>
+
+    <!-- ==================================================
+  DETAIL MODAL
+  ================================================== -->
+
+    <div class="modal-backdrop" id="detailModalBackdrop" hidden>
+      <div
+        class="modal detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detailModalTitle"
+      >
+        <button
+          class="modal-close"
+          id="detailCloseButton"
+          type="button"
+          aria-label="Close details"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div id="detailModalContent"></div>
+      </div>
+    </div>
+
+    <!-- ==================================================
+  EDITOR MODAL
+  ================================================== -->
+
+    <div class="modal-backdrop" id="editorModalBackdrop" hidden>
+      <div
+        class="modal editor-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editorModalTitle"
+      >
+        <button
+          class="modal-close"
+          id="editorCloseButton"
+          type="button"
+          aria-label="Close editor"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="modal-heading">
+          <span class="eyebrow">
+            <span id="editorEyebrow"> CREATE </span>
+          </span>
+
+          <h2 id="editorModalTitle">New animation</h2>
+
+          <p id="editorModalDescription">Create a reusable animation preset.</p>
+        </div>
+
+        <form id="animationForm">
+          <input type="hidden" name="id" />
+
+          <div class="form-grid">
+            <!-- NAME -->
+
+            <label>
+              <span>Name</span>
+
+              <input name="name" required placeholder="Floating image" />
+            </label>
+
+            <!-- TARGET -->
+
+            <label>
+              <span>Target</span>
+
+              <select name="target">
+                <option value="div">div</option>
+
+                <option value="img">img</option>
+
+                <option value="button">button</option>
+
+                <option value="element">element</option>
+              </select>
+            </label>
+
+            <!-- DESCRIPTION -->
+
+            <label class="full">
+              <span>Description</span>
+
+              <textarea
+                name="description"
+                rows="3"
+                placeholder="Explain what the animation does."
+              ></textarea>
+            </label>
+
+            <!-- DEVICE -->
+
+            <div class="form-field">
+              <span class="field-label"> Device </span>
+
+              <div class="device-selector" id="deviceSelector">
+                <button type="button" data-device="desktop">
+                  <i class="fa-solid fa-desktop"></i>
+                  Desktop
+                </button>
+
+                <button type="button" data-device="mobile">
+                  <i class="fa-solid fa-mobile-screen"></i>
+                  Mobile
+                </button>
+
+                <button type="button" data-device="both">
+                  <i class="fa-solid fa-display"></i>
+                  Both
+                </button>
+              </div>
+
+              <input type="hidden" name="device" value="desktop" />
+            </div>
+
+            <!-- INTERACTION -->
+
+            <label>
+              <span>Interaction</span>
+
+              <select name="interaction">
+                <option value="appear">Appear</option>
+
+                <option value="disappear">Disappear</option>
+
+                <option value="hover">Hover</option>
+
+                <option value="infinite">Infinite</option>
+
+                <option value="static">Static</option>
+              </select>
+            </label>
+
+            <!-- CATEGORY -->
+
+            <div class="form-field full">
+              <span class="field-label"> Categories </span>
+
+              <div class="category-picker" id="categoryPicker"></div>
+
+              <div class="category-create">
+                <div class="editor-field">
+                  <label> Categories </label>
+
+                  <div id="categoryPicker" class="category-picker"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- IMAGE URL -->
+
+            <div class="form-field full">
+              <span class="field-label"> Image URL </span>
+
+              <input
+                name="imageUrl"
+                type="url"
+                placeholder="https://example.com/image.jpg"
+              />
+
+              <small class="field-help">
+                Used as the image source or background image.
+              </small>
+
+              <div class="image-url-preview" id="imageUrlPreview" hidden>
+                <img id="imageUrlPreviewImage" alt="Image URL preview" />
+              </div>
+            </div>
+
+            <!-- ANIMATION NAME -->
+
+            <label class="full">
+              <span> Animation keyframe name </span>
+
+              <input name="animationName" required placeholder="myAnimation" />
+            </label>
+
+            <!-- CSS -->
+
+            <label class="full">
+              <span> CSS properties </span>
+
+              <textarea
+                name="css"
+                rows="7"
+                required
+                placeholder="animation: myAnimation 1s ease infinite;"
+              ></textarea>
+            </label>
+
+            <!-- KEYFRAMES -->
+
+            <label class="full">
+              <span> Keyframes </span>
+
+              <textarea
+                name="keyframes"
+                rows="12"
+                placeholder="from {
+  opacity: 0;
+}
+
+to {
+  opacity: 1;
+}"
+              ></textarea>
+
+              <small class="field-help">
+                Enter either the contents of the keyframes or a complete
+                @keyframes rule.
+              </small>
+            </label>
+
+            <!-- PARENT -->
+
+            <label class="full">
+              <span> Parent properties </span>
+
+              <textarea
+                name="parent"
+                rows="6"
+                placeholder="perspective: 1000px;
+transform-style: preserve-3d;"
+              ></textarea>
+
+              <small class="field-help">
+                Useful for 3D animations and parent-level CSS.
+              </small>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button
+              type="button"
+              class="button secondary"
+              id="editorCancelButton"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              class="button primary"
+              id="saveAnimationButton"
+            >
+              <i class="fa-solid fa-plus"></i>
+              Add animation
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================================================
+  DELETE MODAL
+  ================================================== -->
+
+    <div class="modal-backdrop" id="deleteModalBackdrop" hidden>
+      <div
+        class="modal small-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deleteModalTitle"
+      >
+        <button
+          class="modal-close"
+          id="deleteCloseButton"
+          type="button"
+          aria-label="Close"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="modal-heading">
+          <span class="eyebrow"> DELETE </span>
+
+          <h2 id="deleteModalTitle">Remove animations</h2>
+
+          <p id="deleteModalDescription">
+            Choose where the selected animations should be removed from.
+          </p>
+        </div>
+
+        <div class="delete-options">
+          <button class="delete-option" id="deleteLocalButton" type="button">
+            <span class="delete-option-icon">
+              <i class="fa-solid fa-database"></i>
+            </span>
+
+            <span>
+              <strong> Delete locally </strong>
+
+              <small> Remove from Motion Shelf only. </small>
+            </span>
+          </button>
+
+          <button class="delete-option" id="deleteCodeButton" type="button">
+            <span class="delete-option-icon danger-icon">
+              <i class="fa-solid fa-folder-open"></i>
+            </span>
+
+            <span>
+              <strong> Delete locally + code </strong>
+
+              <small>
+                Choose your project folder and remove the CSS file too.
+              </small>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================
+  TOAST
+  ================================================== -->
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <i id="toastIcon" class="fa-solid fa-check"></i>
+
+      <span id="toastText"> Done </span>
+    </div>
+
+    <!-- ==================================================
+  APP
+  ================================================== -->
+
+    <script type="module" src="./scripts/app.js"></script>
+  </body>
+</html>
