@@ -1,0 +1,96 @@
+/* ==================================================
+  Motion Shelf
+  Cinematic Image Drift
+  ================================================== */
+  
+  /* Motion Shelf metadata */
+  
+  /* @motion-shelf
+  {
+  "id": "mssz8iem-agr257n",
+  "name": "Cinematic Image Drift",
+  "target": "img",
+  "description": "Creates a slow cinematic movement using gentle zoom, position and brightness changes.",
+  "device": "both",
+  "interaction": "infinite",
+  "categories": [
+    "image",
+    "photo",
+    "scale",
+    "slide",
+    "parallax"
+  ],
+  "animationName": "msImageCinematicDrift",
+  "duration": 10,
+  "durationUnit": "s",
+  "delay": 0,
+  "delayUnit": "s",
+  "easing": "sine.inOut",
+  "cubicBezier": [
+    0.445,
+    0.05,
+    0.55,
+    0.95
+  ],
+  "iterationCount": "infinite",
+  "imageUrl": "https://picsum.photos/id/73/900/600",
+  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "keyframes": "@keyframes msImageCinematicDrift {\n  0%,\n  100% {\n    transform: translate3d(-1.2%, 0.8%, 0) scale(1);\n    filter: brightness(0.96) saturate(0.96);\n  }\n\n  50% {\n    transform: translate3d(1.2%, -0.8%, 0) scale(1.035);\n    filter: brightness(1.05) saturate(1.08);\n  }\n}",
+  "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1200px;",
+  "createdAt": 1786713752110,
+  "updatedAt": 1786713752110
+}
+  */
+  
+  
+  
+  /* Parent properties */
+  
+  .ms-cinematic-image-drift-parent {
+      width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    perspective: 1200px;
+  }
+  
+  
+  /* Animation */
+  
+  .ms-cinematic-image-drift {
+    --motion-shelf-image: url("https://picsum.photos/id/73/900/600");
+    content: var(--motion-shelf-image);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    will-change: transform, opacity, filter;
+    animation-name: msImageCinematicDrift;
+    animation-duration: 10s;
+    animation-delay: 0s;
+    animation-timing-function: cubic-bezier(0.445, 0.05, 0.55, 0.95);
+    animation-iteration-count: infinite;
+    animation-fill-mode: both;
+}
+  
+  /* Keyframes */
+  
+  @keyframes msImageCinematicDrift {
+  0%,
+  100% {
+    transform: translate3d(-1.2%, 0.8%, 0) scale(1);
+    filter: brightness(0.96) saturate(0.96);
+  }
+
+  50% {
+    transform: translate3d(1.2%, -0.8%, 0) scale(1.035);
+    filter: brightness(1.05) saturate(1.08);
+  }
+}
+  

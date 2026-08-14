@@ -67,7 +67,8 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 
 | File | Responsibility |
 | --- | --- |
-| `scripts/app.js` | App startup, rendering, header folder status, card actions, details, deletion and toast messages. |
+| `scripts/app.js` | App startup, background initialization, rendering, header folder status, card actions, details, deletion and toast messages. |
+| `scripts/background.js` | Creates the tiny randomized spark field once per page load; CSS controls all spark movement and glow. |
 | `scripts/filesystem.js` | Stores the project directory handle in IndexedDB, scans `animations/*.css`, parses metadata, merges local files into state and exposes the displayed local path. |
 | `scripts/code.js` | Copies CSS to the clipboard and writes/removes CSS files through the already-linked folder handle. |
 | `scripts/editor.js` | Form lifecycle, drafts, categories, live infinite preview, draggable bezier UI, inline errors and CSS autocomplete. |
@@ -86,7 +87,7 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | File | Responsibility |
 | --- | --- |
 | `styles/styles.css` | Design tokens, typography and global resets. |
-| `styles/enhancements.css` | Eight-point animated background, linked-folder header, LOCAL/copy UI, safe frame, live editor, bezier graph, validation and autocomplete. |
+| `styles/enhancements.css` | Layered animated background, morphing color glows, sparks, linked-folder header, LOCAL/copy UI, safe frame, live editor, bezier graph, validation and autocomplete. |
 | `styles/base.css` | Shared buttons, headings, app container and empty state. |
 | `styles/header.css` | Main header, legend, tooltips and selection bar. |
 | `styles/filters.css` | Search and filter controls. |
@@ -103,4 +104,17 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 - Do not remove or hand-edit the `@motion-shelf` metadata unless you also keep it valid JSON.
 - Keep visual styles out of the timing fields and `animation-*` declarations out of Global CSS.
 - Test large translations, rotations and 3D motion against both card and editor safe frames.
+
+## Background layers
+
+The background is decorative and never captures clicks. The original eight-point teal/blue gradient remains on `body::before`. Two large blurred shapes in `.ambient-morph-one` and `.ambient-morph-two` move at different speeds, creating a subtle color-morph effect without changing the established palette. `scripts/background.js` adds tiny spark elements with randomized position, size, timing and drift. Motion is reduced automatically when the operating system requests reduced motion.
+
+To adjust the effect, change the following values in `styles/enhancements.css`:
+
+- Morph strength: `.ambient-morph` and `.ambient-morph-two` opacity.
+- Morph speed: the `48s` and `62s` animation durations.
+- Spark brightness: `.ambient-sparks` opacity.
+- Spark glow: `.ambient-spark` box shadows.
+
+To change spark density, edit `DEFAULT_SPARK_COUNT` and `SMALL_SCREEN_SPARK_COUNT` in `scripts/background.js`.
 - Use **Change folder** in the header only when switching projects; normal refreshes and pushes reuse the existing link.

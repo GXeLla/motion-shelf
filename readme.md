@@ -2,6 +2,8 @@
 
 **Motion Shelf** is a visual CSS animation library for collecting, previewing, editing, and reusing CSS animations.
 
+Its interface keeps the original eight-point teal/blue background and adds two slow morphing color layers plus a randomized field of tiny ambient sparks. The effect is decorative, click-through, and respects reduced-motion preferences.
+
 > **Copy animation. Paste anywhere.**
 
 Motion Shelf is designed to work locally as a simple HTML/CSS/JavaScript project. You can add your own animations, preview them, edit their CSS and keyframes, and keep your personal animation library in one place.

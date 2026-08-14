@@ -1,0 +1,96 @@
+/* ==================================================
+  Motion Shelf
+  Horizontal Parallax Glide
+  ================================================== */
+  
+  /* Motion Shelf metadata */
+  
+  /* @motion-shelf
+  {
+  "id": "msszeg1d-8if8uoe",
+  "name": "Horizontal Parallax Glide",
+  "target": "img",
+  "description": "Moves an image slowly from side to side with a subtle cinematic depth effect.",
+  "device": "both",
+  "interaction": "infinite",
+  "categories": [
+    "image",
+    "photo",
+    "slide",
+    "parallax"
+  ],
+  "animationName": "msHorizontalParallaxGlide",
+  "duration": 8,
+  "durationUnit": "s",
+  "delay": 0,
+  "delayUnit": "s",
+  "easing": "sine.inOut",
+  "cubicBezier": [
+    0.445,
+    0.05,
+    0.55,
+    0.95
+  ],
+  "iterationCount": "infinite",
+  "imageUrl": "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=900&q=100",
+  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "keyframes": "@keyframes msHorizontalParallaxGlide {\n  0%,\n  100% {\n    transform: translate3d(-2%, 0, 0) scale(1.015);\n    filter: brightness(0.97);\n  }\n\n  50% {\n    transform: translate3d(2%, 0, 0) scale(1.035);\n    filter: brightness(1.04);\n  }\n}",
+  "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1200px;\ntransform-style: preserve-3d;",
+  "createdAt": 1786714028977,
+  "updatedAt": 1786714028977
+}
+  */
+  
+  
+  
+  /* Parent properties */
+  
+  .ms-horizontal-parallax-glide-parent {
+      width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+  
+  
+  /* Animation */
+  
+  .ms-horizontal-parallax-glide {
+    --motion-shelf-image: url("https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=900&q=100");
+    content: var(--motion-shelf-image);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    will-change: transform, opacity, filter;
+    animation-name: msHorizontalParallaxGlide;
+    animation-duration: 8s;
+    animation-delay: 0s;
+    animation-timing-function: cubic-bezier(0.445, 0.05, 0.55, 0.95);
+    animation-iteration-count: infinite;
+    animation-fill-mode: both;
+}
+  
+  /* Keyframes */
+  
+  @keyframes msHorizontalParallaxGlide {
+  0%,
+  100% {
+    transform: translate3d(-2%, 0, 0) scale(1.015);
+    filter: brightness(0.97);
+  }
+
+  50% {
+    transform: translate3d(2%, 0, 0) scale(1.035);
+    filter: brightness(1.04);
+  }
+}
+  

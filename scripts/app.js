@@ -38,6 +38,8 @@ import {
   supportsProjectFolders,
 } from "./filesystem.js";
 
+import { initializeAmbientBackground } from "./background.js";
+
 /* ==================================================
 DOM
 ================================================== */
@@ -91,6 +93,8 @@ const projectLinkPath = document.getElementById("projectLinkPath");
 /* ==================================================
 INITIALIZE
 ================================================== */
+
+initializeAmbientBackground();
 
 state.animations = loadAnimations().filter(
   (animation) => !animation.localPresent && animation.source !== "local",

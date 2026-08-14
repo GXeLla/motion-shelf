@@ -1,0 +1,107 @@
+/* ==================================================
+  Motion Shelf
+  Elastic Image Pop
+  ================================================== */
+  
+  /* Motion Shelf metadata */
+  
+  /* @motion-shelf
+  {
+  "id": "mssz61v0-6oectjk",
+  "name": "Elastic Image Pop",
+  "target": "img",
+  "description": "Pops an image into view with a playful elastic scale movement.",
+  "device": "both",
+  "interaction": "appear",
+  "categories": [
+    "image",
+    "scale",
+    "spring",
+    "elastic"
+  ],
+  "animationName": "msImageElasticPop",
+  "duration": 1.15,
+  "durationUnit": "s",
+  "delay": 0,
+  "delayUnit": "s",
+  "easing": "back.out(1.7)",
+  "cubicBezier": [
+    0.175,
+    0.885,
+    0.32,
+    1.275
+  ],
+  "iterationCount": "1",
+  "imageUrl": "https://picsum.photos/id/38/900/600",
+  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "keyframes": "@keyframes msImageElasticPop {\n  0% {\n    opacity: 0;\n    transform: scale(0.65);\n  }\n\n  58% {\n    opacity: 1;\n    transform: scale(1.065);\n  }\n\n  76% {\n    transform: scale(0.975);\n  }\n\n  90% {\n    transform: scale(1.018);\n  }\n\n  100% {\n    opacity: 1;\n    transform: scale(1);\n  }\n}",
+  "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1200px;",
+  "createdAt": 1786713637356,
+  "updatedAt": 1786713637356
+}
+  */
+  
+  
+  
+  /* Parent properties */
+  
+  .ms-elastic-image-pop-parent {
+      width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    perspective: 1200px;
+  }
+  
+  
+  /* Animation */
+  
+  .ms-elastic-image-pop {
+    --motion-shelf-image: url("https://picsum.photos/id/38/900/600");
+    content: var(--motion-shelf-image);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    will-change: transform, opacity, filter;
+    animation-name: msImageElasticPop;
+    animation-duration: 1.15s;
+    animation-delay: 0s;
+    animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation-iteration-count: 1;
+    animation-fill-mode: both;
+}
+  
+  /* Keyframes */
+  
+  @keyframes msImageElasticPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+
+  58% {
+    opacity: 1;
+    transform: scale(1.065);
+  }
+
+  76% {
+    transform: scale(0.975);
+  }
+
+  90% {
+    transform: scale(1.018);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+  

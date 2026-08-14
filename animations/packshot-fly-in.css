@@ -1,0 +1,150 @@
+/* ==================================================
+  Motion Shelf
+  Packshot Fly-In
+  ================================================== */
+  
+  /* Motion Shelf metadata */
+  
+  /* @motion-shelf
+  {
+  "id": "mst021bg-spqzp1a",
+  "name": "Packshot Fly-In",
+  "target": "img",
+  "description": "A polished banner-ad packshot entrance that flies in from the right with 3D rotation, momentum and a clean settle.",
+  "device": "both",
+  "interaction": "appear",
+  "categories": [
+    "image",
+    "rotate",
+    "slide",
+    "3d"
+  ],
+  "animationName": "msAdHeroPowerRise",
+  "duration": 1.35,
+  "durationUnit": "s",
+  "delay": 0,
+  "delayUnit": "s",
+  "easing": "power4.out",
+  "cubicBezier": [
+    0.23,
+    1,
+    0.32,
+    1
+  ],
+  "iterationCount": "1",
+  "imageUrl": "https://picsum.photos/id/769/900/600",
+  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center bottom;\ntransform-style: preserve-3d;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "keyframes": "0% {\n    opacity: 0;\n    transform:\n      translate3d(48%, 8%, -320px)\n      rotateY(-42deg)\n      rotateZ(7deg)\n      scale(0.68);\n\n    filter:\n      blur(10px)\n      brightness(1.18)\n      drop-shadow(0 8px 8px rgba(0, 0, 0, 0));\n  }\n\n  46% {\n    opacity: 1;\n    transform:\n      translate3d(-5%, -2%, 70px)\n      rotateY(8deg)\n      rotateZ(-1.8deg)\n      scale(1.07);\n\n    filter:\n      blur(0)\n      brightness(1.06)\n      drop-shadow(18px 24px 24px rgba(0, 0, 0, 0.3));\n  }\n\n  68% {\n    transform:\n      translate3d(2%, 1%, -24px)\n      rotateY(-3deg)\n      rotateZ(0.7deg)\n      scale(0.985);\n\n    filter:\n      brightness(0.98)\n      drop-shadow(8px 16px 20px rgba(0, 0, 0, 0.24));\n  }\n\n  84% {\n    transform:\n      translate3d(-0.6%, -0.3%, 10px)\n      rotateY(1deg)\n      rotateZ(-0.2deg)\n      scale(1.01);\n  }\n\n  100% {\n    opacity: 1;\n    transform:\n      translate3d(0, 0, 0)\n      rotateY(0deg)\n      rotateZ(0deg)\n      scale(1);\n\n    filter:\n      blur(0)\n      brightness(1)\n      drop-shadow(10px 18px 22px rgba(0, 0, 0, 0.25));\n  }",
+  "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1400px;\ntransform-style: preserve-3d;",
+  "createdAt": 1786715129644,
+  "updatedAt": 1786715377494
+}
+  */
+  
+  
+  
+  /* Parent properties */
+  
+  .ms-packshot-fly-in-parent {
+      width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    perspective: 1400px;
+    transform-style: preserve-3d;
+  }
+  
+  
+  /* Animation */
+  
+  .ms-packshot-fly-in {
+    --motion-shelf-image: url("https://picsum.photos/id/769/900/600");
+    content: var(--motion-shelf-image);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    transform-origin: center bottom;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    will-change: transform, opacity, filter;
+    animation-name: msAdHeroPowerRise;
+    animation-duration: 1.35s;
+    animation-delay: 0s;
+    animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+    animation-iteration-count: 1;
+    animation-fill-mode: both;
+}
+  
+  /* Keyframes */
+  
+  
+  @keyframes msAdHeroPowerRise {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(48%, 8%, -320px)
+      rotateY(-42deg)
+      rotateZ(7deg)
+      scale(0.68);
+
+    filter:
+      blur(10px)
+      brightness(1.18)
+      drop-shadow(0 8px 8px rgba(0, 0, 0, 0));
+  }
+
+  46% {
+    opacity: 1;
+    transform:
+      translate3d(-5%, -2%, 70px)
+      rotateY(8deg)
+      rotateZ(-1.8deg)
+      scale(1.07);
+
+    filter:
+      blur(0)
+      brightness(1.06)
+      drop-shadow(18px 24px 24px rgba(0, 0, 0, 0.3));
+  }
+
+  68% {
+    transform:
+      translate3d(2%, 1%, -24px)
+      rotateY(-3deg)
+      rotateZ(0.7deg)
+      scale(0.985);
+
+    filter:
+      brightness(0.98)
+      drop-shadow(8px 16px 20px rgba(0, 0, 0, 0.24));
+  }
+
+  84% {
+    transform:
+      translate3d(-0.6%, -0.3%, 10px)
+      rotateY(1deg)
+      rotateZ(-0.2deg)
+      scale(1.01);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0)
+      rotateY(0deg)
+      rotateZ(0deg)
+      scale(1);
+
+    filter:
+      blur(0)
+      brightness(1)
+      drop-shadow(10px 18px 22px rgba(0, 0, 0, 0.25));
+  }
+  }
+  
+  
