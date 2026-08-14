@@ -261,9 +261,11 @@ export function applyAnimation(element, animation, options = {}) {
     }
   };
 
-  element.addEventListener("mouseenter", playAnimation);
+  const hoverTarget = element.closest(".animation-card") || element;
 
-  element.addEventListener("mouseleave", stopAnimation);
+  hoverTarget.addEventListener("mouseenter", playAnimation);
+
+  hoverTarget.addEventListener("mouseleave", stopAnimation);
 
   element.addEventListener("focus", playAnimation);
 

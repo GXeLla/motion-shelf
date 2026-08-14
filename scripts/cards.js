@@ -75,8 +75,6 @@ export function createCard(animation) {
     image.src = createPreviewImage(animation);
   };
 
-  applyAnimation(image, animation);
-
   if (animation.target !== "img" && actualImage) {
     image.style.backgroundImage = `url("${actualImage}")`;
 
@@ -96,7 +94,8 @@ export function createCard(animation) {
 
   const copyHint = document.createElement("span");
   copyHint.className = "card-copy-hint";
-  copyHint.innerHTML = '<i class="fa-solid fa-copy"></i> Click card to copy CSS';
+  copyHint.innerHTML =
+    '<i class="fa-solid fa-copy"></i> Click card to copy CSS';
   preview.appendChild(copyHint);
 
   /*
@@ -174,7 +173,8 @@ export function createCard(animation) {
   if (animation.localPresent) {
     const localBadge = document.createElement("span");
     localBadge.className = "local-source-badge";
-    localBadge.dataset.tooltip = animation.localPath || "Saved in the linked animations folder";
+    localBadge.dataset.tooltip =
+      animation.localPath || "Saved in the linked animations folder";
     localBadge.innerHTML = '<i class="fa-solid fa-hard-drive"></i> LOCAL';
     titleRow.appendChild(localBadge);
   }
@@ -323,6 +323,8 @@ export function createCard(animation) {
   card.appendChild(preview);
 
   card.appendChild(content);
+
+  applyAnimation(image, animation);
 
   return card;
 }
