@@ -107,6 +107,7 @@ function matchesSearch(animation) {
     animation.animationName,
     ...normalizeCategories(animation.categories),
     animation.imageUrl,
+    animation.localPath,
   ]
     .filter(Boolean)
     .join(" ")

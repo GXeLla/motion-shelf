@@ -25,6 +25,12 @@ export function createCard(animation) {
 
   card.className = "animation-card";
 
+  card.dataset.action = "copy";
+
+  card.dataset.id = animation.id;
+
+  card.title = "Click the card to copy the complete CSS";
+
   if (state.selectedIds.has(animation.id)) {
     card.classList.add("selected");
   }
@@ -36,10 +42,6 @@ export function createCard(animation) {
   const preview = document.createElement("div");
 
   preview.className = "card-preview";
-
-  preview.dataset.action = "details";
-
-  preview.dataset.id = animation.id;
 
   /*
    * LIVE / PRESENCE INDICATOR
@@ -86,6 +88,16 @@ export function createCard(animation) {
   }
 
   preview.appendChild(image);
+
+  const safeFrame = document.createElement("div");
+  safeFrame.className = "safe-frame";
+  safeFrame.setAttribute("aria-hidden", "true");
+  preview.appendChild(safeFrame);
+
+  const copyHint = document.createElement("span");
+  copyHint.className = "card-copy-hint";
+  copyHint.innerHTML = '<i class="fa-solid fa-copy"></i> Click card to copy CSS';
+  preview.appendChild(copyHint);
 
   /*
    * PREVIEW TYPE LABEL
@@ -159,12 +171,29 @@ export function createCard(animation) {
 
   titleRow.appendChild(targetBadge);
 
+  if (animation.localPresent) {
+    const localBadge = document.createElement("span");
+    localBadge.className = "local-source-badge";
+    localBadge.dataset.tooltip = animation.localPath || "Saved in the linked animations folder";
+    localBadge.innerHTML = '<i class="fa-solid fa-hard-drive"></i> LOCAL';
+    titleRow.appendChild(localBadge);
+  }
+
   const description = document.createElement("p");
 
   description.className = "card-description";
 
   description.textContent =
     animation.description || "Reusable CSS animation preset.";
+
+  const localPath = document.createElement("div");
+  localPath.className = "card-local-path";
+  if (animation.localPresent) {
+    localPath.innerHTML = `
+      <i class="fa-solid fa-folder-open"></i>
+      <span>${escapeHtml(animation.localPath || animation.codeFileName || "animations")}</span>
+    `;
+  }
 
   const dateMeta = document.createElement("div");
 
@@ -243,7 +272,7 @@ export function createCard(animation) {
 
     pushButton.innerHTML = `
         <i class="fa-solid fa-folder-arrow-up"></i>
-        Push to code
+        ${animation.localPresent ? "Update local" : "Push to local"}
       `;
 
     actions.appendChild(pushButton);
@@ -253,8 +282,8 @@ export function createCard(animation) {
     synced.className = "code-synced";
 
     synced.innerHTML = `
-        <i class="fa-solid fa-circle-check"></i>
-        In code
+      <i class="fa-solid fa-circle-check"></i>
+        Local
       `;
 
     actions.appendChild(synced);
@@ -280,6 +309,10 @@ export function createCard(animation) {
   content.appendChild(titleRow);
 
   content.appendChild(description);
+
+  if (animation.localPresent) {
+    content.appendChild(localPath);
+  }
 
   content.appendChild(dateMeta);
 

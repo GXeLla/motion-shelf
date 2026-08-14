@@ -37,6 +37,7 @@
     <link rel="stylesheet" href="./styles/cards.css" />
     <link rel="stylesheet" href="./styles/modals.css" />
     <link rel="stylesheet" href="./styles/forms.css" />
+    <link rel="stylesheet" href="./styles/enhancements.css" />
     <link rel="stylesheet" href="./styles/toast.css" />
 
     <!-- ONLY @keyframes -->
@@ -62,6 +63,33 @@
         </div>
 
         <div class="header-actions">
+          <div class="project-link" id="projectLink" data-status="unlinked">
+            <button
+              class="project-link-main"
+              id="projectLinkButton"
+              type="button"
+              title="Link the project folder once, then Motion Shelf will reuse it."
+            >
+              <span class="project-link-icon">
+                <i class="fa-solid fa-link"></i>
+              </span>
+              <span class="project-link-copy">
+                <strong id="projectLinkTitle">Link project</strong>
+                <small id="projectLinkPath">Choose the folder containing index.html</small>
+              </span>
+            </button>
+            <button
+              class="project-change-button"
+              id="projectChangeButton"
+              type="button"
+              title="Choose a different project folder"
+              aria-label="Choose a different project folder"
+              hidden
+            >
+              <i class="fa-solid fa-folder-tree"></i>
+            </button>
+          </div>
+
           <button
             class="button primary new-button"
             id="newAnimationButton"
@@ -271,8 +299,29 @@
           <p id="editorModalDescription">Create a reusable animation preset.</p>
         </div>
 
-        <form id="animationForm">
+        <form id="animationForm" novalidate>
           <input type="hidden" name="id" />
+
+          <div class="form-error-summary" id="formErrorSummary" role="alert" hidden></div>
+
+          <section class="editor-live-section" aria-labelledby="livePreviewTitle">
+            <div class="section-heading-row">
+              <div>
+                <span class="section-kicker">ALWAYS LIVE</span>
+                <h3 id="livePreviewTitle">Safe-frame preview</h3>
+              </div>
+              <span class="preview-loop-badge"><i class="fa-solid fa-infinity"></i> Editor loop</span>
+            </div>
+
+            <div class="editor-live-stage" id="editorLiveStage">
+              <div class="safe-frame" aria-hidden="true">
+                <span>SAFE FRAME</span>
+              </div>
+              <div class="editor-live-parent" id="editorLiveParent">
+                <img id="editorLiveImage" alt="Live animation preview" />
+              </div>
+            </div>
+          </section>
 
           <div class="form-grid">
             <!-- NAME -->
@@ -360,14 +409,6 @@
               <span class="field-label"> Categories </span>
 
               <div class="category-picker" id="categoryPicker"></div>
-
-              <div class="category-create">
-                <div class="editor-field">
-                  <label> Categories </label>
-
-                  <div id="categoryPicker" class="category-picker"></div>
-                </div>
-              </div>
             </div>
 
             <!-- IMAGE URL -->
@@ -375,11 +416,7 @@
             <div class="form-field full">
               <span class="field-label"> Image URL </span>
 
-              <input
-                name="imageUrl"
-                type="url"
-                placeholder="https://example.com/image.jpg"
-              />
+              <input name="imageUrl" type="text" autocomplete="url" placeholder="https://example.com/image.jpg" />
 
               <small class="field-help">
                 Used as the image source or background image.
@@ -395,20 +432,110 @@
             <label class="full">
               <span> Animation keyframe name </span>
 
-              <input name="animationName" required placeholder="myAnimation" />
+              <input name="animationName" required autocomplete="off" list="animationNameSuggestions" placeholder="msFloatingImage" />
+              <datalist id="animationNameSuggestions">
+                <option value="msFadeIn"></option>
+                <option value="msSlideUp"></option>
+                <option value="msFloat"></option>
+                <option value="msPulse"></option>
+                <option value="msRotateIn"></option>
+              </datalist>
             </label>
+
+            <section class="form-section full animation-settings">
+              <div class="section-heading-row compact">
+                <div>
+                  <span class="section-kicker">ANIMATION SETTINGS</span>
+                  <h3>Timing and easing</h3>
+                </div>
+                <code id="resolvedEasingValue">cubic-bezier(0.42, 0, 0.58, 1)</code>
+              </div>
+
+              <div class="animation-settings-grid">
+                <label>
+                  <span>Duration</span>
+                  <div class="number-unit-field">
+                    <input name="duration" type="number" min="0.01" step="0.05" value="1.2" inputmode="decimal" />
+                    <select name="durationUnit" aria-label="Duration unit">
+                      <option value="s">s</option>
+                      <option value="ms">ms</option>
+                    </select>
+                  </div>
+                </label>
+
+                <label>
+                  <span>Delay</span>
+                  <div class="number-unit-field">
+                    <input name="delay" type="number" step="0.05" value="0" inputmode="decimal" />
+                    <select name="delayUnit" aria-label="Delay unit">
+                      <option value="s">s</option>
+                      <option value="ms">ms</option>
+                    </select>
+                  </div>
+                </label>
+
+                <label>
+                  <span>Iterations in exported CSS</span>
+                  <input name="iterationCount" value="1" list="iterationSuggestions" autocomplete="off" />
+                  <datalist id="iterationSuggestions">
+                    <option value="1"></option>
+                    <option value="2"></option>
+                    <option value="3"></option>
+                    <option value="infinite"></option>
+                  </datalist>
+                </label>
+
+                <label>
+                  <span>Easing preset</span>
+                  <select name="easing" id="easingSelect"></select>
+                </label>
+              </div>
+
+              <div class="bezier-editor" id="bezierEditor">
+                <div class="bezier-graph" id="bezierGraph">
+                  <svg viewBox="0 0 300 200" role="img" aria-label="Draggable cubic bezier curve editor">
+                    <path class="bezier-grid" d="M24 60H276 M24 100H276 M24 140H276 M87 20V180 M150 20V180 M213 20V180" />
+                    <path class="bezier-guide" id="bezierGuideOne" />
+                    <path class="bezier-guide" id="bezierGuideTwo" />
+                    <path class="bezier-curve" id="bezierCurve" />
+                    <circle class="bezier-endpoint" cx="24" cy="140" r="4" />
+                    <circle class="bezier-endpoint" cx="276" cy="60" r="4" />
+                    <circle class="bezier-handle" id="bezierHandleOne" r="9" tabindex="0" />
+                    <circle class="bezier-handle second" id="bezierHandleTwo" r="9" tabindex="0" />
+                  </svg>
+                  <span class="bezier-axis start">0</span>
+                  <span class="bezier-axis end">1</span>
+                </div>
+
+                <div class="bezier-controls">
+                  <p>Drag both handles. X is limited to 0–1; Y supports overshoot for GSAP-style back easing.</p>
+                  <div class="bezier-inputs">
+                    <label><span>x1</span><input name="bezierX1" type="number" min="0" max="1" step="0.001" /></label>
+                    <label><span>y1</span><input name="bezierY1" type="number" min="-0.5" max="1.5" step="0.001" /></label>
+                    <label><span>x2</span><input name="bezierX2" type="number" min="0" max="1" step="0.001" /></label>
+                    <label><span>y2</span><input name="bezierY2" type="number" min="-0.5" max="1.5" step="0.001" /></label>
+                  </div>
+                  <div class="easing-runway" aria-label="Live easing preview">
+                    <span id="easingRunner"></span>
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <!-- CSS -->
 
             <label class="full">
-              <span> CSS properties </span>
+              <span> Global CSS properties </span>
 
               <textarea
                 name="css"
                 rows="7"
-                required
-                placeholder="animation: myAnimation 1s ease infinite;"
+                spellcheck="false"
+                placeholder="width: 240px;
+border-radius: 24px;
+filter: drop-shadow(0 18px 28px rgba(0, 0, 0, .3));"
               ></textarea>
+              <small class="field-help">Visual properties only. Animation timing is controlled above. Start typing a property for autocomplete.</small>
             </label>
 
             <!-- KEYFRAMES -->
@@ -419,6 +546,8 @@
               <textarea
                 name="keyframes"
                 rows="12"
+                required
+                spellcheck="false"
                 placeholder="from {
   opacity: 0;
 }
@@ -442,6 +571,7 @@ to {
               <textarea
                 name="parent"
                 rows="6"
+                spellcheck="false"
                 placeholder="perspective: 1000px;
 transform-style: preserve-3d;"
               ></textarea>

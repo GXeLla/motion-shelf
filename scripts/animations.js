@@ -13,6 +13,8 @@ import {
 
 import { saveAnimations } from "./storage.js";
 
+import { normalizeBezier, resolveEasing } from "./easing.js";
+
 export function findAnimation(id) {
   return state.animations.find((animation) => animation.id === id);
 }
@@ -35,6 +37,20 @@ export function createAnimation(data) {
 
     animationName: sanitizeAnimationName(data.animationName),
 
+    duration: Number(data.duration) || 1.2,
+
+    durationUnit: data.durationUnit === "ms" ? "ms" : "s",
+
+    delay: Number(data.delay) || 0,
+
+    delayUnit: data.delayUnit === "ms" ? "ms" : "s",
+
+    easing: data.easing || "ease-in-out",
+
+    cubicBezier: normalizeBezier(data.cubicBezier),
+
+    iterationCount: data.iterationCount || (data.interaction === "infinite" ? "infinite" : "1"),
+
     css: data.css.trim(),
 
     keyframes: data.keyframes.trim(),
@@ -46,6 +62,12 @@ export function createAnimation(data) {
     codeFileName: null,
 
     codeSynced: false,
+
+    localPresent: false,
+
+    localPath: "",
+
+    source: "session",
 
     createdAt: Date.now(),
 
@@ -82,6 +104,20 @@ export function updateAnimation(id, data) {
 
   animation.animationName = sanitizeAnimationName(data.animationName);
 
+  animation.duration = Number(data.duration) || 1.2;
+
+  animation.durationUnit = data.durationUnit === "ms" ? "ms" : "s";
+
+  animation.delay = Number(data.delay) || 0;
+
+  animation.delayUnit = data.delayUnit === "ms" ? "ms" : "s";
+
+  animation.easing = data.easing || "ease-in-out";
+
+  animation.cubicBezier = normalizeBezier(data.cubicBezier);
+
+  animation.iterationCount = data.iterationCount || "1";
+
   animation.css = data.css.trim();
 
   animation.keyframes = data.keyframes.trim();
@@ -115,18 +151,21 @@ export function deleteAnimations(ids) {
 }
 
 export function getPreviewDuration(animation) {
-  if (
-    animation.interaction === "infinite" ||
-    animation.interaction === "static"
-  ) {
-    return "2.2s";
-  }
+  const value = Number(animation.duration);
+  const duration = Number.isFinite(value) && value > 0 ? value : 1.2;
+  const unit = animation.durationUnit === "ms" ? "ms" : "s";
+  return `${duration}${unit}`;
+}
 
-  if (animation.interaction === "hover") {
-    return "1.5s";
-  }
+export function getAnimationDelay(animation) {
+  const value = Number(animation.delay);
+  const delay = Number.isFinite(value) ? value : 0;
+  const unit = animation.delayUnit === "ms" ? "ms" : "s";
+  return `${delay}${unit}`;
+}
 
-  return "1.1s";
+export function getResolvedEasing(animation) {
+  return resolveEasing(animation.easing || "ease-in-out", animation.cubicBezier);
 }
 
 export function normalizeKeyframes(animation) {
@@ -178,6 +217,8 @@ export function injectAnimationForPreview(animation) {
 export function applyAnimation(element, animation, options = {}) {
   const keyframe = sanitizeAnimationName(animation.animationName);
   const duration = getPreviewDuration(animation);
+  const delay = getAnimationDelay(animation);
+  const easing = getResolvedEasing(animation);
 
   injectAnimationForPreview(animation);
 
@@ -185,7 +226,7 @@ export function applyAnimation(element, animation, options = {}) {
    * Modal / detail preview
    */
   if (options.forceInfinite) {
-    element.style.animation = `${keyframe} ${duration} ease-in-out infinite`;
+    element.style.animation = `${keyframe} ${duration} ${easing} ${delay} infinite`;
 
     return;
   }
@@ -197,7 +238,7 @@ export function applyAnimation(element, animation, options = {}) {
   element.style.animation = "none";
 
   const playAnimation = () => {
-    element.style.animation = `${keyframe} ${duration} ease-in-out infinite`;
+    element.style.animation = `${keyframe} ${duration} ${easing} ${delay} infinite`;
 
     element.classList.add("is-animating");
 
@@ -322,20 +363,19 @@ export function getAnimationInlineCSS(animation) {
   const name = sanitizeAnimationName(animation.animationName);
 
   const duration = getPreviewDuration(animation);
+  const delay = getAnimationDelay(animation);
+  const easing = getResolvedEasing(animation);
+  const iteration = animation.iterationCount ||
+    (animation.interaction === "infinite" ? "infinite" : "1");
 
-  let iteration = animation.interaction === "infinite" ? "infinite" : "1";
-
-  if (animation.interaction === "hover") {
-    iteration = "infinite alternate";
-  }
-
-  return `
-  animation:
-    ${name}
-    ${duration}
-    ease-in-out
-    ${iteration};
-  `;
+  return [
+    `animation-name: ${name};`,
+    `animation-duration: ${duration};`,
+    `animation-delay: ${delay};`,
+    `animation-timing-function: ${easing};`,
+    `animation-iteration-count: ${iteration};`,
+    "animation-fill-mode: both;",
+  ].join("\n");
 }
 
 export function getExportClassName(animation) {
@@ -348,6 +388,7 @@ export function getCodeFileName(animation) {
 
 export function buildMotionShelfMetadata(animation) {
   const metadata = {
+    id: animation.id,
     name: animation.name,
     target: animation.target,
     description: animation.description,
@@ -355,8 +396,17 @@ export function buildMotionShelfMetadata(animation) {
     interaction: animation.interaction,
     categories: normalizeCategories(animation.categories),
     animationName: sanitizeAnimationName(animation.animationName),
+    duration: Number(animation.duration) || 1.2,
+    durationUnit: animation.durationUnit === "ms" ? "ms" : "s",
+    delay: Number(animation.delay) || 0,
+    delayUnit: animation.delayUnit === "ms" ? "ms" : "s",
+    easing: animation.easing || "ease-in-out",
+    cubicBezier: normalizeBezier(animation.cubicBezier),
+    iterationCount: animation.iterationCount || "1",
     imageUrl: normalizeImageUrl(animation.imageUrl),
     css: animation.css,
+    keyframes: animation.keyframes,
+    parent: animation.parent,
     createdAt: animation.createdAt,
     updatedAt: animation.updatedAt,
   };
@@ -376,7 +426,7 @@ export function injectImageIntoCss(css, url, type) {
     .replace(/background\s*:\s*url\(\s*(['"]?)(.*?)\1\s*\)\s*;?/gi, "");
 
   if (type === "src") {
-    result = `--motion-shelf-image: url("${escapeCssUrl(url)}");\n${result}`;
+    result = `--motion-shelf-image: url("${escapeCssUrl(url)}");\ncontent: var(--motion-shelf-image);\n${result}`;
   } else {
     result = `background-image: url("${escapeCssUrl(url)}");\n${result}`;
   }
@@ -404,7 +454,7 @@ export function buildExportCSS(animation) {
   `
     : "";
 
-  let css = animation.css || `animation: ${keyframeName} 1s ease;`;
+  let css = stripAnimationDeclarations(animation.css);
 
   if (animation.imageUrl) {
     css = injectImageIntoCss(
@@ -413,6 +463,14 @@ export function buildExportCSS(animation) {
       animation.target === "img" ? "src" : "background",
     );
   }
+
+  const animationRules = getAnimationInlineCSS(animation).trim();
+  const baseRule = `${className} {
+${indentCSS(css)}${css ? "\n" : ""}${indentCSS(animation.interaction === "hover" ? "" : animationRules)}
+}`;
+  const hoverRule = animation.interaction === "hover"
+    ? `\n\n${className}:hover {\n${indentCSS(animationRules)}\n}`
+    : "";
 
   return `/* ==================================================
   Motion Shelf
@@ -427,12 +485,16 @@ export function buildExportCSS(animation) {
   
   /* Animation */
   
-  ${className} {
-  ${indentCSS(css)}
-  }
+  ${baseRule}${hoverRule}
   
   /* Keyframes */
   
   ${normalizeKeyframesForExport(animation)}
   `;
+}
+
+function stripAnimationDeclarations(css) {
+  return String(css || "")
+    .replace(/\banimation(?:-[a-z-]+)?\s*:[^;]+;?/gi, "")
+    .trim();
 }

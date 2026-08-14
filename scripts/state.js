@@ -18,4 +18,12 @@ export const state = {
   toastTimer: null,
 
   editorDrafts: new Map(),
+
+  projectHandle: null,
+
+  projectName: "",
+
+  projectPermission: "unlinked",
+
+  projectBusy: false,
 };

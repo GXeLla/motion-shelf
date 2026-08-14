@@ -7,6 +7,8 @@ import {
   createId,
 } from "./utils.js";
 
+import { normalizeBezier } from "./easing.js";
+
 export function loadAnimations() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -55,6 +57,20 @@ export function normalizeAnimation(animation) {
 
     animationName: sanitizeAnimationName(animation.animationName),
 
+    duration: normalizeNumber(animation.duration, 1.2),
+
+    durationUnit: animation.durationUnit === "ms" ? "ms" : "s",
+
+    delay: normalizeNumber(animation.delay, 0),
+
+    delayUnit: animation.delayUnit === "ms" ? "ms" : "s",
+
+    easing: String(animation.easing || "ease-in-out"),
+
+    cubicBezier: normalizeBezier(animation.cubicBezier),
+
+    iterationCount: normalizeIteration(animation.iterationCount, animation.interaction),
+
     css: String(animation.css || "").trim(),
 
     keyframes: String(animation.keyframes || "").trim(),
@@ -67,10 +83,31 @@ export function normalizeAnimation(animation) {
 
     codeSynced: Boolean(animation.codeSynced),
 
+    localPresent: Boolean(animation.localPresent),
+
+    localPath: String(animation.localPath || ""),
+
+    source: animation.source === "local" ? "local" : "session",
+
+    rawCss: String(animation.rawCss || ""),
+
     createdAt: animation.createdAt || Date.now(),
 
     updatedAt: animation.updatedAt || Date.now(),
 
     lastCodePush: animation.lastCodePush || null,
   };
+}
+
+function normalizeNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeIteration(value, interaction) {
+  const source = String(value ?? "").trim();
+  if (source === "infinite") return source;
+  const number = Number(source);
+  if (Number.isFinite(number) && number > 0) return String(number);
+  return interaction === "infinite" ? "infinite" : "1";
 }

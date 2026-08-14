@@ -30,6 +30,14 @@ import {
   formatDateTimeDDMMYY,
 } from "./utils.js";
 
+import {
+  connectProject,
+  getProjectDisplayPath,
+  loadAnimationsFromProject,
+  restoreProjectLink,
+  supportsProjectFolders,
+} from "./filesystem.js";
+
 /* ==================================================
 DOM
 ================================================== */
@@ -70,11 +78,23 @@ const toastIcon = document.getElementById("toastIcon");
 
 const toastText = document.getElementById("toastText");
 
+const projectLink = document.getElementById("projectLink");
+
+const projectLinkButton = document.getElementById("projectLinkButton");
+
+const projectChangeButton = document.getElementById("projectChangeButton");
+
+const projectLinkTitle = document.getElementById("projectLinkTitle");
+
+const projectLinkPath = document.getElementById("projectLinkPath");
+
 /* ==================================================
 INITIALIZE
 ================================================== */
 
-state.animations = loadAnimations();
+state.animations = loadAnimations().filter(
+  (animation) => !animation.localPresent && animation.source !== "local",
+).map((animation) => ({ ...animation, codeSynced: false }));
 
 const modalController = createModalController();
 
@@ -91,6 +111,8 @@ initializeFilters({
 });
 
 render();
+
+initializeProjectWorkspace();
 
 /* ==================================================
 MAIN RENDER
@@ -121,6 +143,8 @@ function render() {
   updateSelectionUI();
 
   renderFilterButtons(filterList);
+
+  updateWorkspaceUI();
 }
 
 /* ==================================================
@@ -134,6 +158,129 @@ newAnimationButton.addEventListener("click", () => {
 emptyNewButton.addEventListener("click", () => {
   editor.openEditor();
 });
+
+projectLinkButton.addEventListener("click", () => {
+  runProjectLinkAction(false);
+});
+
+projectChangeButton.addEventListener("click", () => {
+  runProjectLinkAction(true);
+});
+
+async function initializeProjectWorkspace() {
+  if (!supportsProjectFolders()) {
+    state.projectPermission = "unsupported";
+    updateWorkspaceUI();
+    return;
+  }
+
+  state.projectBusy = true;
+  updateWorkspaceUI();
+
+  try {
+    const handle = await restoreProjectLink();
+    updateWorkspaceUI();
+
+    if (handle) {
+      const result = await loadAnimationsFromProject();
+      render();
+
+      if (result.errors.length) {
+        showToast(
+          `${result.errors.length} local CSS file${result.errors.length === 1 ? "" : "s"} could not be read.`,
+          "fa-solid fa-triangle-exclamation",
+        );
+      }
+    }
+  } finally {
+    state.projectBusy = false;
+    updateWorkspaceUI();
+  }
+}
+
+async function runProjectLinkAction(changeFolder) {
+  if (state.projectBusy) return;
+  state.projectBusy = true;
+  updateWorkspaceUI();
+
+  try {
+    if (
+      changeFolder ||
+      !state.projectHandle ||
+      state.projectPermission !== "granted"
+    ) {
+      await connectProject({ changeFolder });
+    }
+
+    const result = await loadAnimationsFromProject();
+    render();
+    showToast(
+      `Linked ${getProjectDisplayPath()} · ${result.animations.length} animation${result.animations.length === 1 ? "" : "s"} loaded.`,
+      "fa-solid fa-folder-check",
+    );
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    if (error?.name === "NotAllowedError") {
+      showToast("Folder permission was not granted.", "fa-solid fa-triangle-exclamation");
+      return;
+    }
+    console.error("Project link failed:", error);
+    showToast(error?.message || "Could not link the project folder.", "fa-solid fa-triangle-exclamation");
+  } finally {
+    state.projectBusy = false;
+    updateWorkspaceUI();
+  }
+}
+
+function updateWorkspaceUI() {
+  projectLinkButton.disabled = state.projectBusy;
+  projectChangeButton.disabled = state.projectBusy;
+
+  if (state.projectBusy) {
+    projectLink.dataset.status = "busy";
+    projectLinkTitle.textContent = "Reading project";
+    projectLinkPath.textContent = state.projectName
+      ? `${state.projectName}/animations`
+      : "Checking folder access…";
+    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-spinner"></i>';
+    return;
+  }
+
+  if (state.projectPermission === "unsupported") {
+    projectLink.dataset.status = "unsupported";
+    projectLinkTitle.textContent = "Folder access unavailable";
+    projectLinkPath.textContent = "Use Chrome or Edge on localhost";
+    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    projectChangeButton.hidden = true;
+    return;
+  }
+
+  if (state.projectPermission === "granted" && state.projectHandle) {
+    const localCount = state.animations.filter((animation) => animation.localPresent).length;
+    projectLink.dataset.status = "linked";
+    projectLinkTitle.textContent = "Project linked";
+    projectLinkPath.textContent = `${getProjectDisplayPath()} · ${localCount} local`;
+    projectLinkButton.title = "Refresh every CSS animation from the linked folder";
+    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-rotate"></i>';
+    projectChangeButton.hidden = false;
+    return;
+  }
+
+  if (state.projectHandle || state.projectName) {
+    projectLink.dataset.status = "reconnect";
+    projectLinkTitle.textContent = "Reconnect project";
+    projectLinkPath.textContent = `${getProjectDisplayPath()} · click once to allow access`;
+    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-link-slash"></i>';
+    projectChangeButton.hidden = false;
+    return;
+  }
+
+  projectLink.dataset.status = "unlinked";
+  projectLinkTitle.textContent = "Link project";
+  projectLinkPath.textContent = "Choose the folder containing index.html";
+  projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-link"></i>';
+  projectChangeButton.hidden = true;
+}
 
 /* ==================================================
 GRID
@@ -154,6 +301,20 @@ animationGrid.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "copy") {
+    if (state.selectionMode || event.target.closest("button, input, label, a")) {
+      return;
+    }
+
+    const animation = findAnimation(id);
+    if (!animation) return;
+    await copyText(buildExportCSS(animation));
+    target.classList.add("copied");
+    setTimeout(() => target.classList.remove("copied"), 500);
+    showToast(`${animation.name} CSS copied.`, "fa-solid fa-copy");
+    return;
+  }
+
   if (action === "details") {
     openDetails(id);
     return;
@@ -168,6 +329,7 @@ animationGrid.addEventListener("click", async (event) => {
     await pushAnimationToCode(id, {
       showToast,
       render,
+      updateWorkspaceUI,
     });
 
     return;
@@ -274,6 +436,7 @@ document
       showToast,
       render,
       closeAll: modalController.closeAll,
+      updateWorkspaceUI,
     });
 
     state.selectedIds.clear();
@@ -311,9 +474,18 @@ function openDetails(id) {
     ${escapeHtml(animation.name)}
   </h2>
 
-  <p>
-    ${escapeHtml(animation.description || "Reusable CSS animation preset.")}
-  </p>
+    <p>
+      ${escapeHtml(animation.description || "Reusable CSS animation preset.")}
+    </p>
+
+    ${
+      animation.localPresent
+        ? `<div class="detail-local-source">
+            <i class="fa-solid fa-hard-drive"></i>
+            <span>Local source: ${escapeHtml(animation.localPath || animation.codeFileName || "animations")}</span>
+          </div>`
+        : ""
+    }
 
   <div class="detail-meta">
 
@@ -431,7 +603,7 @@ function openDetails(id) {
           ? `
             <span class="code-synced detail-synced">
               <i class="fa-solid fa-circle-check"></i>
-              In code
+              Local
             </span>
           `
           : `
@@ -441,7 +613,7 @@ function openDetails(id) {
               data-detail-action="push"
             >
               <i class="fa-solid fa-folder-arrow-up"></i>
-              Push to code
+              ${animation.localPresent ? "Update local" : "Push to local"}
             </button>
           `
       }
@@ -485,8 +657,9 @@ function openDetails(id) {
           modalController.closeAll();
 
           await pushAnimationToCode(id, {
-            showToast,
-            render,
+              showToast,
+              render,
+              updateWorkspaceUI,
           });
         }
       });
@@ -556,11 +729,19 @@ function createSafePreview(animation) {
   return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
 }
 
-js;
 function buildDetailTags(animation) {
   const tags = [];
 
   const selectedFilters = state.selectedFilters || [];
+
+  if (animation.localPresent) {
+    tags.push(`
+      <span class="tag synced">
+        <i class="fa-solid fa-hard-drive"></i>
+        Local
+      </span>
+    `);
+  }
 
   /*
    * DEVICE

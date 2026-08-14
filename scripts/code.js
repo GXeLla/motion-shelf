@@ -8,14 +8,25 @@ import {
 
 import { saveAnimations } from "./storage.js";
 
-export async function pushAnimationToCode(id, { showToast, render }) {
+import {
+  ensureProjectHandle,
+  getAnimationsDirectory,
+  getProjectDisplayPath,
+  loadAnimationsFromProject,
+  supportsProjectFolders,
+} from "./filesystem.js";
+
+export async function pushAnimationToCode(
+  id,
+  { showToast, render, updateWorkspaceUI = () => {} },
+) {
   const animation = findAnimation(id);
 
   if (!animation) {
     return;
   }
 
-  if (!("showDirectoryPicker" in window)) {
+  if (!supportsProjectFolders()) {
     showToast(
       "Your browser does not support folder access. Use Chrome or Edge.",
       "fa-solid fa-triangle-exclamation",
@@ -25,15 +36,12 @@ export async function pushAnimationToCode(id, { showToast, render }) {
   }
 
   try {
-    const rootHandle = await window.showDirectoryPicker({
-      mode: "readwrite",
-    });
+    await ensureProjectHandle();
+    updateWorkspaceUI();
 
-    const animationsHandle = await rootHandle.getDirectoryHandle("animations", {
-      create: true,
-    });
+    const animationsHandle = await getAnimationsDirectory({ create: true });
 
-    const fileName = getCodeFileName(animation);
+    const fileName = animation.codeFileName || getCodeFileName(animation);
 
     const fileHandle = await animationsHandle.getFileHandle(fileName, {
       create: true,
@@ -41,7 +49,8 @@ export async function pushAnimationToCode(id, { showToast, render }) {
 
     const writable = await fileHandle.createWritable();
 
-    await writable.write(buildExportCSS(animation));
+    const exportedCss = buildExportCSS(animation);
+    await writable.write(exportedCss);
 
     await writable.close();
 
@@ -49,13 +58,25 @@ export async function pushAnimationToCode(id, { showToast, render }) {
 
     animation.codeSynced = true;
 
+    animation.localPresent = true;
+
+    animation.localPath = getProjectDisplayPath(fileName);
+
+    animation.source = "local";
+
+    animation.rawCss = exportedCss;
+
     animation.lastCodePush = Date.now();
 
     saveAnimations(state.animations);
 
+    await loadAnimationsFromProject();
+
     render();
 
-    showToast(`Written to animations/${fileName}`, "fa-solid fa-folder-check");
+    updateWorkspaceUI();
+
+    showToast(`Saved locally in animations/${fileName}`, "fa-solid fa-folder-check");
   } catch (error) {
     if (error?.name === "AbortError") {
       return;
@@ -72,13 +93,13 @@ export async function pushAnimationToCode(id, { showToast, render }) {
 
 export async function deleteAnimationsFromCode(
   ids,
-  { showToast, render, closeAll },
+  { showToast, render, closeAll, updateWorkspaceUI = () => {} },
 ) {
   if (!ids.length) {
     return;
   }
 
-  if (!("showDirectoryPicker" in window)) {
+  if (!supportsProjectFolders()) {
     showToast(
       "Your browser does not support folder access.",
       "fa-solid fa-triangle-exclamation",
@@ -88,11 +109,10 @@ export async function deleteAnimationsFromCode(
   }
 
   try {
-    const rootHandle = await window.showDirectoryPicker({
-      mode: "readwrite",
-    });
+    await ensureProjectHandle();
+    updateWorkspaceUI();
 
-    const animationsHandle = await rootHandle.getDirectoryHandle("animations");
+    const animationsHandle = await getAnimationsDirectory({ create: false });
 
     const failures = [];
 
@@ -132,6 +152,8 @@ export async function deleteAnimationsFromCode(
     closeAll();
 
     render();
+
+    updateWorkspaceUI();
 
     showToast("Animations deleted locally and from code.", "fa-solid fa-trash");
   } catch (error) {
