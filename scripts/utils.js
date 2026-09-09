@@ -37,6 +37,12 @@ export function sanitizeAnimationName(value) {
   return result;
 }
 
+export function getScopedClassName(value, fallback = "animation") {
+  const className = String(value || "").trim().replace(/^\.+/, "");
+  if (/^[A-Za-z_-][A-Za-z0-9_-]*$/.test(className)) return className;
+  return `ms-${slugify(fallback)}`;
+}
+
 export function normalizeCategories(value) {
   const source = Array.isArray(value) ? value : String(value || "").split(",");
 

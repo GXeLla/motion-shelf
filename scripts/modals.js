@@ -62,15 +62,14 @@ export function createModalController() {
 
   deleteClose.addEventListener("click", closeAll);
 
-  /*
-   * Details and delete may close
-   * when clicking their backdrop.
-   *
-   * Editor deliberately does NOT.
-   */
-
   detailBackdrop.addEventListener("click", (event) => {
     if (event.target === detailBackdrop) {
+      closeAll();
+    }
+  });
+
+  editorBackdrop.addEventListener("click", (event) => {
+    if (event.target === editorBackdrop) {
       closeAll();
     }
   });
@@ -80,11 +79,6 @@ export function createModalController() {
       closeAll();
     }
   });
-
-  /*
-   * ESC closes details/delete.
-   * ESC does not close editor.
-   */
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") {

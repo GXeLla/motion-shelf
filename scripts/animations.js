@@ -3,6 +3,7 @@ import { state } from "./state.js";
 import {
   createId,
   slugify,
+  getScopedClassName,
   sanitizeAnimationName,
   normalizeCategories,
   normalizeImageUrl,
@@ -36,6 +37,8 @@ export function createAnimation(data) {
     categories: normalizeCategories(data.categories),
 
     animationName: sanitizeAnimationName(data.animationName),
+
+    className: getScopedClassName(data.className, data.name),
 
     duration: Number(data.duration) || 1.2,
 
@@ -103,6 +106,8 @@ export function updateAnimation(id, data) {
   animation.categories = normalizeCategories(data.categories);
 
   animation.animationName = sanitizeAnimationName(data.animationName);
+
+  animation.className = getScopedClassName(data.className, data.name);
 
   animation.duration = Number(data.duration) || 1.2;
 
@@ -381,7 +386,7 @@ export function getAnimationInlineCSS(animation) {
 }
 
 export function getExportClassName(animation) {
-  return `.ms-${slugify(animation.name)}`;
+  return `.${getScopedClassName(animation.className, animation.name)}`;
 }
 
 export function getCodeFileName(animation) {
@@ -398,6 +403,7 @@ export function buildMotionShelfMetadata(animation) {
     interaction: animation.interaction,
     categories: normalizeCategories(animation.categories),
     animationName: sanitizeAnimationName(animation.animationName),
+    className: getScopedClassName(animation.className, animation.name),
     duration: Number(animation.duration) || 1.2,
     durationUnit: animation.durationUnit === "ms" ? "ms" : "s",
     delay: Number(animation.delay) || 0,

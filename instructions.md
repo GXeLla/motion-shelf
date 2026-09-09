@@ -41,6 +41,10 @@ The dashed safe frame is a preview guide. Content should stay inside it during t
 
 Choose a CSS preset, a GSAP-style preset, or **Custom cubic-bezier**. Drag either handle in the graph or type the four values. X values are limited to `0–1`; Y values allow controlled overshoot for back-style easing. The moving dot and the animated image update immediately.
 
+The short easing menu groups CSS defaults and GSAP-style families. Select Power to reveal strength buttons 1–4, and use the separate In / Out / InOut direction buttons for GSAP-style families and CSS Ease. Ease also offers Default for the plain CSS `ease` curve. Strength and direction are retained when switching families. Linear, steps and custom presets keep their own choices, with direction buttons disabled. Browse easing curves starts collapsed and provides optional curve tiles. The selected family, strength, direction, graph, moving dot and exported CSS follow the same selection.
+
+Existing Bézier presets retain their curves. New GSAP-style curves are sampled into CSS `linear()` functions, including bounce and elastic; these require a browser that supports CSS linear easing functions. No GSAP runtime is required. These are CSS approximations of the core families, not GSAP plugin eases. Non-Bézier presets show a read-only graph; select Custom cubic-bezier to edit handles and coordinates.
+
 ## Validation and autocomplete
 
 Saving is blocked when the editor finds a missing name, invalid keyframe name, invalid duration/delay/iterations, malformed declaration, animation properties in the global CSS field, unbalanced keyframes, or an invalid URL. Errors appear both in a summary and beside the affected fields.

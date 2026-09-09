@@ -6,6 +6,7 @@ import {
   formatCategoryLabel,
   normalizeCategories,
   normalizeImageUrl,
+  getScopedClassName,
   sanitizeAnimationName,
 } from "./utils.js";
 import {
@@ -22,7 +23,9 @@ import {
   validateKeyframes,
 } from "./validation.js";
 import {
-  EASING_OPTIONS,
+  EASING_GROUPS,
+  isBezierEasing,
+  sampleEasing,
   getEasingPoints,
   normalizeBezier,
   resolveEasing,
@@ -59,6 +62,10 @@ export function initializeEditor({ modalController, render, showToast }) {
   const resolvedEasingValue = document.getElementById("resolvedEasingValue");
   const liveParent = document.getElementById("editorLiveParent");
   const liveImage = document.getElementById("editorLiveImage");
+  const liveStage = document.getElementById("editorLiveStage");
+  const liveSection = document.querySelector(".editor-workspace .editor-live-section");
+  const editorModal = document.querySelector("#editorModalBackdrop .editor-modal");
+  const classPreview = document.getElementById("editorClassPreview");
   const easingRunner = document.getElementById("easingRunner");
   const bezierCurve = document.getElementById("bezierCurve");
   const bezierGuideOne = document.getElementById("bezierGuideOne");
@@ -67,10 +74,91 @@ export function initializeEditor({ modalController, render, showToast }) {
   const bezierHandleTwo = document.getElementById("bezierHandleTwo");
   const bezierGraph = document.getElementById("bezierGraph");
   let previewFrame = 0;
+  let previewStickyStart = 0;
+  let previewIsCompact = false;
 
-  easingSelect.innerHTML = EASING_OPTIONS.map(
-    ([value, label]) => `<option value="${escapeAttribute(value)}">${escapeHtml(label)}</option>`,
+  // Measure the stage, not the animated image's transformed bounding box.
+  // Definite pixel dimensions avoid percentage-height/grid intrinsic sizing loops.
+  function fitPreviewImage() {
+    if (!liveStage.clientWidth || !liveStage.clientHeight) return;
+    const width = liveImage.naturalWidth || 3;
+    const height = liveImage.naturalHeight || 2;
+    const scale = Math.min(1, Math.min(360, liveStage.clientWidth * 0.65) / width,
+      liveStage.clientHeight * 0.65 / height);
+    liveStage.style.setProperty("--preview-image-width", `${width * scale}px`);
+    liveStage.style.setProperty("--preview-image-height", `${height * scale}px`);
+  }
+
+  liveImage.addEventListener("load", fitPreviewImage);
+  const stageResizeObserver = new ResizeObserver(fitPreviewImage);
+  stageResizeObserver.observe(liveStage);
+
+  easingSelect.innerHTML = EASING_GROUPS.map(group =>
+    `<optgroup label="${escapeAttribute(group.label)}">${group.options.map(
+      ([value, label]) => `<option value="${escapeAttribute(value)}">${escapeHtml(label)}</option>`,
+    ).join("")}</optgroup>`,
   ).join("");
+
+  const easingLibrary = document.getElementById("easingLibrary");
+  const easingDirection = document.getElementById("easingDirection");
+  const easingFamily = document.getElementById("easingFamily");
+  const easingPower = document.getElementById("easingPower");
+  let selectedDirection = "out";
+  let selectedPower = "1";
+  const cssDirections = { default: "ease", in: "ease-in", out: "ease-out", inOut: "ease-in-out" };
+  easingFamily.innerHTML = `<optgroup label="CSS">${EASING_GROUPS[0].options.filter(([value]) => !value.startsWith("ease-")).map(([value, label]) =>
+    `<option value="${escapeAttribute(value)}">${escapeHtml(label.replace("CSS · ", ""))}</option>`).join("")}</optgroup>
+    <optgroup label="GSAP-style">${["power", "sine", "expo", "circ", "back", "bounce", "elastic"].map(family =>
+      `<option value="${family}">${family[0].toUpperCase() + family.slice(1)}</option>`).join("")}</optgroup>
+    <option value="custom">Custom cubic-bezier</option>`;
+  easingFamily.addEventListener("change", () => {
+    const family = easingFamily.value;
+    easingSelect.value = family === "ease" ? cssDirections[selectedDirection]
+      : family === "power" ? `power${selectedPower}.${selectedDirection}`
+      : ["sine", "expo", "circ", "back", "bounce", "elastic"].includes(family) ? `${family}.${selectedDirection}` : family;
+    easingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  easingPower.addEventListener("click", event => {
+    const button = event.target.closest("[data-power]");
+    if (!button) return;
+    easingSelect.value = `power${button.dataset.power}.${selectedDirection}`;
+    easingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  const easingHelp = document.getElementById("easingHelp");
+  function easingPath(value, width = 80, height = 32) {
+    return Array.from({ length: 101 }, (_, index) => {
+      const x = index / 100;
+      return `${index ? "L" : "M"}${(x * width).toFixed(2)},${(height * (1.25 - sampleEasing(value, x)) / 1.5).toFixed(2)}`;
+    }).join(" ");
+  }
+  const familyOptions = EASING_GROUPS.filter(group => group.label.startsWith("GSAP-style"))
+    .map(group => {
+      const family = group.options[0][0].split(".")[0];
+      return [`${family}.out`, family];
+    });
+  const libraryGroups = [EASING_GROUPS[0], {label: "GSAP-style families", options: familyOptions}, EASING_GROUPS.at(-1)];
+  easingLibrary.innerHTML = libraryGroups.map(group =>
+    `<section class="easing-family"><h4>${escapeHtml(group.label)}</h4><div>${group.options.map(([value, label]) =>
+      `<button type="button" data-ease="${escapeAttribute(value)}" ${group.label === "GSAP-style families" ? `data-family="${escapeAttribute(label)}"` : ""} aria-pressed="false"><svg viewBox="0 0 80 32" aria-hidden="true"><path d="${easingPath(value)}" /></svg><span>${escapeHtml(label.replace("CSS · ", ""))}</span></button>`,
+    ).join("")}</div></section>`,
+  ).join("");
+  easingLibrary.addEventListener("click", event => {
+    const button = event.target.closest("[data-ease]");
+    if (!button) return;
+    easingSelect.value = button.dataset.ease;
+    easingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  easingDirection.addEventListener("click", event => {
+    const button = event.target.closest("[data-direction]");
+    const family = easingSelect.value.match(/^(power[1-4]|sine|expo|circ|back|bounce|elastic)\.(in|out|inOut)$/)?.[1];
+    if (!button || button.disabled) return;
+    if (Object.values(cssDirections).includes(easingSelect.value)) {
+      easingSelect.value = cssDirections[button.dataset.direction];
+    } else if (family && button.dataset.direction !== "default") {
+      easingSelect.value = `${family}.${button.dataset.direction}`;
+    } else return;
+    easingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 
   setupBezierEditor();
   setupCssAutocomplete(form.elements.css);
@@ -78,7 +166,10 @@ export function initializeEditor({ modalController, render, showToast }) {
 
   function openEditor(id = null) {
     state.editingId = id;
+    previewIsCompact = false;
+    liveSection.classList.remove("is-sticky");
     form.reset();
+    document.querySelector(".easing-library").open = false;
     clearErrors();
 
     if (id) {
@@ -104,6 +195,10 @@ export function initializeEditor({ modalController, render, showToast }) {
     modalController.openEditor();
     syncBezierFromSelection();
     updateLivePreview();
+    requestAnimationFrame(() => {
+      previewStickyStart = editorModal.scrollTop + liveSection.getBoundingClientRect().top - editorModal.getBoundingClientRect().top;
+      syncPreviewStickiness();
+    });
   }
 
   function fillForm(data) {
@@ -112,6 +207,7 @@ export function initializeEditor({ modalController, render, showToast }) {
     form.elements.description.value = data.description || "";
     form.elements.interaction.value = data.interaction || "appear";
     form.elements.animationName.value = data.animationName || "";
+    form.elements.className.value = getScopedClassName(data.className, data.name);
     form.elements.duration.value = Number(data.duration) || 1.2;
     form.elements.durationUnit.value = data.durationUnit === "ms" ? "ms" : "s";
     form.elements.delay.value = Number(data.delay) || 0;
@@ -134,6 +230,7 @@ export function initializeEditor({ modalController, render, showToast }) {
       description: "",
       interaction: "infinite",
       animationName: "msFloat",
+      className: "ms-floating-image",
       duration: 1.8,
       durationUnit: "s",
       delay: 0,
@@ -219,6 +316,14 @@ export function initializeEditor({ modalController, render, showToast }) {
     event.preventDefault();
     const data = getFormData();
     const errors = validateAnimationDraft(data);
+    const className = getScopedClassName(data.className, data.name);
+    const duplicateClass = state.animations.some((animation) => (
+      animation.id !== state.editingId &&
+      getScopedClassName(animation.className, animation.name) === className
+    ));
+    if (duplicateClass) {
+      errors.className = "This class is already assigned to another animation.";
+    }
 
     if (Object.keys(errors).length) {
       showErrors(errors);
@@ -248,12 +353,15 @@ export function initializeEditor({ modalController, render, showToast }) {
       const data = getFormData();
       const keyframeName = sanitizeAnimationName(data.animationName || "msEditorPreview");
       const previewAnimation = { ...data, id: "editor-live", animationName: keyframeName };
+      const scopedClassName = getScopedClassName(data.className, data.name);
       const cssIsValid = !validateDeclarations(data.css, { disallowAnimation: true });
       const parentIsValid = !validateDeclarations(data.parent);
       const keyframesAreValid = !validateKeyframes(data.keyframes, data.animationName || keyframeName);
 
       liveParent.style.cssText = "";
       liveImage.style.cssText = "";
+      liveImage.className = scopedClassName;
+      classPreview.textContent = `.${scopedClassName}`;
       liveImage.src = data.imageUrl || createPreviewImage({ ...previewAnimation, name: data.name || "Live Preview" });
       liveImage.onerror = () => {
         liveImage.src = createPreviewImage({ ...previewAnimation, name: data.name || "Live Preview" });
@@ -273,16 +381,76 @@ export function initializeEditor({ modalController, render, showToast }) {
       const duration = Number.isFinite(data.duration) && data.duration > 0 ? data.duration : 1.2;
       const delay = Number.isFinite(data.delay) ? data.delay : 0;
       const easing = resolveEasing(data.easing, data.cubicBezier);
+      updateEasingDisplay(data);
       const durationUnit = data.durationUnit === "ms" ? "ms" : "s";
       const delayUnit = data.delayUnit === "ms" ? "ms" : "s";
 
       liveImage.style.animation = "none";
       void liveImage.offsetWidth;
       liveImage.style.animation = `${keyframeName} ${duration}${durationUnit} ${easing} ${delay}${delayUnit} infinite`;
-      resolvedEasingValue.textContent = easing;
+      resolvedEasingValue.textContent = easing.startsWith("linear(") ? `${data.easing} · CSS linear()` : easing;
+      resolvedEasingValue.title = easing;
       easingRunner.style.animationTimingFunction = easing;
       easingRunner.style.animationDuration = `${Math.max(0.7, durationUnit === "ms" ? duration / 1000 : duration)}s`;
     });
+  }
+
+  function syncPreviewStickiness() {
+    const scrollPosition = editorModal.scrollTop;
+    const shouldCompact = previewIsCompact
+      ? scrollPosition > previewStickyStart - 24
+      : scrollPosition >= previewStickyStart;
+
+    if (shouldCompact === previewIsCompact) return;
+
+    previewIsCompact = shouldCompact;
+    liveSection.classList.toggle("is-sticky", shouldCompact);
+  }
+
+  function updateEasingDisplay(data) {
+    const directional = data.easing.match(/^(power[1-4]|sine|expo|circ|back|bounce|elastic)\.(in|out|inOut)$/);
+    const cssDirection = Object.keys(cssDirections).find(direction => cssDirections[direction] === data.easing);
+    if (directional) selectedDirection = directional[2];
+    if (cssDirection && cssDirection !== "default") selectedDirection = cssDirection;
+    const power = directional?.[1].match(/^power([1-4])$/);
+    if (power) selectedPower = power[1];
+    easingFamily.value = cssDirection ? "ease" : power ? "power" : directional ? directional[1]
+      : data.easing === "none" ? "linear" : data.easing === "back.out(1.7)" ? "back" : data.easing;
+    easingPower.hidden = !power;
+    easingPower.querySelectorAll("[data-power]").forEach(button => {
+      button.setAttribute("aria-pressed", String(button.dataset.power === selectedPower));
+    });
+    easingDirection.querySelectorAll("[data-direction]").forEach(button => {
+      button.hidden = button.dataset.direction === "default" && !cssDirection;
+      button.disabled = !directional && !cssDirection;
+      button.setAttribute("aria-pressed", String(Boolean(directional || cssDirection) && button.dataset.direction === (cssDirection || selectedDirection)));
+    });
+    document.getElementById("easingDirectionHelp").textContent = cssDirection
+      ? "Default uses CSS ease · In accelerates · Out slows down · InOut does both."
+      : directional
+      ? "In accelerates · Out slows down · InOut does both."
+      : "Choose Ease or a GSAP-style family to set its direction.";
+    easingLibrary.querySelectorAll("[data-family]").forEach(button => {
+      button.dataset.ease = `${button.dataset.family}.${selectedDirection}`;
+      button.querySelector("path").setAttribute("d", easingPath(button.dataset.ease));
+    });
+    const editable = isBezierEasing(data.easing);
+    document.getElementById("bezierEditor").classList.toggle("is-sampled", !editable);
+    easingLibrary.querySelectorAll("[data-ease]").forEach(button => {
+      button.setAttribute("aria-pressed", String(button.dataset.ease === data.easing));
+    });
+    easingHelp.textContent = editable
+      ? "Drag the handles or adjust the coordinates to create a custom Bézier curve."
+      : "This curve is used by the live preview and exported CSS. Choose Custom cubic-bezier to draw your own curve.";
+    if (editable) drawBezier(getEasingPoints(data.easing, data.cubicBezier));
+    else {
+      bezierCurve.setAttribute("d", Array.from({ length: 201 }, (_, index) => {
+        const x = index / 200;
+        const point = toGraphPoint(x, sampleEasing(data.easing, x));
+        return `${index ? "L" : "M"}${point.x},${point.y}`;
+      }).join(" "));
+    }
+    bezierGraph.querySelector("svg").setAttribute("aria-label", `Easing curve: ${data.easing}`);
   }
 
   function showErrors(errors) {
@@ -485,6 +653,7 @@ export function initializeEditor({ modalController, render, showToast }) {
   }
 
   form.addEventListener("submit", submit);
+  editorModal.addEventListener("scroll", syncPreviewStickiness, { passive: true });
   form.addEventListener("input", (event) => {
     clearErrors(event.target.name);
     saveDraft();
@@ -501,7 +670,6 @@ export function initializeEditor({ modalController, render, showToast }) {
       updateLivePreview();
     }
   });
-
   return { openEditor };
 }
 

@@ -314,7 +314,8 @@
 
           <div class="form-error-summary" id="formErrorSummary" role="alert" hidden></div>
 
-          <section class="editor-live-section" aria-labelledby="livePreviewTitle">
+          <div class="editor-workspace">
+            <section class="editor-live-section" aria-labelledby="livePreviewTitle">
             <div class="section-heading-row">
               <div>
                 <span class="section-kicker">ALWAYS LIVE</span>
@@ -331,15 +332,24 @@
                 <img id="editorLiveImage" alt="Live animation preview" />
               </div>
             </div>
-          </section>
+            <div class="editor-preview-meta"><code id="editorClassPreview">.ms-animation</code><span><i class="fa-solid fa-lock"></i> Current animation only</span></div>
+            </section>
 
-          <div class="form-grid">
+            <div class="editor-controls">
+              <div class="form-grid">
             <!-- NAME -->
 
             <label>
               <span>Name</span>
 
               <input name="name" required placeholder="Floating image" />
+            </label>
+
+            <label>
+              <span>Scoped CSS class</span>
+
+              <input name="className" required autocomplete="off" placeholder="ms-floating-image" />
+              <small class="field-help">Only this animation uses this selector.</small>
             </label>
 
             <!-- TARGET -->
@@ -493,10 +503,31 @@
                 </label>
 
                 <label>
-                  <span>Easing preset</span>
-                  <select name="easing" id="easingSelect"></select>
+                  <span>Easing family</span>
+                  <select id="easingFamily"></select>
+                  <select name="easing" id="easingSelect" hidden aria-hidden="true" tabindex="-1"></select>
                 </label>
               </div>
+
+                <div class="easing-direction" role="group" aria-label="Power strength" id="easingPower" hidden>
+                  <span>Power</span>
+                  <button type="button" data-power="1" aria-pressed="false">1</button>
+                  <button type="button" data-power="2" aria-pressed="false">2</button>
+                  <button type="button" data-power="3" aria-pressed="false">3</button>
+                  <button type="button" data-power="4" aria-pressed="false">4</button>
+                </div>
+                <div class="easing-direction" role="group" aria-label="Easing direction" id="easingDirection">
+                  <span>Direction</span>
+                  <button type="button" data-direction="default" aria-pressed="false" hidden>Default</button>
+                  <button type="button" data-direction="in" aria-pressed="false">In</button>
+                  <button type="button" data-direction="out" aria-pressed="false">Out</button>
+                  <button type="button" data-direction="inOut" aria-pressed="false">InOut</button>
+                  <small id="easingDirectionHelp">Choose a GSAP-style family to set its direction.</small>
+                </div>
+              <details class="easing-library">
+                <summary>Browse easing curves <span>CSS + GSAP-style</span></summary>
+                <div class="easing-library-grid" id="easingLibrary"></div>
+              </details>
 
               <div class="bezier-editor" id="bezierEditor">
                 <div class="bezier-graph" id="bezierGraph">
@@ -515,7 +546,7 @@
                 </div>
 
                 <div class="bezier-controls">
-                  <p>Drag both handles. X is limited to 0–1; Y supports overshoot for GSAP-style back easing.</p>
+                  <p id="easingHelp">Drag both handles to customize the curve.</p>
                   <div class="bezier-inputs">
                     <label><span>x1</span><input name="bezierX1" type="number" min="0" max="1" step="0.001" /></label>
                     <label><span>y1</span><input name="bezierY1" type="number" min="-0.5" max="1.5" step="0.001" /></label>
@@ -532,7 +563,7 @@
             <!-- CSS -->
 
             <label class="full">
-              <span> Global CSS properties </span>
+              <span> Styles for this class </span>
 
               <textarea
                 name="css"
@@ -542,7 +573,7 @@
 border-radius: 24px;
 filter: drop-shadow(0 18px 28px rgba(0, 0, 0, .3));"
               ></textarea>
-              <small class="field-help">Visual properties only. Animation timing is controlled above. Start typing a property for autocomplete.</small>
+              <small class="field-help">These declarations are exported only under the scoped class above. Animation timing is controlled above.</small>
             </label>
 
             <!-- KEYFRAMES -->
@@ -587,6 +618,8 @@ transform-style: preserve-3d;"
                 Useful for 3D animations and parent-level CSS.
               </small>
             </label>
+              </div>
+            </div>
           </div>
 
           <div class="form-actions">

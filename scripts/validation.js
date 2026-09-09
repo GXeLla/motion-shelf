@@ -19,8 +19,15 @@ export function validateAnimationDraft(data) {
   const errors = {};
   const name = String(data.name || "").trim();
   const animationName = String(data.animationName || "").trim();
+  const className = String(data.className || "").trim().replace(/^\./, "");
 
   if (!name) errors.name = "Give the animation a display name.";
+
+  if (!className) {
+    errors.className = "Add a class name for this animation.";
+  } else if (!/^[A-Za-z_-][A-Za-z0-9_-]*$/.test(className)) {
+    errors.className = "Use a CSS class name without spaces or a leading number.";
+  }
 
   if (!animationName) {
     errors.animationName = "Add a keyframe name.";

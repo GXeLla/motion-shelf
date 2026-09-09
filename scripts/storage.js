@@ -3,6 +3,7 @@ import { STORAGE_KEY } from "./state.js";
 import {
   normalizeCategories,
   normalizeImageUrl,
+  getScopedClassName,
   sanitizeAnimationName,
   createId,
 } from "./utils.js";
@@ -56,6 +57,8 @@ export function normalizeAnimation(animation) {
     categories: normalizeCategories(animation.categories),
 
     animationName: sanitizeAnimationName(animation.animationName),
+
+    className: getScopedClassName(animation.className, animation.name),
 
     duration: normalizeNumber(animation.duration, 1.2),
 

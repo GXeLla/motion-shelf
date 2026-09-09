@@ -36,6 +36,18 @@ function setupControls() {
   document.querySelector(".task-toggle-group").addEventListener("click", (event) => { const button = event.target.closest("[data-quick-filter]"); if (!button) return; const key = button.dataset.quickFilter; taskState.quick.has(key) ? taskState.quick.delete(key) : taskState.quick.add(key); render(); });
   board.addEventListener("click", onBoardClick);
   board.addEventListener("dblclick", () => {});
+  board.addEventListener("pointerdown", (event) => {
+    const menu = event.target.closest(".task-menu-wrap");
+    const card = menu?.closest("[data-task-id]");
+    if (!card) return;
+
+    // Native drag detection begins on the draggable card before dragstart
+    // identifies the nested menu target. Disable it for this pointer gesture.
+    card.draggable = false;
+    const restoreDrag = () => { card.draggable = true; };
+    window.addEventListener("pointerup", restoreDrag, { once: true });
+    window.addEventListener("pointercancel", restoreDrag, { once: true });
+  });
   board.addEventListener("dragstart", onDragStart);
   board.addEventListener("dragend", clearDrag);
   board.addEventListener("dragover", (event) => { const lane = event.target.closest("[data-lane]"); if (!lane || !taskState.dragId) return; event.preventDefault(); lane.classList.add("is-drop-target"); });
@@ -169,12 +181,38 @@ function escape(value) { const div = document.createElement("div"); div.textCont
 function renderCard(task) {
   const menuOpen = taskState.menuId === task.id;
   const milestone = taskState.milestones.find((item) => item.id === task.milestoneId);
-  return `<article class="task-card assignee-${assigneeClass(task.assignee)} ${task.important ? "is-important" : ""} ${task.completed ? "is-completed" : ""} ${menuOpen ? "is-menu-open" : ""}" draggable="true" data-task-id="${task.id}"><div class="task-card-top"><div class="task-card-badges">${milestone ? `<span class="task-badge milestone"><i class="fa-solid fa-flag-checkered"></i> ${escape(milestone.title)}</span>` : ""}${task.important ? '<span class="task-badge important"><i class="fa-solid fa-flag"></i> Important</span>' : ""}${task.favorite ? '<span class="task-star" title="Favorite"><i class="fa-solid fa-star"></i></span>' : ""}</div><div class="task-menu-wrap"><button class="task-menu-button" type="button" data-action="menu" aria-label="Task actions" aria-expanded="${menuOpen}"><i class="fa-solid fa-ellipsis"></i></button>${menuOpen ? renderMenu(task) : ""}</div></div><h4>${escape(task.title)}</h4><p>${escape(task.description)}</p><footer><span class="task-assignee"><i class="fa-solid fa-user"></i> ${escape(task.assignee || "Unassigned")}</span><span title="Click card to copy Codex prompt"><i class="fa-solid fa-copy"></i> Copy prompt</span></footer></article>`;
+  return `<article class="task-card assignee-${assigneeClass(task.assignee)} ${task.important ? "is-important" : ""} ${task.completed ? "is-completed" : ""} ${menuOpen ? "is-menu-open" : ""}" draggable="true" data-task-id="${task.id}"><div class="task-card-top"><div class="task-card-badges">${milestone ? `<span class="task-badge milestone"><i class="fa-solid fa-flag-checkered"></i> ${escape(milestone.title)}</span>` : ""}${task.important ? '<span class="task-badge important"><i class="fa-solid fa-flag"></i> Important</span>' : ""}${task.favorite ? '<span class="task-star" title="Favorite"><i class="fa-solid fa-star"></i></span>' : ""}</div><div class="task-menu-wrap" draggable="false"><button class="task-menu-button" type="button" draggable="false" data-action="menu" aria-label="Task actions" aria-expanded="${menuOpen}"><i class="fa-solid fa-ellipsis"></i></button>${menuOpen ? renderMenu(task) : ""}</div></div><h4>${escape(task.title)}</h4><p>${escape(task.description)}</p><footer><span class="task-assignee"><i class="fa-solid fa-user"></i> ${escape(task.assignee || "Unassigned")}</span><span title="Click card to copy Codex prompt"><i class="fa-solid fa-copy"></i> Copy prompt</span></footer></article>`;
 }
 function assigneeClass(assignee) { return String(assignee || "unassigned").toLowerCase(); }
 function renderMenu(task) { return `<div class="task-menu" role="menu"><button data-action="important" type="button"><i class="fa-solid fa-flag"></i> ${task.important ? "Remove Important" : "Mark Important"}</button><button data-action="favorite" type="button"><i class="fa-solid fa-star"></i> ${task.favorite ? "Remove from Favorites" : "Add to Favorites"}</button><div class="task-menu-label">Assign to</div>${[[null, "Unassigned"], ...CONTRIBUTORS.map((name) => [name, name])].map(([value, label]) => `<button data-action="assign" data-assignee="${value || "unassigned"}" class="assign-action assignee-${assigneeClass(value)} ${task.assignee === value ? "selected" : ""}" type="button"><i class="fa-solid ${task.assignee === value ? "fa-circle-check" : "fa-user"}"></i> ${label}</button>`).join("")}<hr><button data-action="edit" type="button"><i class="fa-solid fa-pen"></i> Edit</button><button data-action="complete" class="${task.completed ? "reopen-action" : "complete-action"}" type="button"><i class="fa-solid fa-circle-check"></i> ${task.completed ? "Reopen" : "Complete"}</button><button data-action="delete" class="danger-menu" type="button"><i class="fa-solid fa-trash"></i> Delete</button></div>`; }
 
 function onBoardClick(event) {
+  // The three-dot menu is an isolated control: it must never copy the card's
+  // prompt or trigger the card click behavior.
+  if (event.target.closest(".task-menu-wrap")) {
+    const action = event.target.closest("[data-action]");
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const card = action.closest("[data-task-id]");
+    const task = findTask(card?.dataset.taskId);
+    if (!task) return;
+    const type = action.dataset.action;
+    if (type === "menu") {
+      const previousId = taskState.menuId;
+      taskState.menuId = taskState.menuId === task.id ? null : task.id;
+      refreshTaskCard(previousId);
+      refreshTaskCard(task.id);
+      return;
+    }
+    if (type === "important") mutate(task, { important: !task.important });
+    if (type === "favorite") mutate(task, { favorite: !task.favorite });
+    if (type === "assign") mutate(task, { assignee: action.dataset.assignee === "unassigned" ? null : action.dataset.assignee });
+    if (type === "complete") mutate(task, { completed: !task.completed });
+    if (type === "edit") openEditor(task.id);
+    if (type === "delete") { taskState.deletingId = task.id; deleteBackdrop.hidden = false; document.body.style.overflow = "hidden"; }
+    return;
+  }
   const action = event.target.closest("[data-action]");
   if (!action) { const card = event.target.closest("[data-task-id]"); const task = findTask(card?.dataset.taskId); if (task && !event.target.closest("button,input,label,a")) { copyText(createCodexPrompt(task)); showToast("Codex-ready task prompt copied."); } return; }
   event.stopPropagation(); const card = action.closest("[data-task-id]"); const task = findTask(card?.dataset.taskId); if (!task) return;
@@ -247,7 +285,7 @@ function resolveImportedAssignee(sourceMilestone, update) {
   return CONTRIBUTORS.find((name) => name.toLowerCase() === String(candidate || "").toLowerCase()) || null;
 }
 
-function onDragStart(event) { const card = event.target.closest("[data-task-id]"); if (!card) return; taskState.dragId = card.dataset.taskId; card.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", taskState.dragId); const sourceLane = card.closest("[data-lane]"); const assignedLane = board.querySelector('[data-lane="Gabriel"] .task-lane-dropzone'); if (sourceLane?.dataset.lane === "unassigned" && assignedLane) { const preview = card.cloneNode(true); preview.classList.remove("is-dragging", "is-menu-open"); preview.style.cssText = `position: fixed; top: -10000px; left: -10000px; width: ${assignedLane.getBoundingClientRect().width}px; pointer-events: none;`; document.body.append(preview); taskState.dragPreview = preview; event.dataTransfer.setDragImage(preview, 24, 24); } }
+function onDragStart(event) { if (event.target.closest(".task-menu-wrap")) { event.preventDefault(); return; } const card = event.target.closest("[data-task-id]"); if (!card) return; taskState.dragId = card.dataset.taskId; card.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", taskState.dragId); const sourceLane = card.closest("[data-lane]"); const assignedLane = board.querySelector('[data-lane="Gabriel"] .task-lane-dropzone'); if (sourceLane?.dataset.lane === "unassigned" && assignedLane) { const preview = card.cloneNode(true); preview.classList.remove("is-dragging", "is-menu-open"); preview.style.cssText = `position: fixed; top: -10000px; left: -10000px; width: ${assignedLane.getBoundingClientRect().width}px; pointer-events: none;`; document.body.append(preview); taskState.dragPreview = preview; event.dataTransfer.setDragImage(preview, 24, 24); } }
 function clearDrag() { taskState.dragId = null; taskState.dragPreview?.remove(); taskState.dragPreview = null; document.querySelectorAll(".is-dragging,.is-drop-target").forEach((element) => element.classList.remove("is-dragging", "is-drop-target")); }
 function onDrop(event) { const lane = event.target.closest("[data-lane]"); if (!lane || !taskState.dragId) return; event.preventDefault(); const task = findTask(taskState.dragId); const sourceRect = task ? board.querySelector(`[data-task-id="${task.id}"]`)?.getBoundingClientRect() : null; if (task) { mutate(task, { assignee: lane.dataset.lane === "unassigned" ? null : lane.dataset.lane }, "Task moved."); animateTaskRelocation(task.id, sourceRect); } clearDrag(); }
 function animateTaskRelocation(taskId, sourceRect) { const card = board.querySelector(`[data-task-id="${taskId}"]`); if (!card || !sourceRect || !card.animate) return; const targetRect = card.getBoundingClientRect(); const scaleX = sourceRect.width / targetRect.width; const scaleY = sourceRect.height / targetRect.height; card.animate([{ transformOrigin: "top left", transform: `translate(${sourceRect.left - targetRect.left}px, ${sourceRect.top - targetRect.top}px) scale(${scaleX}, ${scaleY})`, opacity: .78 }, { transformOrigin: "top left", transform: "translate(0, 0) scale(1)", opacity: 1 }], { duration: 280, easing: "cubic-bezier(.2, .8, .2, 1)" }); }
@@ -263,6 +301,6 @@ function openRules() { rulesBackdrop.hidden = false; document.body.style.overflo
 function closeRules() { rulesBackdrop.hidden = true; document.body.style.overflow = ""; $("taskRulesButton").focus(); }
 function deleteTask() { const task = findTask(taskState.deletingId); if (!task) return; taskState.tasks = taskState.tasks.filter((item) => item.id !== task.id); markDirty(); closeDelete(); render(); showToast("Task deleted."); }
 async function pushTasks() { if (!supportsProjectFolders()) { showToast("Folder access requires Chrome or Edge on localhost.", true); return; } try { state.projectBusy = true; updateProjectUi(); await writeTasksToLinkedProject(taskState.tasks, taskState.milestones, getTasksDirectory); taskState.dirty = false; saveTaskCache(taskState.tasks); saveMilestoneCache(taskState.milestones); showToast("Tasks and contributor prompts saved locally."); } catch (error) { if (error?.name !== "AbortError") showToast("Could not write task files.", true); } finally { state.projectBusy = false; updateProjectUi(); render(); } }
-function refreshTaskCard(id) { const task = findTask(id); const card = id && board.querySelector(`[data-task-id="${id}"]`); if (task && card) card.outerHTML = renderCard(task); }
+function refreshTaskCard(id) { const task = findTask(id); const card = id && board.querySelector(`[data-task-id="${id}"]`); if (task && card) { card.outerHTML = renderCard(task); board.querySelector(`[data-task-id="${id}"]`)?.classList.add("task-card--static"); } }
 function closeMenu() { if (taskState.menuId) { const id = taskState.menuId; taskState.menuId = null; refreshTaskCard(id); } }
 function showToast(message, error = false) { $("taskToastText").textContent = message; $("taskToastIcon").className = error ? "fa-solid fa-triangle-exclamation" : "fa-solid fa-check"; $("taskToast").classList.toggle("error", error); $("taskToast").classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => $("taskToast").classList.remove("show"), 2800); }
