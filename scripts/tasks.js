@@ -11,6 +11,7 @@ const board = $("taskBoard");
 const milestoneBoard = $("milestoneBoard");
 const editorBackdrop = $("taskEditorBackdrop");
 const deleteBackdrop = $("taskDeleteBackdrop");
+const rulesBackdrop = $("taskRulesBackdrop");
 const form = $("taskForm");
 let toastTimer;
 
@@ -22,6 +23,7 @@ initializeProject();
 function setupControls() {
   $("newTaskButton").addEventListener("click", () => openEditor());
   $("newMilestoneButton").addEventListener("click", createMilestone);
+  $("taskRulesButton").addEventListener("click", openRules);
   document.querySelector(".task-view-tabs").addEventListener("click", (event) => { const button = event.target.closest("[data-view]"); if (!button) return; taskState.view = button.dataset.view; render(); });
   milestoneBoard.addEventListener("change", (event) => { const input = event.target.closest("[data-mini-task]"); if (!input) return; const milestone = taskState.milestones.find((item) => item.id === input.dataset.milestoneId); const miniTask = milestone?.miniTasks.find((item) => item.id === input.dataset.miniTask); if (!miniTask) return; miniTask.completed = input.checked; milestone.updatedAt = new Date().toISOString(); markDirty(); render(); });
   $("pushTasksButton").addEventListener("click", pushTasks);
@@ -43,11 +45,14 @@ function setupControls() {
   $("taskDeleteClose").addEventListener("click", closeDelete);
   $("taskDeleteCancel").addEventListener("click", closeDelete);
   $("taskDeleteConfirm").addEventListener("click", deleteTask);
+  $("taskRulesClose").addEventListener("click", closeRules);
+  $("taskRulesDone").addEventListener("click", closeRules);
   editorBackdrop.addEventListener("click", (event) => { if (event.target === editorBackdrop) closeEditor(); });
   deleteBackdrop.addEventListener("click", (event) => { if (event.target === deleteBackdrop) closeDelete(); });
+  rulesBackdrop.addEventListener("click", (event) => { if (event.target === rulesBackdrop) closeRules(); });
   form.addEventListener("submit", saveEditor);
   document.addEventListener("click", (event) => { if (!event.target.closest(".task-menu-wrap")) closeMenu(); });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); if (!editorBackdrop.hidden) closeEditor(); if (!deleteBackdrop.hidden) closeDelete(); } });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); if (!editorBackdrop.hidden) closeEditor(); if (!deleteBackdrop.hidden) closeDelete(); if (!rulesBackdrop.hidden) closeRules(); } });
   $("projectLinkButton").addEventListener("click", () => linkProject(false));
   $("projectChangeButton").addEventListener("click", () => linkProject(true));
 }
@@ -171,6 +176,8 @@ function openEditor(id = null) { taskState.editingId = id; const task = id ? fin
 function closeEditor() { editorBackdrop.hidden = true; document.body.style.overflow = ""; taskState.editingId = null; }
 function saveEditor(event) { event.preventDefault(); const title = form.elements.title.value.trim(); const description = form.elements.description.value.trim(); if (!title || !description) { showToast("Add a title and description before saving.", true); return; } const isEditing = Boolean(taskState.editingId); const now = new Date().toISOString(); const task = isEditing ? findTask(taskState.editingId) : { id: createTaskId(), createdAt: now }; Object.assign(task, normalizeTask({ ...task, title, description, assignee: form.elements.assignee.value || null, favorite: form.elements.favorite.checked, important: form.elements.important.checked, completed: form.elements.completed.value === "true", updatedAt: now })); if (!isEditing) taskState.tasks.unshift(task); markDirty(); closeEditor(); render(); showToast(isEditing ? "Task saved." : "Task created."); }
 function closeDelete() { deleteBackdrop.hidden = true; document.body.style.overflow = ""; taskState.deletingId = null; }
+function openRules() { rulesBackdrop.hidden = false; document.body.style.overflow = "hidden"; requestAnimationFrame(() => $("taskRulesClose").focus()); }
+function closeRules() { rulesBackdrop.hidden = true; document.body.style.overflow = ""; $("taskRulesButton").focus(); }
 function deleteTask() { const task = findTask(taskState.deletingId); if (!task) return; taskState.tasks = taskState.tasks.filter((item) => item.id !== task.id); markDirty(); closeDelete(); render(); showToast("Task deleted."); }
 async function pushTasks() { if (!supportsProjectFolders()) { showToast("Folder access requires Chrome or Edge on localhost.", true); return; } try { state.projectBusy = true; updateProjectUi(); await writeTasksToLinkedProject(taskState.tasks, taskState.milestones, getTasksDirectory); taskState.dirty = false; saveTaskCache(taskState.tasks); saveMilestoneCache(taskState.milestones); showToast("Tasks and contributor prompts saved locally."); } catch (error) { if (error?.name !== "AbortError") showToast("Could not write task files.", true); } finally { state.projectBusy = false; updateProjectUi(); render(); } }
 function closeMenu() { if (taskState.menuId) { taskState.menuId = null; render(); } }
