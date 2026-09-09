@@ -18,6 +18,7 @@ export function normalizeTask(task = {}) {
     favorite: Boolean(task.favorite),
     important: Boolean(task.important),
     completed: Boolean(task.completed),
+    milestoneId: task.milestoneId ? String(task.milestoneId) : null,
     createdAt: task.createdAt || now,
     updatedAt: task.updatedAt || task.createdAt || now,
   };
@@ -29,7 +30,8 @@ export function normalizeMilestone(milestone = {}) {
     id: String(milestone.id || `milestone-${Date.now().toString(36)}`),
     title: String(milestone.title || "Untitled milestone").trim(),
     description: String(milestone.description || "").trim(),
-    miniTasks: Array.isArray(milestone.miniTasks) ? milestone.miniTasks.map((item, index) => ({ id: String(item.id || `${Date.now()}-${index}`), title: String(item.title || "").trim(), completed: Boolean(item.completed) })).filter((item) => item.title) : [],
+    assignee: CONTRIBUTORS.includes(milestone.assignee) ? milestone.assignee : null,
+    miniTasks: Array.isArray(milestone.miniTasks) ? milestone.miniTasks.map((item, index) => ({ id: String(item.id || `${Date.now()}-${index}`), taskId: item.taskId ? String(item.taskId) : null, title: String(item.title || "").trim(), completed: Boolean(item.completed) })).filter((item) => item.title) : [],
     createdAt: milestone.createdAt || now,
     updatedAt: milestone.updatedAt || milestone.createdAt || now,
   };

@@ -1,12 +1,107 @@
 {
   "version": 1,
   "tasks": [
-    { "id": "task-smooth-board", "title": "Make task updates feel smooth", "description": "Improve board updates so task actions settle naturally without the page feeling refreshed or visually rebuilt.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
-    { "id": "task-milestone-create", "title": "Add milestone creation", "description": "Add a way to create a new full-width milestone directly from the Milestones view.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
-    { "id": "task-milestone-minis", "title": "Add mini-tasks inside milestones", "description": "Allow milestones to contain actionable mini-tasks and calculate completion automatically.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
-    { "id": "task-unassigned-bottom", "title": "Place Unassigned at the end", "description": "Keep contributor columns first and render the Unassigned column as the final board lane.", "assignee": null, "favorite": false, "important": false, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
-    { "id": "task-copy-description", "title": "Copy a task description on card click", "description": "Clicking a task card should copy its description while preserving menus, drag and drop, and editor actions.", "assignee": null, "favorite": false, "important": false, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
-    { "id": "task-new-milestone-button", "title": "Create a New Milestone action in Milestones", "description": "Place a clear New Milestone button inside the Milestones view so users can create a workstream and its mini-tasks without leaving that page.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" }
+    {
+      "id": "task-mtu4sn0i-q793en",
+      "title": "different layout of board",
+      "description": "at the top we have a 3 users grid or flex which you want to use but it flex1 stretched at the bottom of that is tasks unasigned ones but full width.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T13:25:37.794Z",
+      "updatedAt": "2026-09-09T13:35:20.057Z"
+    },
+    {
+      "id": "task-smooth-board",
+      "title": "Make task updates feel smooth",
+      "description": "Improve board updates so task actions settle naturally without the page feeling refreshed or visually rebuilt.",
+      "assignee": "Georgi",
+      "favorite": false,
+      "important": true,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T09:00:00.000Z",
+      "updatedAt": "2026-09-09T13:12:59.878Z"
+    },
+    {
+      "id": "task-milestone-create",
+      "title": "Add milestone creation",
+      "description": "Add a way to create a new full-width milestone directly from the Milestones view.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T09:00:00.000Z",
+      "updatedAt": "2026-09-09T13:19:13.629Z"
+    },
+    {
+      "id": "task-milestone-minis",
+      "title": "Add mini-tasks inside milestones",
+      "description": "Allow milestones to contain actionable mini-tasks and calculate completion automatically.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T09:00:00.000Z",
+      "updatedAt": "2026-09-09T13:19:07.682Z"
+    },
+    {
+      "id": "task-unassigned-bottom",
+      "title": "Place Unassigned at the end",
+      "description": "Keep contributor columns first and render the Unassigned column as the final board lane.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T09:00:00.000Z",
+      "updatedAt": "2026-09-09T13:24:11.980Z"
+    },
+    {
+      "id": "task-copy-description",
+      "title": "Copy a task description on card click",
+      "description": "Clicking a task card should copy its description while preserving menus, drag and drop, and editor actions.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T09:00:00.000Z",
+      "updatedAt": "2026-09-09T13:18:24.280Z"
+    },
+    {
+      "id": "task-new-milestone-button",
+      "title": "Create a New Milestone action in Milestones",
+      "description": "Place a clear New Milestone button inside the Milestones view so users can create a workstream and its mini-tasks without leaving that page.",
+      "assignee": "Georgi",
+      "favorite": false,
+      "important": true,
+      "completed": true,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T09:00:00.000Z",
+      "updatedAt": "2026-09-09T14:00:00.000Z"
+    }
   ],
-  "milestones": []
+  "milestones": [
+    {
+      "id": "milestone-mtu3upxo",
+      "title": "Animation sync from campaign",
+      "description": "A focused workstream for the Motion Shelf team.",
+      "assignee": null,
+      "miniTasks": [
+        {
+          "id": "mini-1788958755276-0",
+          "taskId": null,
+          "title": "We need only read-only to take information and to not change anything inside campaign repo.",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-09-09T12:59:15.276Z",
+      "updatedAt": "2026-09-09T12:59:15.276Z"
+    }
+  ]
 }

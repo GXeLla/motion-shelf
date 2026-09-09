@@ -5,7 +5,7 @@ import { CONTRIBUTORS, createTaskId, formatTaskDate, normalizeTask } from "./tas
 import { loadMilestoneCache, loadTaskCache, loadTasksFromLinkedProject, saveMilestoneCache, saveTaskCache, writeTasksToLinkedProject } from "./task-storage.js";
 import { copyText } from "./code.js";
 
-const taskState = { tasks: loadTaskCache(), milestones: loadMilestoneCache(), view: "board", filter: "all", search: "", quick: new Set(), dirty: false, editingId: null, deletingId: null, menuId: null, dragId: null, draggingMilestone: null };
+const taskState = { tasks: loadTaskCache(), milestones: loadMilestoneCache(), view: "board", filter: "all", search: "", quick: new Set(), dirty: false, editingId: null, editingMilestoneId: null, deletingId: null, menuId: null, dragId: null, dragPreview: null, draggingMilestone: null };
 const $ = (id) => document.getElementById(id);
 const board = $("taskBoard");
 const milestoneBoard = $("milestoneBoard");
@@ -13,7 +13,11 @@ const editorBackdrop = $("taskEditorBackdrop");
 const deleteBackdrop = $("taskDeleteBackdrop");
 const rulesBackdrop = $("taskRulesBackdrop");
 const form = $("taskForm");
+const milestoneEditorBackdrop = $("milestoneEditorBackdrop");
+const milestoneForm = $("milestoneForm");
+const milestoneTaskFields = $("milestoneTaskFields");
 let toastTimer;
+let boardHasRendered = false;
 
 initializeAmbientBackground();
 setupControls();
@@ -22,10 +26,9 @@ initializeProject();
 
 function setupControls() {
   $("newTaskButton").addEventListener("click", () => openEditor());
-  $("newMilestoneButton").addEventListener("click", createMilestone);
   $("taskRulesButton").addEventListener("click", openRules);
   document.querySelector(".task-view-tabs").addEventListener("click", (event) => { const button = event.target.closest("[data-view]"); if (!button) return; taskState.view = button.dataset.view; render(); });
-  milestoneBoard.addEventListener("change", (event) => { const input = event.target.closest("[data-mini-task]"); if (!input) return; const milestone = taskState.milestones.find((item) => item.id === input.dataset.milestoneId); const miniTask = milestone?.miniTasks.find((item) => item.id === input.dataset.miniTask); if (!miniTask) return; miniTask.completed = input.checked; milestone.updatedAt = new Date().toISOString(); markDirty(); render(); });
+  milestoneBoard.addEventListener("click", (event) => { const button = event.target.closest("[data-milestone-action]"); if (!button) return; if (button.dataset.milestoneAction === "new") openMilestoneEditor(); if (button.dataset.milestoneAction === "edit") openMilestoneEditor(button.dataset.milestoneId); });
   $("pushTasksButton").addEventListener("click", pushTasks);
   $("taskSearch").addEventListener("input", (event) => { taskState.search = event.target.value.trim().toLowerCase(); render(); });
   $("taskFilters").addEventListener("click", (event) => { const button = event.target.closest("[data-filter]"); if (button) { taskState.filter = button.dataset.filter; render(); } });
@@ -47,12 +50,18 @@ function setupControls() {
   $("taskDeleteConfirm").addEventListener("click", deleteTask);
   $("taskRulesClose").addEventListener("click", closeRules);
   $("taskRulesDone").addEventListener("click", closeRules);
+  $("milestoneEditorClose").addEventListener("click", closeMilestoneEditor);
+  $("milestoneEditorCancel").addEventListener("click", closeMilestoneEditor);
+  $("addMiniTaskButton").addEventListener("click", () => addMiniTaskField());
+  milestoneTaskFields.addEventListener("click", (event) => { const button = event.target.closest("[data-remove-mini-task]"); if (button) button.closest(".milestone-task-field").remove(); });
   editorBackdrop.addEventListener("click", (event) => { if (event.target === editorBackdrop) closeEditor(); });
   deleteBackdrop.addEventListener("click", (event) => { if (event.target === deleteBackdrop) closeDelete(); });
   rulesBackdrop.addEventListener("click", (event) => { if (event.target === rulesBackdrop) closeRules(); });
+  milestoneEditorBackdrop.addEventListener("click", (event) => { if (event.target === milestoneEditorBackdrop) closeMilestoneEditor(); });
   form.addEventListener("submit", saveEditor);
+  milestoneForm.addEventListener("submit", saveMilestoneEditor);
   document.addEventListener("click", (event) => { if (!event.target.closest(".task-menu-wrap")) closeMenu(); });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); if (!editorBackdrop.hidden) closeEditor(); if (!deleteBackdrop.hidden) closeDelete(); if (!rulesBackdrop.hidden) closeRules(); } });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); if (!editorBackdrop.hidden) closeEditor(); if (!deleteBackdrop.hidden) closeDelete(); if (!rulesBackdrop.hidden) closeRules(); if (!milestoneEditorBackdrop.hidden) closeMilestoneEditor(); } });
   $("projectLinkButton").addEventListener("click", () => linkProject(false));
   $("projectChangeButton").addEventListener("click", () => linkProject(true));
 }
@@ -103,12 +112,14 @@ function render() {
   const visible = getVisibleTasks();
   const showCompleted = taskState.quick.has("completed");
   const lanes = [...CONTRIBUTORS, null];
+  board.classList.toggle("is-initialized", boardHasRendered);
   board.innerHTML = lanes.map((assignee) => {
     const laneTasks = visible.filter((task) => task.assignee === assignee).sort(sortTasks);
     const allCount = taskState.tasks.filter((task) => task.assignee === assignee && task.completed === showCompleted).length;
     const name = assignee || "Unassigned";
     return `<article class="task-lane" data-lane="${assignee || "unassigned"}"><header class="task-lane-header"><div><span class="task-lane-eyebrow">${assignee ? "CONTRIBUTOR" : "OPEN QUEUE"}</span><h3>${name}</h3></div><span class="task-lane-count">${allCount}</span></header><div class="task-lane-dropzone">${laneTasks.map(renderCard).join("") || `<div class="task-lane-empty">${showCompleted ? "No completed tasks" : "Drop a task here"}</div>`}</div></article>`;
   }).join("");
+  boardHasRendered = true;
   $("taskResultCount").textContent = `${visible.length} ${visible.length === 1 ? "task" : "tasks"} shown`;
   $("taskEmptyState").hidden = visible.length !== 0;
   $("pushTasksButton").innerHTML = `<i class="fa-solid fa-folder-arrow-up"></i><span>${taskState.dirty ? "Update tasks locally" : "Push tasks to local"}</span>`;
@@ -116,12 +127,14 @@ function render() {
 }
 
 function renderMilestones() {
-  milestoneBoard.innerHTML = taskState.milestones.map((milestone) => {
-    const total = milestone.miniTasks.length;
-    const done = milestone.miniTasks.filter((item) => item.completed).length;
+  const milestoneCards = taskState.milestones.map((milestone) => {
+    const milestoneTasks = taskState.tasks.filter((task) => task.milestoneId === milestone.id);
+    const total = milestoneTasks.length;
+    const done = milestoneTasks.filter((task) => task.completed).length;
     const percent = total ? Math.round((done / total) * 100) : 0;
-    return `<article class="milestone-card ${percent === 100 ? "is-complete" : ""}" draggable="true" data-milestone-id="${milestone.id}"><header><div><span class="eyebrow"><i class="fa-solid fa-grip-lines"></i> WORKSTREAM</span><h3>${escape(milestone.title)}</h3></div><strong>${percent}%</strong></header><p>${escape(milestone.description)}</p><div class="milestone-progress" aria-label="${percent}% complete"><span style="width: ${percent}%"></span></div><div class="mini-task-list">${milestone.miniTasks.map((item) => `<label class="mini-task ${item.completed ? "done" : ""}"><input type="checkbox" data-mini-task="${item.id}" data-milestone-id="${milestone.id}" ${item.completed ? "checked" : ""} /><span>${escape(item.title)}</span><i class="fa-solid fa-check"></i></label>`).join("")}</div><footer>${done} of ${total} mini-tasks complete${percent === 100 ? " · Ready to close" : ""}</footer></article>`;
-  }).join("") || `<div class="task-lane-empty">No milestones yet.</div>`;
+    return `<article class="milestone-card ${percent === 100 && total ? "is-complete" : ""}" draggable="true" data-milestone-id="${milestone.id}"><header><div><span class="eyebrow"><i class="fa-solid fa-grip-lines"></i> WORKSTREAM${milestone.assignee ? ` · ${escape(milestone.assignee)}` : ""}</span><h3>${escape(milestone.title)}</h3></div><div class="milestone-card-actions"><strong>${percent}%</strong><button type="button" data-milestone-action="edit" data-milestone-id="${milestone.id}" aria-label="Edit ${escape(milestone.title)}"><i class="fa-solid fa-pen"></i> Edit</button></div></header><p>${escape(milestone.description)}</p><div class="milestone-progress" aria-label="${percent}% complete"><span style="width: ${percent}%"></span></div><div class="mini-task-list">${milestoneTasks.map((task) => `<div class="mini-task ${task.completed ? "done" : ""}"><span>${escape(task.title)}</span><i class="fa-solid ${task.completed ? "fa-check" : "fa-circle"}"></i></div>`).join("") || '<div class="mini-task-empty">No tasks yet — use Edit to add one.</div>'}</div><footer>${done} of ${total} tasks complete${percent === 100 && total ? " · Ready to close" : " · Update completion on the board"}</footer></article>`;
+  }).join("") || `<div class="task-lane-empty">No milestones yet. Create one to start grouping work.</div>`;
+  milestoneBoard.innerHTML = `<header class="milestone-board-toolbar"><div><span class="eyebrow"><i class="fa-solid fa-flag-checkered"></i> WORKSTREAMS</span><p>Create a milestone to organize related board tasks.</p></div><button class="button primary" type="button" data-milestone-action="new"><i class="fa-solid fa-plus"></i> New Milestone</button></header>${milestoneCards}`;
   $("taskResultCount").textContent = `${taskState.milestones.length} ${taskState.milestones.length === 1 ? "milestone" : "milestones"}`;
 }
 
@@ -140,21 +153,26 @@ function getVisibleTasks() {
   });
 }
 
-function sortTasks(a, b) { return Number(b.important) - Number(a.important) || new Date(b.updatedAt) - new Date(a.updatedAt); }
+function sortTasks(a, b) {
+  const priority = (task) => task.important ? 0 : task.favorite ? 2 : 1;
+  return priority(a) - priority(b) || new Date(b.updatedAt) - new Date(a.updatedAt);
+}
 function escape(value) { const div = document.createElement("div"); div.textContent = String(value ?? ""); return div.innerHTML; }
 
 function renderCard(task) {
   const menuOpen = taskState.menuId === task.id;
-  return `<article class="task-card ${task.important ? "is-important" : ""} ${task.completed ? "is-completed" : ""} ${menuOpen ? "is-menu-open" : ""}" draggable="true" data-task-id="${task.id}"><div class="task-card-top"><div class="task-card-badges">${task.important ? '<span class="task-badge important"><i class="fa-solid fa-flag"></i> Important</span>' : ""}${task.favorite ? '<span class="task-star" title="Favorite"><i class="fa-solid fa-star"></i></span>' : ""}</div><div class="task-menu-wrap"><button class="task-menu-button" type="button" data-action="menu" aria-label="Task actions" aria-expanded="${menuOpen}"><i class="fa-solid fa-ellipsis"></i></button>${menuOpen ? renderMenu(task) : ""}</div></div><h4>${escape(task.title)}</h4><p>${escape(task.description)}</p><footer><span class="task-assignee"><i class="fa-solid fa-user"></i> ${escape(task.assignee || "Unassigned")}</span><span title="Updated ${escape(formatTaskDate(task.updatedAt))}"><i class="fa-regular fa-clock"></i> ${escape(formatTaskDate(task.updatedAt))}</span></footer></article>`;
+  const milestone = taskState.milestones.find((item) => item.id === task.milestoneId);
+  return `<article class="task-card assignee-${assigneeClass(task.assignee)} ${task.important ? "is-important" : ""} ${task.completed ? "is-completed" : ""} ${menuOpen ? "is-menu-open" : ""}" draggable="true" data-task-id="${task.id}"><div class="task-card-top"><div class="task-card-badges">${milestone ? `<span class="task-badge milestone"><i class="fa-solid fa-flag-checkered"></i> ${escape(milestone.title)}</span>` : ""}${task.important ? '<span class="task-badge important"><i class="fa-solid fa-flag"></i> Important</span>' : ""}${task.favorite ? '<span class="task-star" title="Favorite"><i class="fa-solid fa-star"></i></span>' : ""}</div><div class="task-menu-wrap"><button class="task-menu-button" type="button" data-action="menu" aria-label="Task actions" aria-expanded="${menuOpen}"><i class="fa-solid fa-ellipsis"></i></button>${menuOpen ? renderMenu(task) : ""}</div></div><h4>${escape(task.title)}</h4><p>${escape(task.description)}</p><footer><span class="task-assignee"><i class="fa-solid fa-user"></i> ${escape(task.assignee || "Unassigned")}</span><span title="Click card to copy Codex prompt"><i class="fa-solid fa-copy"></i> Copy prompt</span></footer></article>`;
 }
-function renderMenu(task) { return `<div class="task-menu" role="menu"><button data-action="important" type="button"><i class="fa-solid fa-flag"></i> ${task.important ? "Remove Important" : "Mark Important"}</button><button data-action="favorite" type="button"><i class="fa-solid fa-star"></i> ${task.favorite ? "Remove from Favorites" : "Add to Favorites"}</button><div class="task-menu-label">Assign to</div>${[[null, "Unassigned"], ...CONTRIBUTORS.map((name) => [name, name])].map(([value, label]) => `<button data-action="assign" data-assignee="${value || "unassigned"}" class="${task.assignee === value ? "selected" : ""}" type="button"><i class="fa-solid ${task.assignee === value ? "fa-circle-check" : "fa-user"}"></i> ${label}</button>`).join("")}<hr><button data-action="edit" type="button"><i class="fa-solid fa-pen"></i> Edit</button><button data-action="complete" type="button"><i class="fa-solid fa-circle-check"></i> ${task.completed ? "Reopen" : "Complete"}</button><button data-action="delete" class="danger-menu" type="button"><i class="fa-solid fa-trash"></i> Delete</button></div>`; }
+function assigneeClass(assignee) { return String(assignee || "unassigned").toLowerCase(); }
+function renderMenu(task) { return `<div class="task-menu" role="menu"><button data-action="important" type="button"><i class="fa-solid fa-flag"></i> ${task.important ? "Remove Important" : "Mark Important"}</button><button data-action="favorite" type="button"><i class="fa-solid fa-star"></i> ${task.favorite ? "Remove from Favorites" : "Add to Favorites"}</button><div class="task-menu-label">Assign to</div>${[[null, "Unassigned"], ...CONTRIBUTORS.map((name) => [name, name])].map(([value, label]) => `<button data-action="assign" data-assignee="${value || "unassigned"}" class="assign-action assignee-${assigneeClass(value)} ${task.assignee === value ? "selected" : ""}" type="button"><i class="fa-solid ${task.assignee === value ? "fa-circle-check" : "fa-user"}"></i> ${label}</button>`).join("")}<hr><button data-action="edit" type="button"><i class="fa-solid fa-pen"></i> Edit</button><button data-action="complete" class="${task.completed ? "reopen-action" : "complete-action"}" type="button"><i class="fa-solid fa-circle-check"></i> ${task.completed ? "Reopen" : "Complete"}</button><button data-action="delete" class="danger-menu" type="button"><i class="fa-solid fa-trash"></i> Delete</button></div>`; }
 
 function onBoardClick(event) {
   const action = event.target.closest("[data-action]");
-  if (!action) { const card = event.target.closest("[data-task-id]"); const task = findTask(card?.dataset.taskId); if (task && !event.target.closest("button,input,label,a")) { copyText(task.description); showToast("Task description copied."); } return; }
+  if (!action) { const card = event.target.closest("[data-task-id]"); const task = findTask(card?.dataset.taskId); if (task && !event.target.closest("button,input,label,a")) { copyText(createCodexPrompt(task)); showToast("Codex-ready task prompt copied."); } return; }
   event.stopPropagation(); const card = action.closest("[data-task-id]"); const task = findTask(card?.dataset.taskId); if (!task) return;
   const type = action.dataset.action;
-  if (type === "menu") { taskState.menuId = taskState.menuId === task.id ? null : task.id; render(); return; }
+  if (type === "menu") { const previousId = taskState.menuId; taskState.menuId = taskState.menuId === task.id ? null : task.id; refreshTaskCard(previousId); refreshTaskCard(task.id); return; }
   if (type === "important") mutate(task, { important: !task.important });
   if (type === "favorite") mutate(task, { favorite: !task.favorite });
   if (type === "assign") mutate(task, { assignee: action.dataset.assignee === "unassigned" ? null : action.dataset.assignee });
@@ -163,11 +181,18 @@ function onBoardClick(event) {
   if (type === "delete") { taskState.deletingId = task.id; deleteBackdrop.hidden = false; document.body.style.overflow = "hidden"; }
 }
 
-function createMilestone() { const title = window.prompt("Milestone / workstream title:"); if (!title?.trim()) return; const miniTasks = (window.prompt("Mini-tasks (separate with commas):") || "").split(",").map((item, index) => ({ id: `mini-${Date.now()}-${index}`, title: item.trim(), completed: false })).filter((item) => item.title); taskState.milestones.unshift({ id: `milestone-${Date.now().toString(36)}`, title: title.trim(), description: "A focused workstream for the Motion Shelf team.", miniTasks, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }); taskState.view = "milestones"; markDirty(); render(); showToast("New workstream added."); }
+function addMiniTaskField(task = {}) { const row = document.createElement("div"); row.className = "milestone-task-field"; if (task.id) row.dataset.miniTaskId = task.id; if (task.taskId) row.dataset.boardTaskId = task.taskId; row.innerHTML = `<input class="mini-task-title" type="text" maxlength="240" placeholder="Describe a task…" value="${escape(task.title || "")}" /><button class="icon-button danger-icon" type="button" data-remove-mini-task aria-label="Remove task"><i class="fa-solid fa-trash"></i></button>`; milestoneTaskFields.append(row); }
+function openMilestoneEditor(id = null) { const milestone = id ? taskState.milestones.find((item) => item.id === id) : null; taskState.editingMilestoneId = id; milestoneForm.reset(); milestoneTaskFields.replaceChildren(); $("milestoneEditorEyebrow").textContent = milestone ? "EDIT" : "CREATE"; $("milestoneEditorTitle").textContent = milestone ? "Edit milestone" : "New milestone"; $("milestoneSaveButton").innerHTML = milestone ? '<i class="fa-solid fa-check"></i> Save changes' : '<i class="fa-solid fa-plus"></i> Create Milestone'; $("milestoneAssignee").innerHTML = `<option value="">Unassigned</option>${CONTRIBUTORS.map((name) => `<option value="${name}">${name}</option>`).join("")}`; if (milestone) { milestoneForm.elements.title.value = milestone.title; milestoneForm.elements.description.value = milestone.description; milestoneForm.elements.assignee.value = milestone.assignee || ""; milestone.miniTasks.forEach(addMiniTaskField); } else addMiniTaskField(); milestoneEditorBackdrop.hidden = false; document.body.style.overflow = "hidden"; requestAnimationFrame(() => milestoneForm.elements.title.focus()); }
+function closeMilestoneEditor() { milestoneEditorBackdrop.hidden = true; document.body.style.overflow = ""; taskState.editingMilestoneId = null; }
+function saveMilestoneEditor(event) { event.preventDefault(); const title = milestoneForm.elements.title.value.trim(); if (!title) return; const now = new Date().toISOString(); const isEditing = Boolean(taskState.editingMilestoneId); const current = isEditing ? taskState.milestones.find((item) => item.id === taskState.editingMilestoneId) : null; const milestone = current || { id: `milestone-${Date.now().toString(36)}`, createdAt: now }; const assignee = milestoneForm.elements.assignee.value || null; const miniTasks = [...milestoneTaskFields.querySelectorAll(".milestone-task-field")].map((row) => { const taskTitle = row.querySelector(".mini-task-title").value.trim(); if (!taskTitle) return null; return { id: row.dataset.miniTaskId || `mini-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, taskId: row.dataset.boardTaskId || createTaskId(), title: taskTitle }; }).filter(Boolean); const retainedTaskIds = new Set(miniTasks.map((item) => item.taskId)); if (current) taskState.tasks = taskState.tasks.filter((task) => task.milestoneId !== milestone.id || retainedTaskIds.has(task.id)); Object.assign(milestone, { title, description: milestoneForm.elements.description.value.trim(), assignee, miniTasks, updatedAt: now }); miniTasks.forEach((miniTask) => { const boardTask = findTask(miniTask.taskId); const changes = { id: miniTask.taskId, title: miniTask.title, description: milestoneTaskDescription(milestone), assignee, milestoneId: milestone.id, updatedAt: now }; if (boardTask) Object.assign(boardTask, normalizeTask({ ...boardTask, ...changes })); else taskState.tasks.unshift(normalizeTask({ ...changes, favorite: false, important: false, completed: false, createdAt: now })); }); if (!isEditing) taskState.milestones.unshift(milestone); taskState.view = "milestones"; markDirty(); closeMilestoneEditor(); render(); showToast(isEditing ? "Milestone and board tasks saved." : "Milestone and board tasks created."); }
 
-function onDragStart(event) { const card = event.target.closest("[data-task-id]"); if (!card) return; taskState.dragId = card.dataset.taskId; card.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", taskState.dragId); }
-function clearDrag() { taskState.dragId = null; document.querySelectorAll(".is-dragging,.is-drop-target").forEach((element) => element.classList.remove("is-dragging", "is-drop-target")); }
-function onDrop(event) { const lane = event.target.closest("[data-lane]"); if (!lane || !taskState.dragId) return; event.preventDefault(); const task = findTask(taskState.dragId); if (task) mutate(task, { assignee: lane.dataset.lane === "unassigned" ? null : lane.dataset.lane }, "Task moved."); clearDrag(); }
+function milestoneTaskDescription(milestone) { return `Part of milestone: ${milestone.title}\n\n${milestone.description || "Complete this milestone task using the existing project patterns."}`; }
+function createCodexPrompt(task) { const milestone = task.milestoneId ? taskState.milestones.find((item) => item.id === task.milestoneId) : null; return `You are working on the Motion Shelf project.\n\n## Task\n${task.title}\n\n## Context\n${task.description || "No additional context was provided."}${milestone ? `\n\n## Milestone\n${milestone.title}${milestone.description ? `\n${milestone.description}` : ""}` : ""}\n\n## Requirements\n- Inspect the existing implementation before changing it.\n- Implement this task using the project’s current architecture and style.\n- Preserve working behavior outside this task.\n- Test the affected flow and report what changed.\n\nWhen complete, mark this task as completed on the task board.`; }
+
+function onDragStart(event) { const card = event.target.closest("[data-task-id]"); if (!card) return; taskState.dragId = card.dataset.taskId; card.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", taskState.dragId); const sourceLane = card.closest("[data-lane]"); const assignedLane = board.querySelector('[data-lane="Gabriel"] .task-lane-dropzone'); if (sourceLane?.dataset.lane === "unassigned" && assignedLane) { const preview = card.cloneNode(true); preview.classList.remove("is-dragging", "is-menu-open"); preview.style.cssText = `position: fixed; top: -10000px; left: -10000px; width: ${assignedLane.getBoundingClientRect().width}px; pointer-events: none;`; document.body.append(preview); taskState.dragPreview = preview; event.dataTransfer.setDragImage(preview, 24, 24); } }
+function clearDrag() { taskState.dragId = null; taskState.dragPreview?.remove(); taskState.dragPreview = null; document.querySelectorAll(".is-dragging,.is-drop-target").forEach((element) => element.classList.remove("is-dragging", "is-drop-target")); }
+function onDrop(event) { const lane = event.target.closest("[data-lane]"); if (!lane || !taskState.dragId) return; event.preventDefault(); const task = findTask(taskState.dragId); const sourceRect = task ? board.querySelector(`[data-task-id="${task.id}"]`)?.getBoundingClientRect() : null; if (task) { mutate(task, { assignee: lane.dataset.lane === "unassigned" ? null : lane.dataset.lane }, "Task moved."); animateTaskRelocation(task.id, sourceRect); } clearDrag(); }
+function animateTaskRelocation(taskId, sourceRect) { const card = board.querySelector(`[data-task-id="${taskId}"]`); if (!card || !sourceRect || !card.animate) return; const targetRect = card.getBoundingClientRect(); const scaleX = sourceRect.width / targetRect.width; const scaleY = sourceRect.height / targetRect.height; card.animate([{ transformOrigin: "top left", transform: `translate(${sourceRect.left - targetRect.left}px, ${sourceRect.top - targetRect.top}px) scale(${scaleX}, ${scaleY})`, opacity: .78 }, { transformOrigin: "top left", transform: "translate(0, 0) scale(1)", opacity: 1 }], { duration: 280, easing: "cubic-bezier(.2, .8, .2, 1)" }); }
 function findTask(id) { return taskState.tasks.find((task) => task.id === id); }
 function mutate(task, changes, message = "Task updated.") { Object.assign(task, changes, { updatedAt: new Date().toISOString() }); taskState.menuId = null; markDirty(); render(); showToast(message); }
 function markDirty() { taskState.dirty = true; saveTaskCache(taskState.tasks); saveMilestoneCache(taskState.milestones); }
@@ -180,5 +205,6 @@ function openRules() { rulesBackdrop.hidden = false; document.body.style.overflo
 function closeRules() { rulesBackdrop.hidden = true; document.body.style.overflow = ""; $("taskRulesButton").focus(); }
 function deleteTask() { const task = findTask(taskState.deletingId); if (!task) return; taskState.tasks = taskState.tasks.filter((item) => item.id !== task.id); markDirty(); closeDelete(); render(); showToast("Task deleted."); }
 async function pushTasks() { if (!supportsProjectFolders()) { showToast("Folder access requires Chrome or Edge on localhost.", true); return; } try { state.projectBusy = true; updateProjectUi(); await writeTasksToLinkedProject(taskState.tasks, taskState.milestones, getTasksDirectory); taskState.dirty = false; saveTaskCache(taskState.tasks); saveMilestoneCache(taskState.milestones); showToast("Tasks and contributor prompts saved locally."); } catch (error) { if (error?.name !== "AbortError") showToast("Could not write task files.", true); } finally { state.projectBusy = false; updateProjectUi(); render(); } }
-function closeMenu() { if (taskState.menuId) { taskState.menuId = null; render(); } }
+function refreshTaskCard(id) { const task = findTask(id); const card = id && board.querySelector(`[data-task-id="${id}"]`); if (task && card) card.outerHTML = renderCard(task); }
+function closeMenu() { if (taskState.menuId) { const id = taskState.menuId; taskState.menuId = null; refreshTaskCard(id); } }
 function showToast(message, error = false) { $("taskToastText").textContent = message; $("taskToastIcon").className = error ? "fa-solid fa-triangle-exclamation" : "fa-solid fa-check"; $("taskToast").classList.toggle("error", error); $("taskToast").classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => $("taskToast").classList.remove("show"), 2800); }
