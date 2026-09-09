@@ -405,9 +405,3 @@ export function buildTags(animation) {
   return tags;
 }
 
-function isTagFiltered(animation, filter) {
-  return (
-    state.selectedFilters.includes(filter) &&
-    animationMatchesFilter(animation, filter)
-  );
-}

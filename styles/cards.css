@@ -163,15 +163,71 @@
 
   top: 12px;
   left: 12px;
+
+  display: inline-flex;
 }
 
 .card-selection input {
-  width: 20px;
-  height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
 
-  accent-color: var(--primary);
+  margin: 0;
+
+  width: 22px;
+  height: 22px;
+
+  border-radius: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+
+  background: rgba(10, 16, 16, 0.55);
 
   cursor: pointer;
+
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    transform 160ms ease;
+}
+
+.card-selection input:hover {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.card-selection input:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+/*
+ * Single visual checkmark: the native input is fully custom-styled above
+ * (no browser-drawn check), and this icon is the only mark shown, so
+ * there is never a double checkmark.
+ */
+.selection-check {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #fff;
+  font-size: 11px;
+
+  pointer-events: none;
+
+  opacity: 0;
+  transform: scale(0.4);
+
+  transition:
+    opacity 140ms ease,
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card-selection input:checked + .selection-check {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* ==================================================

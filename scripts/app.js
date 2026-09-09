@@ -317,7 +317,18 @@ animationGrid.addEventListener("click", async (event) => {
   }
 
   if (action === "copy") {
-    if (state.selectionMode || event.target.closest("button, input, label, a")) {
+    if (event.target.closest("button, input, label, a")) {
+      return;
+    }
+
+    if (state.selectionMode) {
+      if (state.selectedIds.has(id)) {
+        state.selectedIds.delete(id);
+      } else {
+        state.selectedIds.add(id);
+      }
+
+      render();
       return;
     }
 

@@ -85,6 +85,7 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | `scripts/filters.js` | Search, dynamic categories and maximum-two-filter behavior. |
 | `scripts/modals.js` | Opens/closes dialogs. Clicking outside does not close the editor. |
 | `scripts/utils.js` | Escaping, slugs, dates, IDs and normalization helpers. |
+| `scripts/scroll-progress.js` | Drives the glowing top-of-page scroll progress line shared by both pages (`.scroll-progress` / `.scroll-progress-fill` in `styles/styles.css`); updates its width from scroll position via `requestAnimationFrame`. |
 
 ## Style files
 
@@ -100,6 +101,8 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | `styles/forms.css` | Base form fields, categories and device selector. |
 | `styles/toast.css` | Success/error notifications. |
 | `styles/keyframes.css` | Motion Shelf interface animations only. User-created keyframes are injected dynamically or saved in `animations/`. |
+
+Each page also carries its own scrollbar and scroll-progress color theme, layered on top of the shared geometry in `styles/styles.css`: the animation library re-colors them emerald in `styles/library-atmosphere.css`, and the task board re-colors them jade/copper in `styles/task-sky.css`.
 
 ## Important developer rules
 

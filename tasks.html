@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="./styles/task-sky.css" />
   </head>
   <body class="stargazing-page">
+    <div class="scroll-progress" aria-hidden="true"><span class="scroll-progress-fill" id="scrollProgressFill"></span></div>
     <div class="ambient-background" aria-hidden="true"><div class="ambient-morph ambient-morph-one"></div><div class="ambient-morph ambient-morph-two"></div><div class="ambient-sparks" id="ambientSparks"></div></div>
     <div class="app-shell">
       <header class="site-header">
@@ -50,5 +51,6 @@
     <div class="toast" id="taskToast" role="status"><i id="taskToastIcon" class="fa-solid fa-check"></i><span id="taskToastText"></span></div>
     <script type="module" src="./scripts/tasks.js"></script>
     <script type="module" src="./scripts/task-sky.js"></script>
+    <script type="module" src="./scripts/scroll-progress.js"></script>
   </body>
 </html>

@@ -86,3 +86,91 @@ img {
   background: var(--primary);
   color: var(--primary-text);
 }
+
+/* ==================================================
+   CUSTOM SCROLLBAR
+   The page-level (html/body) scrollbar is hidden outright -- the
+   scroll-progress bar below is the page's scroll indicator instead, so
+   there is no need for a right-edge bar too. Every OTHER scrollable
+   area (filters row, modals, task lanes, etc.) keeps a slim, solid
+   colored scrollbar; each page (library-atmosphere.css, task-sky.css)
+   recolors those to match its own theme. No gradients/animation here:
+   a lot of real browser/OS combinations (notably macOS overlay
+   scrollbars) ignore anything on this pseudo-element beyond a flat
+   background-color, so that is all this relies on.
+   ================================================== */
+
+html,
+body {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--presence) rgba(10, 16, 16, 0.6);
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(10, 16, 16, 0.6);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--presence);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ==================================================
+   SCROLL PROGRESS
+   A glowing line pinned to the top of the viewport whose width tracks
+   scroll position (scripts/scroll-progress.js). No automatic/looping
+   animation -- it only moves because you scroll. Each page re-colors
+   .scroll-progress-fill to match its own theme.
+   ================================================== */
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  z-index: 999;
+
+  background: rgba(255, 255, 255, 0.06);
+
+  pointer-events: none;
+}
+
+.scroll-progress-fill {
+  position: relative;
+
+  display: block;
+  height: 100%;
+  width: 0%;
+
+  background-image: linear-gradient(90deg, var(--presence), var(--primary), var(--primary-strong));
+
+  box-shadow:
+    0 0 10px rgba(28, 184, 186, 0.75),
+    0 0 22px rgba(53, 117, 189, 0.45);
+
+  transition: width 80ms linear;
+}
+
