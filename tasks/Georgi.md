@@ -11,7 +11,13 @@ Before making changes:
 
 ## Active Tasks
 
-No active tasks are assigned to you.
+### 1. Redesign the animation editor modal
+
+**Priority:** Important  
+**Task ID:** task-redesign-animation-editor-modal
+
+Description:
+Redesign the animation edit modal as a new, complete interface. Keep the image preview sticky once it reaches the top of the modal while scrolling. Introduce an adjustable class-based approach for the current animation only, so edits are scoped to that animation and never change other animations at the same time. Include all controls and interaction states needed for the new editing experience, while keeping the modal responsive and preserving existing working behavior.
 
 ## Completed Tasks
 

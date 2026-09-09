@@ -5,13 +5,13 @@
       "id": "task-redesign-animation-editor-modal",
       "title": "Redesign the animation editor modal",
       "description": "Redesign the animation edit modal as a new, complete interface. Keep the image preview sticky once it reaches the top of the modal while scrolling. Introduce an adjustable class-based approach for the current animation only, so edits are scoped to that animation and never change other animations at the same time. Include all controls and interaction states needed for the new editing experience, while keeping the modal responsive and preserving existing working behavior.",
-      "assignee": null,
+      "assignee": "Georgi",
       "favorite": false,
       "important": true,
       "completed": false,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T16:15:35Z"
+      "updatedAt": "2026-09-09T17:37:32.530Z"
     },
     {
       "id": "task-auto-classify-imported-animations",
@@ -53,13 +53,13 @@
       "id": "task-scan-and-integrate-campaign-animations",
       "title": "Scan and integrate campaign animation styles",
       "description": "Scan the campaigns and previews-only folders, collect all animation classes, keyframes, and related styles, then organize and integrate them into the Motion Shelf animation library.",
-      "assignee": null,
+      "assignee": "Gabriel",
       "favorite": false,
       "important": true,
       "completed": false,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T16:15:35Z"
+      "updatedAt": "2026-09-09T17:37:00.272Z"
     },
     {
       "id": "task-mtu4sn0i-q793en",

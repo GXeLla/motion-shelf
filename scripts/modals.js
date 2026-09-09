@@ -38,6 +38,11 @@ export function createModalController() {
 
     editorBackdrop.hidden = false;
 
+    // The editor can retain its previous scroll position. Always show its
+    // heading first when reopening it (especially when editing an animation).
+    editorBackdrop.scrollTop = 0;
+    editorBackdrop.querySelector(".modal").scrollTop = 0;
+
     document.body.style.overflow = "hidden";
   }
 

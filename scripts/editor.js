@@ -52,9 +52,6 @@ export function initializeEditor({ modalController, render, showToast }) {
   const eyebrow = document.getElementById("editorEyebrow");
   const saveButton = document.getElementById("saveAnimationButton");
   const categoryPicker = document.getElementById("categoryPicker");
-  const imageUrlInput = form.elements.imageUrl;
-  const imagePreview = document.getElementById("imageUrlPreview");
-  const imagePreviewImage = document.getElementById("imageUrlPreviewImage");
   const deviceSelector = document.getElementById("deviceSelector");
   const deviceInput = form.elements.device;
   const errorSummary = document.getElementById("formErrorSummary");
@@ -105,10 +102,8 @@ export function initializeEditor({ modalController, render, showToast }) {
     }
 
     modalController.openEditor();
-    updateImagePreview(imageUrlInput.value);
     syncBezierFromSelection();
     updateLivePreview();
-    requestAnimationFrame(() => form.elements.name.focus());
   }
 
   function fillForm(data) {
@@ -245,21 +240,6 @@ export function initializeEditor({ modalController, render, showToast }) {
     modalController.closeAll();
     render();
     state.editingId = null;
-  }
-
-  function updateImagePreview(value) {
-    const url = normalizeImageUrl(value);
-    if (!url) {
-      imagePreview.hidden = true;
-      imagePreviewImage.removeAttribute("src");
-      imagePreview.classList.remove("error");
-      return;
-    }
-    imagePreview.hidden = false;
-    imagePreview.classList.remove("error");
-    imagePreviewImage.src = url;
-    imagePreviewImage.onerror = () => imagePreview.classList.add("error");
-    imagePreviewImage.onload = () => imagePreview.classList.remove("error");
   }
 
   function updateLivePreview() {
@@ -507,7 +487,6 @@ export function initializeEditor({ modalController, render, showToast }) {
   form.addEventListener("submit", submit);
   form.addEventListener("input", (event) => {
     clearErrors(event.target.name);
-    if (event.target === imageUrlInput) updateImagePreview(imageUrlInput.value);
     saveDraft();
     updateLivePreview();
   });
