@@ -170,11 +170,12 @@ export function createCard(animation) {
 
   titleRow.appendChild(targetBadge);
 
-  if (animation.localPresent) {
+  if (!animation.repositoryPresent) {
     const localBadge = document.createElement("span");
     localBadge.className = "local-source-badge";
-    localBadge.dataset.tooltip =
-      animation.localPath || "Saved in the linked animations folder";
+    localBadge.dataset.tooltip = animation.localPresent
+      ? animation.localPath || "Saved in the linked animations folder"
+      : "Created locally and not yet committed to the animation catalog.";
     localBadge.innerHTML = '<i class="fa-solid fa-hard-drive"></i> LOCAL';
     titleRow.appendChild(localBadge);
   }
@@ -188,7 +189,7 @@ export function createCard(animation) {
 
   const localPath = document.createElement("div");
   localPath.className = "card-local-path";
-  if (animation.localPresent) {
+  if (animation.localPresent && !animation.repositoryPresent) {
     localPath.innerHTML = `
       <i class="fa-solid fa-folder-open"></i>
       <span>${escapeHtml(animation.localPath || animation.codeFileName || "animations")}</span>
@@ -283,7 +284,7 @@ export function createCard(animation) {
 
     synced.innerHTML = `
       <i class="fa-solid fa-circle-check"></i>
-        Local
+        ${animation.repositoryPresent ? "Included" : "Local"}
       `;
 
     actions.appendChild(synced);

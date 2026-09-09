@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "files": [
+    "3d-image-turn-reveal.css",
+    "cinematic-image-drift.css",
+    "elastic-image-pop.css",
+    "elastic-squash-pop.css",
+    "horizontal-parallax-glide.css",
+    "packshot-fly-in.css",
+    "soft-image-breathing.css"
+  ]
+}

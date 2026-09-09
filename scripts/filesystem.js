@@ -120,12 +120,29 @@ export async function loadAnimationsFromProject() {
   return { animations: localAnimations, errors, loaded: true };
 }
 
+export async function loadAnimationsFromRepository() {
+  const manifestResponse = await fetch("./animations/manifest.json", { cache: "no-store" });
+  if (!manifestResponse.ok) throw new Error("Could not load the committed animation catalog.");
+  const manifest = await manifestResponse.json();
+  if (!Array.isArray(manifest.files)) throw new Error("The animation catalog is invalid.");
+  const animations = await Promise.all(manifest.files.map(async (fileName) => {
+    const response = await fetch(`./animations/${encodeURIComponent(fileName)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Could not load animations/${fileName}.`);
+    return parseAnimationFile(await response.text(), fileName, Date.now(), { source: "repository", localPresent: false, repositoryPresent: true, localPath: `animations/${fileName}` });
+  }));
+  mergeRepositoryAnimations(animations);
+  saveAnimations(state.animations);
+  return animations;
+}
+
 export function getProjectDisplayPath(fileName = "") {
   const root = state.projectName || state.projectHandle?.name || "project";
   return `${root}/animations${fileName ? `/${fileName}` : ""}`;
 }
 
-export function parseAnimationFile(cssText, fileName, lastModified = Date.now()) {
+export function parseAnimationFile(cssText, fileName, lastModified = Date.now(), options = {}) {
+  const source = options.source || "local";
+  const localPresent = options.localPresent ?? source === "local";
   const metadata = readMetadata(cssText);
   const fallbackName = titleFromFile(fileName);
   const animationName =
@@ -146,9 +163,10 @@ export function parseAnimationFile(cssText, fileName, lastModified = Date.now())
     css,
     codeFileName: fileName,
     codeSynced: true,
-    localPresent: true,
-    localPath: getProjectDisplayPath(fileName),
-    source: "local",
+    localPresent,
+    repositoryPresent: options.repositoryPresent ?? source === "repository",
+    localPath: options.localPath || getProjectDisplayPath(fileName),
+    source,
     rawCss: cssText,
     createdAt: metadata.createdAt || lastModified,
     updatedAt: metadata.updatedAt || lastModified,
@@ -156,9 +174,21 @@ export function parseAnimationFile(cssText, fileName, lastModified = Date.now())
   });
 }
 
+function mergeRepositoryAnimations(repositoryAnimations) {
+  const repositoryIds = new Set(repositoryAnimations.map((animation) => animation.id));
+  const merged = repositoryAnimations.map((repository) => {
+    const existing = state.animations.find((animation) => animation.id === repository.id || animation.codeFileName === repository.codeFileName);
+    if (existing?.localPresent) return normalizeAnimation({ ...repository, ...existing, repositoryPresent: true, source: "local" });
+    return repository;
+  });
+  const extras = state.animations.filter((animation) => !repositoryIds.has(animation.id));
+  state.animations = [...merged, ...extras].sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+}
+
 function mergeLocalAnimations(localAnimations) {
+  const localIds = new Set(localAnimations.map((animation) => animation.id));
   const sessionOnly = state.animations.filter(
-    (animation) => !animation.localPresent && animation.source !== "local",
+    (animation) => !animation.localPresent && animation.source !== "local" && !localIds.has(animation.id),
   );
 
   const mergedLocal = localAnimations.map((local) => {
@@ -182,7 +212,7 @@ function mergeLocalAnimations(localAnimations) {
       });
     }
 
-    return normalizeAnimation({ ...existing, ...local, id: existing.id || local.id });
+    return normalizeAnimation({ ...existing, ...local, id: existing.id || local.id, repositoryPresent: existing.repositoryPresent });
   });
 
   state.animations = [...mergedLocal, ...sessionOnly].sort(

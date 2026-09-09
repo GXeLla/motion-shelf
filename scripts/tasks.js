@@ -5,7 +5,7 @@ import { CONTRIBUTORS, createTaskId, formatTaskDate, normalizeTask } from "./tas
 import { loadMilestoneCache, loadTaskCache, loadTasksFromLinkedProject, saveMilestoneCache, saveTaskCache, writeTasksToLinkedProject } from "./task-storage.js";
 import { copyText } from "./code.js";
 
-const taskState = { tasks: loadTaskCache(), milestones: loadMilestoneCache(), view: "board", filter: "all", search: "", quick: new Set(), dirty: false, editingId: null, editingMilestoneId: null, deletingId: null, menuId: null, dragId: null, dragPreview: null, draggingMilestone: null };
+const taskState = { tasks: loadTaskCache(), milestones: loadMilestoneCache(), view: "board", filter: "all", search: "", quick: new Set(), dirty: false, editingId: null, editingMilestoneId: null, deletingId: null, deletingMilestoneId: null, menuId: null, dragId: null, dragPreview: null, draggingMilestone: null };
 const $ = (id) => document.getElementById(id);
 const board = $("taskBoard");
 const milestoneBoard = $("milestoneBoard");
@@ -14,21 +14,22 @@ const deleteBackdrop = $("taskDeleteBackdrop");
 const rulesBackdrop = $("taskRulesBackdrop");
 const form = $("taskForm");
 const milestoneEditorBackdrop = $("milestoneEditorBackdrop");
+const milestoneDeleteBackdrop = $("milestoneDeleteBackdrop");
 const milestoneForm = $("milestoneForm");
 const milestoneTaskFields = $("milestoneTaskFields");
+const milestoneImportInput = $("milestoneImportInput");
 let toastTimer;
 let boardHasRendered = false;
 
 initializeAmbientBackground();
 setupControls();
-render();
 initializeProject();
 
 function setupControls() {
   $("newTaskButton").addEventListener("click", () => openEditor());
   $("taskRulesButton").addEventListener("click", openRules);
   document.querySelector(".task-view-tabs").addEventListener("click", (event) => { const button = event.target.closest("[data-view]"); if (!button) return; taskState.view = button.dataset.view; render(); });
-  milestoneBoard.addEventListener("click", (event) => { const button = event.target.closest("[data-milestone-action]"); if (!button) return; if (button.dataset.milestoneAction === "new") openMilestoneEditor(); if (button.dataset.milestoneAction === "edit") openMilestoneEditor(button.dataset.milestoneId); });
+  milestoneBoard.addEventListener("click", (event) => { const button = event.target.closest("[data-milestone-action]"); if (!button) return; if (button.dataset.milestoneAction === "new") openMilestoneEditor(); if (button.dataset.milestoneAction === "import") milestoneImportInput.click(); if (button.dataset.milestoneAction === "edit") openMilestoneEditor(button.dataset.milestoneId); });
   $("pushTasksButton").addEventListener("click", pushTasks);
   $("taskSearch").addEventListener("input", (event) => { taskState.search = event.target.value.trim().toLowerCase(); render(); });
   $("taskFilters").addEventListener("click", (event) => { const button = event.target.closest("[data-filter]"); if (button) { taskState.filter = button.dataset.filter; render(); } });
@@ -52,16 +53,22 @@ function setupControls() {
   $("taskRulesDone").addEventListener("click", closeRules);
   $("milestoneEditorClose").addEventListener("click", closeMilestoneEditor);
   $("milestoneEditorCancel").addEventListener("click", closeMilestoneEditor);
+  $("milestoneDeleteButton").addEventListener("click", openMilestoneDelete);
+  $("milestoneDeleteClose").addEventListener("click", closeMilestoneDelete);
+  $("milestoneDeleteCancel").addEventListener("click", closeMilestoneDelete);
+  $("milestoneDeleteConfirm").addEventListener("click", deleteMilestone);
   $("addMiniTaskButton").addEventListener("click", () => addMiniTaskField());
   milestoneTaskFields.addEventListener("click", (event) => { const button = event.target.closest("[data-remove-mini-task]"); if (button) button.closest(".milestone-task-field").remove(); });
   editorBackdrop.addEventListener("click", (event) => { if (event.target === editorBackdrop) closeEditor(); });
   deleteBackdrop.addEventListener("click", (event) => { if (event.target === deleteBackdrop) closeDelete(); });
   rulesBackdrop.addEventListener("click", (event) => { if (event.target === rulesBackdrop) closeRules(); });
   milestoneEditorBackdrop.addEventListener("click", (event) => { if (event.target === milestoneEditorBackdrop) closeMilestoneEditor(); });
+  milestoneDeleteBackdrop.addEventListener("click", (event) => { if (event.target === milestoneDeleteBackdrop) closeMilestoneDelete(); });
   form.addEventListener("submit", saveEditor);
   milestoneForm.addEventListener("submit", saveMilestoneEditor);
+  milestoneImportInput.addEventListener("change", importMilestones);
   document.addEventListener("click", (event) => { if (!event.target.closest(".task-menu-wrap")) closeMenu(); });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); if (!editorBackdrop.hidden) closeEditor(); if (!deleteBackdrop.hidden) closeDelete(); if (!rulesBackdrop.hidden) closeRules(); if (!milestoneEditorBackdrop.hidden) closeMilestoneEditor(); } });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") { closeMenu(); if (!editorBackdrop.hidden) closeEditor(); if (!deleteBackdrop.hidden) closeDelete(); if (!rulesBackdrop.hidden) closeRules(); if (!milestoneEditorBackdrop.hidden) closeMilestoneEditor(); if (!milestoneDeleteBackdrop.hidden) closeMilestoneDelete(); } });
   $("projectLinkButton").addEventListener("click", () => linkProject(false));
   $("projectChangeButton").addEventListener("click", () => linkProject(true));
 }
@@ -134,7 +141,7 @@ function renderMilestones() {
     const percent = total ? Math.round((done / total) * 100) : 0;
     return `<article class="milestone-card ${percent === 100 && total ? "is-complete" : ""}" draggable="true" data-milestone-id="${milestone.id}"><header><div><span class="eyebrow"><i class="fa-solid fa-grip-lines"></i> WORKSTREAM${milestone.assignee ? ` · ${escape(milestone.assignee)}` : ""}</span><h3>${escape(milestone.title)}</h3></div><div class="milestone-card-actions"><strong>${percent}%</strong><button type="button" data-milestone-action="edit" data-milestone-id="${milestone.id}" aria-label="Edit ${escape(milestone.title)}"><i class="fa-solid fa-pen"></i> Edit</button></div></header><p>${escape(milestone.description)}</p><div class="milestone-progress" aria-label="${percent}% complete"><span style="width: ${percent}%"></span></div><div class="mini-task-list">${milestoneTasks.map((task) => `<div class="mini-task ${task.completed ? "done" : ""}"><span>${escape(task.title)}</span><i class="fa-solid ${task.completed ? "fa-check" : "fa-circle"}"></i></div>`).join("") || '<div class="mini-task-empty">No tasks yet — use Edit to add one.</div>'}</div><footer>${done} of ${total} tasks complete${percent === 100 && total ? " · Ready to close" : " · Update completion on the board"}</footer></article>`;
   }).join("") || `<div class="task-lane-empty">No milestones yet. Create one to start grouping work.</div>`;
-  milestoneBoard.innerHTML = `<header class="milestone-board-toolbar"><div><span class="eyebrow"><i class="fa-solid fa-flag-checkered"></i> WORKSTREAMS</span><p>Create a milestone to organize related board tasks.</p></div><button class="button primary" type="button" data-milestone-action="new"><i class="fa-solid fa-plus"></i> New Milestone</button></header>${milestoneCards}`;
+  milestoneBoard.innerHTML = `<header class="milestone-board-toolbar"><div><span class="eyebrow"><i class="fa-solid fa-flag-checkered"></i> WORKSTREAMS</span><p>Create or import milestones to organize related board tasks.</p></div><div class="milestone-board-actions"><button class="button secondary" type="button" data-milestone-action="import"><i class="fa-solid fa-file-import"></i> Import JSON</button><button class="button primary" type="button" data-milestone-action="new"><i class="fa-solid fa-plus"></i> New Milestone</button></div></header>${milestoneCards}`;
   $("taskResultCount").textContent = `${taskState.milestones.length} ${taskState.milestones.length === 1 ? "milestone" : "milestones"}`;
 }
 
@@ -182,12 +189,63 @@ function onBoardClick(event) {
 }
 
 function addMiniTaskField(task = {}) { const row = document.createElement("div"); row.className = "milestone-task-field"; if (task.id) row.dataset.miniTaskId = task.id; if (task.taskId) row.dataset.boardTaskId = task.taskId; row.innerHTML = `<input class="mini-task-title" type="text" maxlength="240" placeholder="Describe a task…" value="${escape(task.title || "")}" /><button class="icon-button danger-icon" type="button" data-remove-mini-task aria-label="Remove task"><i class="fa-solid fa-trash"></i></button>`; milestoneTaskFields.append(row); }
-function openMilestoneEditor(id = null) { const milestone = id ? taskState.milestones.find((item) => item.id === id) : null; taskState.editingMilestoneId = id; milestoneForm.reset(); milestoneTaskFields.replaceChildren(); $("milestoneEditorEyebrow").textContent = milestone ? "EDIT" : "CREATE"; $("milestoneEditorTitle").textContent = milestone ? "Edit milestone" : "New milestone"; $("milestoneSaveButton").innerHTML = milestone ? '<i class="fa-solid fa-check"></i> Save changes' : '<i class="fa-solid fa-plus"></i> Create Milestone'; $("milestoneAssignee").innerHTML = `<option value="">Unassigned</option>${CONTRIBUTORS.map((name) => `<option value="${name}">${name}</option>`).join("")}`; if (milestone) { milestoneForm.elements.title.value = milestone.title; milestoneForm.elements.description.value = milestone.description; milestoneForm.elements.assignee.value = milestone.assignee || ""; milestone.miniTasks.forEach(addMiniTaskField); } else addMiniTaskField(); milestoneEditorBackdrop.hidden = false; document.body.style.overflow = "hidden"; requestAnimationFrame(() => milestoneForm.elements.title.focus()); }
+function openMilestoneEditor(id = null) { const milestone = id ? taskState.milestones.find((item) => item.id === id) : null; taskState.editingMilestoneId = id; milestoneForm.reset(); milestoneTaskFields.replaceChildren(); $("milestoneEditorEyebrow").textContent = milestone ? "EDIT" : "CREATE"; $("milestoneEditorTitle").textContent = milestone ? "Edit milestone" : "New milestone"; $("milestoneSaveButton").innerHTML = milestone ? '<i class="fa-solid fa-check"></i> Save changes' : '<i class="fa-solid fa-plus"></i> Create Milestone'; $("milestoneDeleteButton").hidden = !milestone; $("milestoneAssignee").innerHTML = `<option value="">Unassigned</option>${CONTRIBUTORS.map((name) => `<option value="${name}">${name}</option>`).join("")}`; if (milestone) { milestoneForm.elements.title.value = milestone.title; milestoneForm.elements.description.value = milestone.description; milestoneForm.elements.assignee.value = milestone.assignee || ""; milestone.miniTasks.forEach(addMiniTaskField); } else addMiniTaskField(); milestoneEditorBackdrop.hidden = false; document.body.style.overflow = "hidden"; requestAnimationFrame(() => milestoneForm.elements.title.focus()); }
 function closeMilestoneEditor() { milestoneEditorBackdrop.hidden = true; document.body.style.overflow = ""; taskState.editingMilestoneId = null; }
+function openMilestoneDelete() { if (!taskState.editingMilestoneId) return; taskState.deletingMilestoneId = taskState.editingMilestoneId; milestoneEditorBackdrop.hidden = true; milestoneDeleteBackdrop.hidden = false; document.body.style.overflow = "hidden"; requestAnimationFrame(() => $("milestoneDeleteConfirm").focus()); }
+function closeMilestoneDelete() { milestoneDeleteBackdrop.hidden = true; document.body.style.overflow = ""; taskState.deletingMilestoneId = null; }
+function deleteMilestone() { const milestone = taskState.milestones.find((item) => item.id === taskState.deletingMilestoneId); if (!milestone) return; taskState.tasks = taskState.tasks.filter((task) => task.milestoneId !== milestone.id); taskState.milestones = taskState.milestones.filter((item) => item.id !== milestone.id); markDirty(); closeMilestoneDelete(); taskState.editingMilestoneId = null; render(); showToast("Milestone and linked board tasks deleted."); }
 function saveMilestoneEditor(event) { event.preventDefault(); const title = milestoneForm.elements.title.value.trim(); if (!title) return; const now = new Date().toISOString(); const isEditing = Boolean(taskState.editingMilestoneId); const current = isEditing ? taskState.milestones.find((item) => item.id === taskState.editingMilestoneId) : null; const milestone = current || { id: `milestone-${Date.now().toString(36)}`, createdAt: now }; const assignee = milestoneForm.elements.assignee.value || null; const miniTasks = [...milestoneTaskFields.querySelectorAll(".milestone-task-field")].map((row) => { const taskTitle = row.querySelector(".mini-task-title").value.trim(); if (!taskTitle) return null; return { id: row.dataset.miniTaskId || `mini-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, taskId: row.dataset.boardTaskId || createTaskId(), title: taskTitle }; }).filter(Boolean); const retainedTaskIds = new Set(miniTasks.map((item) => item.taskId)); if (current) taskState.tasks = taskState.tasks.filter((task) => task.milestoneId !== milestone.id || retainedTaskIds.has(task.id)); Object.assign(milestone, { title, description: milestoneForm.elements.description.value.trim(), assignee, miniTasks, updatedAt: now }); miniTasks.forEach((miniTask) => { const boardTask = findTask(miniTask.taskId); const changes = { id: miniTask.taskId, title: miniTask.title, description: milestoneTaskDescription(milestone), assignee, milestoneId: milestone.id, updatedAt: now }; if (boardTask) Object.assign(boardTask, normalizeTask({ ...boardTask, ...changes })); else taskState.tasks.unshift(normalizeTask({ ...changes, favorite: false, important: false, completed: false, createdAt: now })); }); if (!isEditing) taskState.milestones.unshift(milestone); taskState.view = "milestones"; markDirty(); closeMilestoneEditor(); render(); showToast(isEditing ? "Milestone and board tasks saved." : "Milestone and board tasks created."); }
 
 function milestoneTaskDescription(milestone) { return `Part of milestone: ${milestone.title}\n\n${milestone.description || "Complete this milestone task using the existing project patterns."}`; }
 function createCodexPrompt(task) { const milestone = task.milestoneId ? taskState.milestones.find((item) => item.id === task.milestoneId) : null; return `You are working on the Motion Shelf project.\n\n## Task\n${task.title}\n\n## Context\n${task.description || "No additional context was provided."}${milestone ? `\n\n## Milestone\n${milestone.title}${milestone.description ? `\n${milestone.description}` : ""}` : ""}\n\n## Requirements\n- Inspect the existing implementation before changing it.\n- Implement this task using the project’s current architecture and style.\n- Preserve working behavior outside this task.\n- Test the affected flow and report what changed.\n\nWhen complete, mark this task as completed on the task board.`; }
+
+async function importMilestones(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    const update = payload?.update || payload;
+    const sourceMilestones = Array.isArray(update?.milestones) ? update.milestones : Array.isArray(payload?.milestones) ? payload.milestones : null;
+    if (!sourceMilestones) throw new Error("The JSON needs an update.milestones array.");
+    const exportKey = String(payload?.metadata?.task_id || update?.id || update?.title || "milestone-export");
+    const now = new Date().toISOString();
+    let importedTasks = 0;
+    sourceMilestones.forEach((sourceMilestone, index) => {
+      const importKey = `external-${exportKey}-${sourceMilestone.id ?? index}`;
+      const existing = taskState.milestones.find((milestone) => milestone.importKey === importKey);
+      const resolvedAssignee = resolveImportedAssignee(sourceMilestone, update);
+      const milestone = existing || { id: `milestone-${Date.now().toString(36)}-${index}`, createdAt: now };
+      const assignee = resolvedAssignee || existing?.assignee || null;
+      const checklist = Array.isArray(sourceMilestone.checklist) ? sourceMilestone.checklist : [];
+      const existingMiniTasks = new Map((existing?.miniTasks || []).map((item) => [item.id, item]));
+      const miniTasks = checklist.map((item, taskIndex) => {
+        const id = `external-${sourceMilestone.id ?? index}-${item.id ?? taskIndex}`;
+        const existingMiniTask = existingMiniTasks.get(id);
+        return { id, taskId: existingMiniTask?.taskId || createTaskId(), title: String(item.title || "Untitled task").trim() };
+      });
+      Object.assign(milestone, { title: String(sourceMilestone.title || update.title || "Imported milestone").trim(), description: String(sourceMilestone.description || update.description || "").trim(), assignee, importKey, miniTasks, updatedAt: now });
+      miniTasks.forEach((miniTask, taskIndex) => {
+        const sourceTask = checklist[taskIndex];
+        const taskDescription = [sourceTask?.description, `Imported from: ${milestone.title}`, update?.description, update?.success_criteria].filter(Boolean).join("\n\n");
+        const boardTask = findTask(miniTask.taskId);
+        const changes = { id: miniTask.taskId, title: miniTask.title, description: taskDescription || milestoneTaskDescription(milestone), assignee, milestoneId: milestone.id, completed: Boolean(sourceTask?.completed), updatedAt: now };
+        if (boardTask) Object.assign(boardTask, normalizeTask({ ...boardTask, ...changes }));
+        else taskState.tasks.unshift(normalizeTask({ ...changes, favorite: false, important: false, createdAt: now }));
+        importedTasks += 1;
+      });
+      if (!existing) taskState.milestones.push(milestone);
+    });
+    taskState.view = "milestones";
+    markDirty(); render();
+    showToast(`${sourceMilestones.length} milestone${sourceMilestones.length === 1 ? "" : "s"} and ${importedTasks} board task${importedTasks === 1 ? "" : "s"} imported.`);
+  } catch (error) { showToast(error?.message || "Could not import this JSON file.", true); }
+  finally { event.target.value = ""; }
+}
+
+function resolveImportedAssignee(sourceMilestone, update) {
+  const candidate = sourceMilestone.assignee_name || sourceMilestone.assigned_user_name || sourceMilestone.assignee?.name || sourceMilestone.assigned_to?.name || update?.assignee_name || update?.assignee?.name;
+  return CONTRIBUTORS.find((name) => name.toLowerCase() === String(candidate || "").toLowerCase()) || null;
+}
 
 function onDragStart(event) { const card = event.target.closest("[data-task-id]"); if (!card) return; taskState.dragId = card.dataset.taskId; card.classList.add("is-dragging"); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", taskState.dragId); const sourceLane = card.closest("[data-lane]"); const assignedLane = board.querySelector('[data-lane="Gabriel"] .task-lane-dropzone'); if (sourceLane?.dataset.lane === "unassigned" && assignedLane) { const preview = card.cloneNode(true); preview.classList.remove("is-dragging", "is-menu-open"); preview.style.cssText = `position: fixed; top: -10000px; left: -10000px; width: ${assignedLane.getBoundingClientRect().width}px; pointer-events: none;`; document.body.append(preview); taskState.dragPreview = preview; event.dataTransfer.setDragImage(preview, 24, 24); } }
 function clearDrag() { taskState.dragId = null; taskState.dragPreview?.remove(); taskState.dragPreview = null; document.querySelectorAll(".is-dragging,.is-drop-target").forEach((element) => element.classList.remove("is-dragging", "is-drop-target")); }

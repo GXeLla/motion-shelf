@@ -2,6 +2,66 @@
   "version": 1,
   "tasks": [
     {
+      "id": "task-redesign-animation-editor-modal",
+      "title": "Redesign the animation editor modal",
+      "description": "Redesign the animation edit modal as a new, complete interface. Keep the image preview sticky once it reaches the top of the modal while scrolling. Introduce an adjustable class-based approach for the current animation only, so edits are scoped to that animation and never change other animations at the same time. Include all controls and interaction states needed for the new editing experience, while keeping the modal responsive and preserving existing working behavior.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": false,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T16:15:35Z",
+      "updatedAt": "2026-09-09T16:15:35Z"
+    },
+    {
+      "id": "task-auto-classify-imported-animations",
+      "title": "Auto-classify imported campaign animations",
+      "description": "When animations are imported from the Campaigns/Preview-only folder, automatically inspect and classify their default properties. Detect hover behavior, image usage, div/container structure, and every relevant animation property available by default. Use that analysis to sort and adjust the imported animation metadata automatically, while keeping the import resilient to different animation structures. Detect duplicate and near-duplicate animations, including variants with different names, timings, or small display changes, and show only one canonical animation in the library.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": false,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T16:15:35Z",
+      "updatedAt": "2026-09-09T16:15:35Z"
+    },
+    {
+      "id": "task-cdn-tree-shakable-animation-library",
+      "title": "Create a CDN-hosted, tree-shakable animation library with dynamic imports",
+      "description": "Design and implement a publishable animation library that can be served from a CDN and consumed without loading the entire collection. Export each animation as an independently importable module with clear, stable names and a lightweight public entry point. Ensure bundlers can tree-shake unused animations, and provide dynamic-import helpers so an application loads an animation only when it is selected or needed. Define a consistent module structure, metadata contract, and versioning strategy; keep shared runtime code minimal; handle loading failures gracefully; and document example static and dynamic import usage. The library must preserve the existing animation behavior while making individual animations fast to discover, load, and cache.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": false,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T16:15:35Z",
+      "updatedAt": "2026-09-09T16:15:35Z"
+    },
+    {
+      "id": "task-reusable-animation-templates-css-variables",
+      "title": "Create reusable animation templates with CSS variables",
+      "description": "Replace collections of nearly identical animation files with reusable templates built on shared keyframe structures. Move adjustable values—such as duration, delay, distance, scale, rotation, easing, opacity, and transform origin—into documented CSS custom properties. Allow projects and individual elements to override those variables without copying or modifying the shared animation definition. Keep keyframes centralized, preserve current visual behavior where possible, define sensible defaults and fallbacks, and document how to apply and customize each template.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": false,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T16:15:35Z",
+      "updatedAt": "2026-09-09T16:15:35Z"
+    },
+    {
+      "id": "task-scan-and-integrate-campaign-animations",
+      "title": "Scan and integrate campaign animation styles",
+      "description": "Scan the campaigns and previews-only folders, collect all animation classes, keyframes, and related styles, then organize and integrate them into the Motion Shelf animation library.",
+      "assignee": null,
+      "favorite": false,
+      "important": true,
+      "completed": false,
+      "milestoneId": null,
+      "createdAt": "2026-09-09T16:15:35Z",
+      "updatedAt": "2026-09-09T16:15:35Z"
+    },
+    {
       "id": "task-mtu4sn0i-q793en",
       "title": "different layout of board",
       "description": "at the top we have a 3 users grid or flex which you want to use but it flex1 stretched at the bottom of that is tasks unasigned ones but full width.",
@@ -86,22 +146,5 @@
       "updatedAt": "2026-09-09T14:00:00.000Z"
     }
   ],
-  "milestones": [
-    {
-      "id": "milestone-mtu3upxo",
-      "title": "Animation sync from campaign",
-      "description": "A focused workstream for the Motion Shelf team.",
-      "assignee": null,
-      "miniTasks": [
-        {
-          "id": "mini-1788958755276-0",
-          "taskId": null,
-          "title": "We need only read-only to take information and to not change anything inside campaign repo.",
-          "completed": false
-        }
-      ],
-      "createdAt": "2026-09-09T12:59:15.276Z",
-      "updatedAt": "2026-09-09T12:59:15.276Z"
-    }
-  ]
+  "milestones": []
 }

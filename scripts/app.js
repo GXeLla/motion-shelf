@@ -34,6 +34,7 @@ import {
   connectProject,
   getProjectDisplayPath,
   loadAnimationsFromProject,
+  loadAnimationsFromRepository,
   restoreProjectLink,
   supportsProjectFolders,
 } from "./filesystem.js";
@@ -114,8 +115,7 @@ initializeFilters({
   render,
 });
 
-render();
-
+initializeRepositoryAnimations();
 initializeProjectWorkspace();
 
 /* ==================================================
@@ -171,10 +171,21 @@ projectChangeButton.addEventListener("click", () => {
   runProjectLinkAction(true);
 });
 
+async function initializeRepositoryAnimations() {
+  try {
+    await loadAnimationsFromRepository();
+    render();
+  } catch (error) {
+    console.error("Could not load committed animations:", error);
+    showToast("Could not load the committed animation catalog.", "fa-solid fa-triangle-exclamation");
+  }
+}
+
 async function initializeProjectWorkspace() {
   if (!supportsProjectFolders()) {
     state.projectPermission = "unsupported";
     updateWorkspaceUI();
+    render();
     return;
   }
 
@@ -187,7 +198,6 @@ async function initializeProjectWorkspace() {
 
     if (handle) {
       const result = await loadAnimationsFromProject();
-      render();
 
       if (result.errors.length) {
         showToast(
@@ -199,6 +209,7 @@ async function initializeProjectWorkspace() {
   } finally {
     state.projectBusy = false;
     updateWorkspaceUI();
+    render();
   }
 }
 

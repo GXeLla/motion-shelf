@@ -85,9 +85,11 @@ export function normalizeAnimation(animation) {
 
     localPresent: Boolean(animation.localPresent),
 
+    repositoryPresent: Boolean(animation.repositoryPresent),
+
     localPath: String(animation.localPath || ""),
 
-    source: animation.source === "local" ? "local" : "session",
+    source: ["local", "repository"].includes(animation.source) ? animation.source : "session",
 
     rawCss: String(animation.rawCss || ""),
 

@@ -31,6 +31,7 @@ export function normalizeMilestone(milestone = {}) {
     title: String(milestone.title || "Untitled milestone").trim(),
     description: String(milestone.description || "").trim(),
     assignee: CONTRIBUTORS.includes(milestone.assignee) ? milestone.assignee : null,
+    importKey: milestone.importKey ? String(milestone.importKey) : null,
     miniTasks: Array.isArray(milestone.miniTasks) ? milestone.miniTasks.map((item, index) => ({ id: String(item.id || `${Date.now()}-${index}`), taskId: item.taskId ? String(item.taskId) : null, title: String(item.title || "").trim(), completed: Boolean(item.completed) })).filter((item) => item.title) : [],
     createdAt: milestone.createdAt || now,
     updatedAt: milestone.updatedAt || milestone.createdAt || now,

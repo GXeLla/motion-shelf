@@ -1,0 +1,29 @@
+{
+  "update": {
+    "title": "External project update",
+    "description": "Context shared by the imported milestones.",
+    "success_criteria": "Describe what successful delivery looks like.",
+    "milestones": [
+      {
+        "id": "design-workstream-1",
+        "title": "Design milestone",
+        "description": "Plan and deliver the design work.",
+        "status": "in_progress",
+        "assigned_user_id": 44,
+        "assignee_name": "Georgi",
+        "checklist": [
+          {
+            "id": "design-task-1",
+            "title": "Create first design direction",
+            "description": "Use the project design system and prepare a review-ready direction.",
+            "completed": false
+          }
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "task_id": "external-update-1",
+    "exported_at": "2026-09-09T16:07:38+00:00"
+  }
+}
