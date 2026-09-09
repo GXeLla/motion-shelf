@@ -11,7 +11,23 @@ Before making changes:
 
 ## Active Tasks
 
-### 1. Scan and integrate campaign animation styles
+### 1. Auto-classify imported campaign animations
+
+**Priority:** Important  
+**Task ID:** task-auto-classify-imported-animations
+
+Description:
+When animations are imported from the Campaigns/Preview-only folder, automatically inspect and classify their default properties. Detect hover behavior, image usage, div/container structure, and every relevant animation property available by default. Use that analysis to sort and adjust the imported animation metadata automatically, while keeping the import resilient to different animation structures. Detect duplicate and near-duplicate animations, including variants with different names, timings, or small display changes, and show only one canonical animation in the library.
+
+### 2. Create reusable animation templates with CSS variables
+
+**Priority:** Important  
+**Task ID:** task-reusable-animation-templates-css-variables
+
+Description:
+Replace collections of nearly identical animation files with reusable templates built on shared keyframe structures. Move adjustable values—such as duration, delay, distance, scale, rotation, easing, opacity, and transform origin—into documented CSS custom properties. Allow projects and individual elements to override those variables without copying or modifying the shared animation definition. Keep keyframes centralized, preserve current visual behavior where possible, define sensible defaults and fallbacks, and document how to apply and customize each template.
+
+### 3. Scan and integrate campaign animation styles
 
 **Priority:** Important  
 **Task ID:** task-scan-and-integrate-campaign-animations
@@ -19,7 +35,7 @@ Before making changes:
 Description:
 Scan the campaigns and previews-only folders, collect all animation classes, keyframes, and related styles, then organize and integrate them into the Motion Shelf animation library.
 
-### 2. Refine the editor and showcase interfaces for imported animations
+### 4. Refine the editor and showcase interfaces for imported animations
 
 **Priority:** Standard  
 **Task ID:** task-adapt-editor-showcase-imported-animations

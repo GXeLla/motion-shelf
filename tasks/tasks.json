@@ -29,13 +29,13 @@
       "id": "task-auto-classify-imported-animations",
       "title": "Auto-classify imported campaign animations",
       "description": "When animations are imported from the Campaigns/Preview-only folder, automatically inspect and classify their default properties. Detect hover behavior, image usage, div/container structure, and every relevant animation property available by default. Use that analysis to sort and adjust the imported animation metadata automatically, while keeping the import resilient to different animation structures. Detect duplicate and near-duplicate animations, including variants with different names, timings, or small display changes, and show only one canonical animation in the library.",
-      "assignee": null,
+      "assignee": "Georgi",
       "favorite": false,
       "important": true,
       "completed": false,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T16:15:35Z"
+      "updatedAt": "2026-09-09T22:00:11.957Z"
     },
     {
       "id": "task-cdn-tree-shakable-animation-library",
@@ -53,13 +53,13 @@
       "id": "task-reusable-animation-templates-css-variables",
       "title": "Create reusable animation templates with CSS variables",
       "description": "Replace collections of nearly identical animation files with reusable templates built on shared keyframe structures. Move adjustable values—such as duration, delay, distance, scale, rotation, easing, opacity, and transform origin—into documented CSS custom properties. Allow projects and individual elements to override those variables without copying or modifying the shared animation definition. Keep keyframes centralized, preserve current visual behavior where possible, define sensible defaults and fallbacks, and document how to apply and customize each template.",
-      "assignee": null,
+      "assignee": "Georgi",
       "favorite": false,
       "important": true,
       "completed": false,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T16:15:35Z"
+      "updatedAt": "2026-09-09T22:00:17.580Z"
     },
     {
       "id": "task-scan-and-integrate-campaign-animations",
