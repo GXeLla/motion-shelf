@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tasks": [
+    { "id": "task-smooth-board", "title": "Make task updates feel smooth", "description": "Improve board updates so task actions settle naturally without the page feeling refreshed or visually rebuilt.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
+    { "id": "task-milestone-create", "title": "Add milestone creation", "description": "Add a way to create a new full-width milestone directly from the Milestones view.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
+    { "id": "task-milestone-minis", "title": "Add mini-tasks inside milestones", "description": "Allow milestones to contain actionable mini-tasks and calculate completion automatically.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
+    { "id": "task-unassigned-bottom", "title": "Place Unassigned at the end", "description": "Keep contributor columns first and render the Unassigned column as the final board lane.", "assignee": null, "favorite": false, "important": false, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
+    { "id": "task-copy-description", "title": "Copy a task description on card click", "description": "Clicking a task card should copy its description while preserving menus, drag and drop, and editor actions.", "assignee": null, "favorite": false, "important": false, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" },
+    { "id": "task-new-milestone-button", "title": "Create a New Milestone action in Milestones", "description": "Place a clear New Milestone button inside the Milestones view so users can create a workstream and its mini-tasks without leaving that page.", "assignee": null, "favorite": false, "important": true, "completed": false, "createdAt": "2026-09-09T09:00:00.000Z", "updatedAt": "2026-09-09T09:00:00.000Z" }
+  ],
+  "milestones": []
+}
