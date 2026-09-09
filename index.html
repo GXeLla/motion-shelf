@@ -38,17 +38,77 @@
     <link rel="stylesheet" href="./styles/modals.css" />
     <link rel="stylesheet" href="./styles/forms.css" />
     <link rel="stylesheet" href="./styles/enhancements.css" />
+    <link rel="stylesheet" href="./styles/library-atmosphere.css" />
     <link rel="stylesheet" href="./styles/toast.css" />
 
     <!-- ONLY @keyframes -->
     <link rel="stylesheet" href="./styles/keyframes.css" />
   </head>
 
-  <body>
-    <div class="ambient-background" id="ambientBackground" aria-hidden="true">
-      <div class="ambient-morph ambient-morph-one"></div>
-      <div class="ambient-morph ambient-morph-two"></div>
-      <div class="ambient-sparks" id="ambientSparks"></div>
+  <body class="library-page">
+    <div class="ambient-background library-atmosphere" id="libraryAtmosphere" aria-hidden="true">
+      <div class="atmosphere-depth" data-depth="0.3">
+        <div class="atmosphere-haze"></div>
+      </div>
+      <div class="atmosphere-depth" data-depth="0.18">
+        <svg class="atmosphere-stars" id="libraryStars" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false"></svg>
+      </div>
+      <div class="atmosphere-depth" data-depth="0.65">
+        <svg class="atmosphere-aurora" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false">
+          <defs>
+            <linearGradient id="auroraRibbon" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#1c7156" stop-opacity="0" />
+              <stop offset="0.32" stop-color="#30b883" stop-opacity="0.46" />
+              <stop offset="0.56" stop-color="#a8f5ce" stop-opacity="0.6" />
+              <stop offset="0.78" stop-color="#19956b" stop-opacity="0.3" />
+              <stop offset="1" stop-color="#0e493d" stop-opacity="0" />
+            </linearGradient>
+            <linearGradient id="auroraEdge" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#8befbc" stop-opacity="0" />
+              <stop offset="0.45" stop-color="#b0fddd" stop-opacity="0.58" />
+              <stop offset="1" stop-color="#29ae78" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g class="aurora-ribbon aurora-ribbon--distant">
+            <path d="M-200 640 C100 770 60 190 440 165 S1030 510 1290 195 S1600 -140 1850 75 L1850 155 C1560 -15 1520 135 1280 270 S760 210 440 225 S170 880 -200 740Z" fill="url(#auroraRibbon)" />
+            <path d="M-200 640 C100 770 60 190 440 165 S1030 510 1290 195 S1600 -140 1850 75" fill="none" stroke="url(#auroraEdge)" stroke-width="1.2" />
+          </g>
+          <g class="aurora-ribbon aurora-ribbon--near">
+            <path d="M-190 790 C180 1110 220 455 720 645 S1170 1190 1570 670 L1700 665 C1270 1320 980 865 710 710 S170 1260 -190 870Z" fill="url(#auroraRibbon)" />
+            <path d="M-190 790 C180 1110 220 455 720 645 S1170 1190 1570 670" fill="none" stroke="url(#auroraEdge)" stroke-width="1" />
+          </g>
+        </svg>
+      </div>
+      <div class="atmosphere-depth" data-depth="0.45">
+        <svg class="atmosphere-contours" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false">
+          <g fill="none" stroke="url(#auroraEdge)">
+            <ellipse cx="1240" cy="100" rx="470" ry="325" transform="rotate(-32 1240 100)" />
+            <ellipse cx="1240" cy="100" rx="505" ry="350" transform="rotate(-32 1240 100)" />
+            <ellipse cx="1240" cy="100" rx="540" ry="375" transform="rotate(-32 1240 100)" />
+            <path d="M-100 870 C240 300 440 940 820 900 S1290 540 1730 820 M-100 893 C240 323 440 963 820 923 S1290 563 1730 843 M-100 916 C240 346 440 986 820 946 S1290 586 1730 866" />
+          </g>
+        </svg>
+      </div>
+      <div class="atmosphere-depth" data-depth="0.8">
+        <svg class="atmosphere-filaments" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false">
+          <g fill="none" stroke="url(#auroraEdge)">
+            <path d="M-100 495 C100 630 180 90 450 150 S990 480 1300 150 S1700 -70 1800 10" />
+            <path d="M-100 512 C100 647 180 107 450 167 S990 497 1300 167 S1700 -53 1800 27" />
+            <path d="M-100 529 C100 664 180 124 450 184 S990 514 1300 184 S1700 -36 1800 44" />
+            <path class="aurora-tracer" d="M-100 512 C100 647 180 107 450 167 S990 497 1300 167 S1700 -53 1800 27" />
+          </g>
+        </svg>
+        <svg class="atmosphere-beacons" id="libraryBeacons" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false"></svg>
+      </div>
+      <div class="atmosphere-depth atmosphere-depth--particles" data-depth="1">
+        <div class="ambient-sparks" id="ambientSparks"></div>
+      </div>
+      <div class="atmosphere-depth" data-depth="0.9">
+        <span class="library-meteor library-meteor--one"></span>
+        <span class="library-meteor library-meteor--two"></span>
+        <span class="library-meteor library-meteor--three"></span>
+      </div>
+      <div class="atmosphere-vignette"></div>
     </div>
 
     <div class="app-shell">
@@ -719,5 +779,6 @@ transform-style: preserve-3d;"
   ================================================== -->
 
     <script type="module" src="./scripts/app.js"></script>
+    <script type="module" src="./scripts/library-atmosphere.js"></script>
   </body>
 </html>

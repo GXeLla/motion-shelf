@@ -111,14 +111,15 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 
 ## Background layers
 
-The background is decorative and never captures clicks. The original eight-point teal/blue gradient remains on `body::before`. Two large blurred shapes in `.ambient-morph-one` and `.ambient-morph-two` move at different speeds, creating a subtle color-morph effect without changing the established palette. `scripts/background.js` adds tiny spark elements with randomized position, size, timing and drift. Motion is reduced automatically when the operating system requests reduced motion.
+The backgrounds are decorative and never capture clicks. The animation library uses an emerald aurora in `styles/library-atmosphere.css`: slow light ribbons, curved contour lines, green haze and the shared spark field. `scripts/library-atmosphere.js` builds a stable SVG field of 540 stars/dust points and 12 twinkling highlights, and adds smooth, bounded pointer and scroll parallax to separate depth layers. Thin light tracers and three occasional meteors add movement; mobile shows only one meteor. Pointer parallax is limited to fine mouse pointers; animation pauses in hidden tabs, and reduced-motion preferences disable movement and hide meteors/tracers. The task page retains its independent observatory styling.
 
-To adjust the effect, change the following values in `styles/enhancements.css`:
+To adjust the library effect, change the following values in `styles/library-atmosphere.css`:
 
-- Morph strength: `.ambient-morph` and `.ambient-morph-two` opacity.
-- Morph speed: the `48s` and `62s` animation durations.
-- Spark brightness: `.ambient-sparks` opacity.
-- Spark glow: `.ambient-spark` box shadows.
+- Aurora strength and speed: `.atmosphere-aurora` and `.aurora-ribbon` opacity and animation durations.
+- Background colors: `.library-atmosphere` and `.atmosphere-haze` gradients.
+- Spark brightness and glow: the library-scoped `.ambient-sparks` and `.ambient-spark` rules.
+- Star brightness and details: `.atmosphere-stars`, `.library-beacon`, `.library-meteor` and `.atmosphere-filaments`. Star positions/density are seeded in `buildLibraryStars()` in `scripts/library-atmosphere.js`.
+- Parallax depth: `data-depth` on each layer in `index.html`; motion distances are bounded in `scripts/library-atmosphere.js`.
 
 To change spark density, edit `DEFAULT_SPARK_COUNT` and `SMALL_SCREEN_SPARK_COUNT` in `scripts/background.js`.
 - Use **Change folder** in the header only when switching projects; normal refreshes and pushes reuse the existing link.
