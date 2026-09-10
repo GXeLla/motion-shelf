@@ -1645,6 +1645,36 @@ of the motion, so repeats increment a counter instead of creating new cards,
 and the most common timing wins.
 ================================================== */
 
+function compareOrigins(left, right) {
+  for (const key of ["repository", "file", "type", "folder"]) {
+    const a = String(left[key] || "");
+    const b = String(right[key] || "");
+    if (a !== b) return a < b ? -1 : 1;
+  }
+  return 0;
+}
+
+/* Retain a small, sorted sample, independent of read completion order. Sorting
+   only after collecting the first few arrivals would still choose different
+   sources on a cold scan and a cache replay. */
+export function addSourceSample(sources, origin, limit) {
+  const known = sources.findIndex((source) =>
+    source.repository === origin.repository && source.file === origin.file);
+  if (known !== -1) {
+    if (compareOrigins(origin, sources[known]) < 0) sources[known] = origin;
+    return;
+  }
+
+  const index = sources.findIndex((source) => compareOrigins(origin, source) < 0);
+  if (index === -1) {
+    if (sources.length < limit) sources.push(origin);
+    return;
+  }
+
+  sources.splice(index, 0, origin);
+  if (sources.length > limit) sources.pop();
+}
+
 export class AnimationLibrary {
   constructor() {
     this.entries = new Map();
@@ -1663,6 +1693,16 @@ export class AnimationLibrary {
       this.duplicates += 1;
       existing.occurrences += 1;
 
+      /* The source path selects a reproducible representative without keeping
+         every duplicate. Several matching rules in that same file break ties
+         on their record, so selector/support/engine cannot depend on arrival. */
+      const sourceOrder = compareOrigins(origin, existing.representativeOrigin);
+      if (sourceOrder < 0 || (sourceOrder === 0 && record !== existing.record
+        && JSON.stringify(record) < JSON.stringify(existing.record))) {
+        existing.record = record;
+        existing.representativeOrigin = origin;
+      }
+
       const timingKey = `${record.timing.duration}|${record.timing.easing}|${record.timing.delay}`;
       existing.timingVotes.set(timingKey, (existing.timingVotes.get(timingKey) || 0) + 1);
 
@@ -1678,14 +1718,14 @@ export class AnimationLibrary {
       const device = deviceFromPath(origin.file);
       if (device) existing.deviceVotes.set(device, (existing.deviceVotes.get(device) || 0) + 1);
 
-      const alreadyRecorded = existing.sources.some((source) => source.file === origin.file);
-      if (!alreadyRecorded && existing.sources.length < 5) existing.sources.push(origin);
+      addSourceSample(existing.sources, origin, 5);
       return existing;
     }
 
     const entry = {
       fingerprint,
       record,
+      representativeOrigin: origin,
       occurrences: 1,
       sources: [origin],
       timingVotes: new Map([[

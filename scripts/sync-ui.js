@@ -8,9 +8,10 @@
  */
 
 import { state } from "./state.js";
-import { normalizeAnimation, saveAnimations } from "./storage.js";
+import { saveAnimations } from "./storage.js";
 import { escapeHtml } from "./utils.js";
 import { syncLibraryToProject } from "./code.js";
+import { mergeScannedAnimation } from "./sync-merge.js";
 
 import {
   SOURCE_FOLDER_NAMES,
@@ -33,6 +34,8 @@ const WANTED = ["campaigns", "previews-only"];
 const STAT_LABELS = [
   ["campaignFoldersInspected", "Campaign folders inspected"],
   ["filesInspected", "Source files inspected"],
+  ["filesFromCache", "Unchanged files reused"],
+  ["filesParsed", "Files parsed"],
   ["cssAnimationsFound", "CSS animations found"],
   ["gsapAnimationsFound", "GSAP animations found"],
   ["duplicatesCollapsed", "Exact duplicates collapsed"],
@@ -140,6 +143,10 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         const target = split(prefixed);
         return adapters.get(target.repository).read(target.relative);
       },
+      discard(prefixed) {
+        const target = split(prefixed);
+        adapters.get(target.repository).discard(target.relative);
+      },
     };
   }
 
@@ -233,59 +240,80 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
    * are ever replaced by a newer canonical version of themselves.
    */
   async function applyPending() {
-    if (!pending.length) return;
+    if (busy || !pending.length) return;
 
-    const manual = state.animations.filter((animation) => !animation.origin);
-    const imported = state.animations.filter((animation) => animation.origin);
+    busy = true;
+    button.disabled = true;
+    confirmButton.disabled = true;
 
-    const byFamily = new Map();
-    imported.forEach((animation) => {
-      const key = animation.origin && animation.origin.familyFingerprint;
-      if (key) byFamily.set(key, animation);
-    });
+    try {
+      const manual = state.animations.filter((animation) => !animation.origin);
+      const imported = state.animations.filter((animation) => animation.origin);
 
-    const manualClasses = new Set(manual.map((animation) => animation.className));
+      const byFamily = new Map();
+      imported.forEach((animation) => {
+        const key = animation.origin && animation.origin.familyFingerprint;
+        if (key) byFamily.set(key, animation);
+      });
 
-    let added = 0;
-    let refreshed = 0;
-    const next = [];
+      const manualClasses = new Set(manual.map((animation) => animation.className));
 
-    pending.forEach((animation) => {
-      const key = animation.origin.familyFingerprint;
-      const existing = byFamily.get(key);
+      let added = 0;
+      let refreshed = 0;
+      let unchanged = 0;
+      const next = [];
 
-      /* Never take a class name a hand made animation already uses. */
-      let record = animation;
-      if (manualClasses.has(record.className)) {
-        record = { ...record, className: record.className + "-imported" };
+      pending.forEach((animation) => {
+        const key = animation.origin.familyFingerprint;
+        const existing = byFamily.get(key);
+
+        /* Never take a class name a hand made animation already uses. */
+        let record = animation;
+        if (manualClasses.has(record.className)) {
+          record = { ...record, className: record.className + "-imported" };
+        }
+
+        if (existing) {
+          const merged = mergeScannedAnimation(record, existing);
+          if (merged === existing) unchanged += 1;
+          else refreshed += 1;
+          byFamily.set(key, merged);
+          return;
+        }
+
+        added += 1;
+        next.push(mergeScannedAnimation(record));
+      });
+
+      state.animations = [...next, ...byFamily.values(), ...manual];
+      saveAnimations(state.animations);
+
+      pending = [];
+      closeModal();
+      render();
+
+      showToast(
+        added + " added, " + refreshed + " refreshed, " + unchanged + " unchanged. " + manual.length + " of your own kept.",
+        "fa-solid fa-check",
+      );
+
+      /* Sharing is the point of Sync: write the catalog when a project is
+         linked, so a commit carries it to everyone. */
+      if (state.projectHandle && state.projectPermission === "granted") {
+        setLabel("Saving...");
+        await syncLibraryToProject(state.animations, {
+          showToast, render, updateWorkspaceUI,
+          onProgress: ({ processed, total }) => setLabel("Saving " + processed + " / " + total),
+        });
       }
-
-      if (existing) {
-        refreshed += 1;
-        byFamily.set(key, normalizeAnimation({ ...record, id: existing.id, createdAt: existing.createdAt }));
-        return;
-      }
-
-      added += 1;
-      next.push(normalizeAnimation({ ...record, source: "session" }));
-    });
-
-    state.animations = [...next, ...byFamily.values(), ...manual];
-    saveAnimations(state.animations);
-
-    pending = [];
-    closeModal();
-    render();
-
-    showToast(
-      added + " added, " + refreshed + " refreshed. " + manual.length + " of your own kept.",
-      "fa-solid fa-check",
-    );
-
-    /* Sharing is the point of Sync: write the catalog when a project is
-       linked, so a commit carries it to everyone. */
-    if (state.projectHandle && state.projectPermission === "granted") {
-      await syncLibraryToProject(state.animations, { showToast, render, updateWorkspaceUI });
+    } catch (error) {
+      console.error("Could not apply sync:", error);
+      showToast("Could not apply the scanned animations.", "fa-solid fa-triangle-exclamation");
+    } finally {
+      busy = false;
+      button.disabled = false;
+      confirmButton.disabled = pending.length === 0;
+      setLabel(idleLabel);
     }
   }
 

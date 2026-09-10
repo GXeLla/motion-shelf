@@ -106,6 +106,21 @@ main {
   font-size: 14px;
 }
 
+.results-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  text-align: right;
+}
+
+.variants-button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .empty-state {
   padding: 80px 20px;
   text-align: center;

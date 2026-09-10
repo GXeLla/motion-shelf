@@ -13,8 +13,6 @@ python3 -m http.server 4173
 
 Then open `http://localhost:4173` in Chrome or Edge.
 
-If using Cursor/VS Code Live Server instead, this workspace disables its file-change reloads in `.vscode/settings.json`. Sync and local saves write files inside the served folder; Live Server would otherwise reload the page or replace its styles during those operations. The app updates its own UI after saves. Refresh manually after editing the application code. Restart Live Server once after changing this setting so its watcher picks it up. The Python server above also serves the app without automatic reloads.
-
 ## Main workflow
 
 1. Click **Link project** in the header and choose the root folder containing `index.html`.
@@ -51,6 +49,10 @@ Clicking a chip re-renders the row, which used to throw away how far the strip h
 **Most used** is a sort, not a filter, and is deliberately kept out of `state.selectedFilters` -- otherwise it would occupy one of the two filter slots and quietly evict a real one. It orders by `origin.occurrences`, the number of campaigns a sync found the animation in, highest first. A hand-made animation was written once and counts as one, so customs sit at the bottom of that list rather than pretending to a history they do not have. Click it again to go back.
 
 The default order is **A to Z by name**, applied to every filter combination. When two filters are up, how many of them an animation matches still decides first; the sort order only breaks ties.
+
+The unfiltered **All** view groups numbered imported names such as Blink, Blink 2 and Blink 7. It shows the most-used variant plus every favourited variant in that group. This is display grouping, not deletion or a claim that the underlying CSS is identical. **Show all variants**, search, any filter, and deletion-selection mode reveal the full set. Hand-made animations are never grouped. `scripts/variant-groups.js` selects representatives; the library and exported files keep every animation.
+
+Tooltips are one element on `<body>`, drawn by `scripts/tooltip.js` from any `[data-tooltip]` attribute. They cannot be pseudo-elements on the badge: a card clips its corners with `overflow: hidden` and adds paint containment through `content-visibility`, so a tooltip drawn inside one was cut off at the card edge -- exactly where it started to be worth reading. The shared element sits outside everything that clips, flips below its anchor when the top of the window is in the way (or when the anchor asks for it with `data-tooltip-place="below"`, as the header legend does), and is pulled back inside the window rather than hanging off the side.
 
 Every card says where it came from, next to its title: **Custom** for anything written here by hand, or the archive and -- when the animation came out of a single folder -- the brand: `Campaigns | Aldi`. The tooltip gives the occurrence count and the first few relative source paths. That badge answers "where is this from"; the separate **LOCAL** badge answers the different question of whether the CSS file is in the linked project folder, and both can appear at once. `scripts/origin.js` holds the reading of `origin.sources` -- archive-name normalisation included, since the second archive has been spelled `previews-only` and `previous-only` over the years.
 
@@ -119,6 +121,7 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | `scripts/filters.js` | Search, dynamic categories, maximum-two-filter behavior, the pinned/scrolling chip split and the display order. |
 | `scripts/favourites.js` | Reads and writes the starred animations. localStorage only, keyed by animation id. |
 | `scripts/folder-picker.js` | The searchable brand/campaign dropdown shown under the archive chips. Owns only its own open/query/highlight state. |
+| `scripts/tooltip.js` | The one tooltip element on `<body>`, positioned against any `[data-tooltip]` anchor. |
 | `scripts/origin.js` | Reads `origin.sources`: which archive an animation came from, which brand folders inside it, and the wording of the card's provenance badge. |
 | `scripts/modals.js` | Opens/closes dialogs. Clicking outside does not close the editor. |
 | `scripts/utils.js` | Escaping, slugs, dates, IDs and normalization helpers. |
@@ -184,8 +187,9 @@ reading, so a sync narrows the work in four stages:
    filename, before anything is opened. Listing a folder only opens the files
    that could contain animation code.
 2. The file opened during listing is reused for the read, so nothing is opened
-   twice, and reads overlap eight at a time. Parsing still happens in listing
-   order, so a scan is reproducible.
+   twice. Six directory workers read batches of twelve files, while metadata
+   opens have their own twelve-file limit per adapter. Canonical selection
+   is independent of directory completion order.
 3. Four files in five contain no animation code at all; a substring test skips
    the parsers for those.
 4. Campaign archives copy the same stylesheet into every banner size, so most
@@ -295,9 +299,9 @@ Parsing in a Worker was considered and rejected: at 3% of the time it cannot pay
 
 Seven animations forgive anything; a synced archive is a different program. Measured against a synthetic library of 1,000, the original grid took longer than two minutes to appear and 700ms per search keystroke. These are the five things that fixed it, and they should all be kept in mind before adding per-card work.
 
-**The grid is reconciled, not rebuilt.** A render used to empty the grid and build it again, which is why applying a sync flashed: every card on screen was destroyed and replaced, previews and all, though almost all of them were about to be drawn identically. `renderCards` now compares each animation against a `data-signature` holding everything its card is drawn from -- the record, plus selection, favourite and filter state, which live outside it. Identical cards are moved into place as live nodes, keeping their previews and any animation running in them; only what actually changed is rebuilt, and a card that was not on screen a moment ago arrives with a short rise instead. Applying a sync of 30 new animations over 48 cards reuses 18 nodes, rebuilds none, and never lets the grid empty for a frame. A re-render also keeps as much of the grid as was already rendered, up to 240 cards, so it cannot collapse the page under someone who had scrolled a long way down it.
+**The grid is reconciled, not rebuilt.** `renderCards` compares each animation against a `data-signature` holding the record plus selection, favourite and filter state. Identical cards remain live nodes; only changed cards are rebuilt. Previously loaded rows are retained instead of truncating at 240 cards, which could collapse the page during a deep-scroll update. New rows appear without mass entrance animations that can replay when the browser resumes skipped content.
 
-**The grid is windowed.** `renderCards` builds 48 cards and puts a `.grid-sentinel` after them; an `IntersectionObserver` with an 800px margin appends the next batch before you reach it. A filter click therefore builds 48 cards, not the library. The observer re-observes itself after each batch: an observer only reports a *change*, so a jump to the end of a page, or a very tall window, would otherwise stall after one batch.
+**The grid is windowed.** `renderCards` initially builds 48 cards and puts a `.grid-sentinel` after them. An `IntersectionObserver` with an 800px margin schedules twelve-card batches, at most one per frame. It rechecks actual sentinel position before appending, pauses while hidden, and cancels pending work when another render replaces it. Re-observation keeps tall viewports from stalling.
 
 **Preview images come from a pool.** A backdrop is ~9KB of data URI and 47 shapes, a plate ~5KB and 26. `preview-scene.js` keeps 32 backdrops and 96 plates, and hands an animation a slot derived from its own id, probing past slots already taken so nothing looks duplicated until the library outgrows the pool. The whole grid then decodes a few dozen images instead of one per card, and repeated cards share a decoded bitmap.
 
@@ -315,6 +319,10 @@ The remaining ceiling is storage, not speed: the whole library is `JSON.stringif
 
 ## Sharing the library
 
+Scanning now overlaps up to twelve metadata opens per archive adapter; cached and skipped files release their retained snapshots. Cached results still validate size and modification time, so a rescan reads only changed/new file bodies. Canonical representatives, source samples and variant names are independent of scan arrival order. `scripts/sync-merge.js` keeps timestamps, identity and filenames for unchanged imported content so a repeat Sync does not manufacture file changes.
+
+Publishing compares actual file content and saves only changed/missing exports, with at most four saves in flight. The manifest is checked after the CSS saves complete and also stays untouched when identical. Successful saves update their records without rereading the whole folder. Progress includes skipped files and failures; overlapping saves are queued. Explicit project-folder loading uses eight concurrent reads and indexed merges while preserving unsaved edits.
+
 **Push to local** writes one animation. Confirming a **Sync** writes the whole library into `animations/` and regenerates `animations/manifest.json` from the files that are actually there, whenever a project folder is linked. The manifest is what every visitor loads, so once the change is committed and pushed the whole team sees the same catalog. Syncing writes files; it does not commit or push for you.
 
 ## Important developer rules
@@ -326,6 +334,12 @@ The remaining ceiling is storage, not speed: the whole library is `JSON.stringif
 - Test large translations, rotations and 3D motion against both card and editor safe frames.
 
 ## Background layers
+
+The library's aurora **Back to top** compass appears after scrolling down. Its ring tracks page progress, and its ribbons use bounded scroll/pointer parallax without a continuous animation loop. It supports keyboard use, mobile safe areas and reduced motion (`scripts/back-to-top.js`).
+
+Card loading pauses while the document is hidden, cancels stale callbacks when a render is replaced, and resumes in batches of twelve near the viewport. Loaded rows keep their space when rerendered; they do not replay entrance fades on tab return. Active card hover previews stop on blur/page hide, even when the browser never sends mouseleave.
+
+Run regression checks with `node --test tests/*.test.mjs`. File-access tests use isolated fake handles; they do not modify the real animation catalog or source archives.
 
 The backgrounds are decorative and never capture clicks. The animation library uses an emerald aurora in `styles/library-atmosphere.css`: slow light ribbons, curved contour lines, green haze and the shared spark field. `scripts/library-atmosphere.js` builds a stable SVG field of 540 stars/dust points and 12 twinkling highlights, and adds smooth, bounded pointer and scroll parallax to separate depth layers. Thin light tracers and three occasional meteors add movement; mobile shows only one meteor. Pointer parallax is limited to fine mouse pointers; animation pauses in hidden tabs, and reduced-motion preferences disable movement and hide meteors/tracers. The task page retains its independent observatory styling.
 

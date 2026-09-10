@@ -7,6 +7,7 @@ import {
 } from "./utils.js";
 
 import { isFavourite } from "./favourites.js";
+import { featuredVariants } from "./variant-groups.js";
 
 import { createFolderPicker } from "./folder-picker.js";
 
@@ -51,6 +52,7 @@ export function initializeFilters({ filterList, searchInput, render }) {
     if (filter === "all") {
       state.selectedFilters = [];
       state.sourceFolder = "";
+      state.showAllVariants = false;
       render();
       return;
     }
@@ -139,13 +141,21 @@ function matchesFolder(animation) {
   return animationFolders(animation, activeArchive()).has(state.sourceFolder);
 }
 
+export function isAllView() {
+  return state.selectedFilters.length === 0 && !state.searchTerm && !state.sourceFolder;
+}
+
+export function areVariantsCollapsed() {
+  return isAllView() && !state.showAllVariants && !state.selectionMode;
+}
+
 export function getVisibleAnimations() {
   const matches = state.animations.filter(
     (animation) => matchesSearch(animation) && matchesFolder(animation),
   );
 
   if (state.selectedFilters.length === 0) {
-    return [...matches].sort(compareForSort);
+    return (areVariantsCollapsed() ? featuredVariants(matches, isFavourite) : matches).sort(compareForSort);
   }
 
   if (state.selectedFilters.length === 1) {
@@ -304,14 +314,20 @@ export function renderFilterButtons(filterList) {
 
   scrolling.className = "filter-scroll";
 
-  pinned.appendChild(
-    createFilterButton(
-      "all",
-      "All",
-      "fa-solid fa-layer-group",
-      state.selectedFilters.length === 0,
-    ),
+  const allButton = createFilterButton(
+    "all", "All", "fa-solid fa-layer-group", state.selectedFilters.length === 0,
   );
+  const info = document.createElement("span");
+  info.className = "filter-info-mark";
+  info.textContent = "!";
+  info.setAttribute("aria-hidden", "true");
+  allButton.appendChild(info);
+  allButton.dataset.tooltip =
+    "All groups numbered variants such as Blink, Blink 2 and Blink 7. "
+    + "It shows the most-used variant plus every favourited variant. "
+    + "Nothing is deleted. Show all variants, search, filters or selection mode reveal the full set.";
+  allButton.dataset.tooltipPlace = "below";
+  pinned.appendChild(allButton);
 
   PINNED_FILTERS.forEach((filter) => {
     pinned.appendChild(

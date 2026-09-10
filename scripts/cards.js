@@ -33,14 +33,12 @@ import { describeOrigin } from "./origin.js";
  */
 const BATCH = 48;
 
-/* How much of an already-scrolled grid a re-render will rebuild before
-   falling back to lazy batches. */
-const MAX_KEPT = 240;
+const SCROLL_BATCH = 12;
 
 /* Only one grid is ever on screen, so a single observer is enough; it is
    disconnected before each render so an abandoned list cannot keep appending
    cards into a grid that has already moved on. */
-let batchObserver = null;
+let stopBatchLoading = null;
 
 /*
  * Everything a card draws from, in one string.
@@ -84,10 +82,8 @@ function cardSignature(animation) {
 }
 
 export function renderCards(animationGrid, animations) {
-  if (batchObserver) {
-    batchObserver.disconnect();
-    batchObserver = null;
-  }
+  stopBatchLoading?.();
+  stopBatchLoading = null;
 
   /* What is on screen right now, so identical cards can be kept. */
   const existing = new Map();
@@ -101,7 +97,7 @@ export function renderCards(animationGrid, animations) {
    * re-render does not collapse the page under someone who had scrolled a
    * long way down it.
    */
-  const initial = Math.max(BATCH, Math.min(existing.size, MAX_KEPT));
+  const initial = Math.max(BATCH, existing.size);
 
   let sentinel = animationGrid.querySelector(".grid-sentinel");
 
@@ -147,7 +143,6 @@ export function renderCards(animationGrid, animations) {
            would leave two cards for one animation, because the sweep only
            knows which nodes this render placed. */
         if (previous) previous.remove();
-        else card.classList.add("is-entering");
       }
 
       animationGrid.insertBefore(card, sentinel);
@@ -172,37 +167,44 @@ export function renderCards(animationGrid, animations) {
     return;
   }
 
-  batchObserver = new IntersectionObserver(
-    (entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) {
-        return;
-      }
-
-      if (!appendBatch()) {
-        batchObserver.disconnect();
-        batchObserver = null;
+  let disposed = false;
+  let frame = 0;
+  const observer = new IntersectionObserver((entries) => {
+    if (disposed || document.hidden || frame || !entries.some((entry) => entry.isIntersecting)) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (disposed || document.hidden || !sentinel.isConnected) return;
+      // Observer entries can be stale after a tab switch or layout change.
+      const bounds = sentinel.getBoundingClientRect();
+      if (bounds.top > window.innerHeight + 800 || bounds.bottom < -800) return;
+      if (!appendBatch(SCROLL_BATCH)) {
+        dispose();
         sentinel.remove();
         return;
       }
+      // One small batch per frame; a fresh observation handles tall viewports.
+      observer.unobserve(sentinel);
+      observer.observe(sentinel);
+    });
+  }, { rootMargin: "800px 0px" });
 
-      /*
-       * An observer only reports a *change*, so if one batch was not enough
-       * to push the sentinel back out of view -- a jump to the end of the
-       * page, a tall window -- no second callback would ever arrive and
-       * loading would stall. Re-observing asks for a fresh reading on the
-       * next frame, which cascades until the sentinel is genuinely offscreen.
-       */
-      requestAnimationFrame(() => {
-        if (!batchObserver) return;
+  function syncVisibility() {
+    cancelAnimationFrame(frame);
+    frame = 0;
+    observer.disconnect();
+    if (!document.hidden && !disposed && sentinel.isConnected) observer.observe(sentinel);
+  }
 
-        batchObserver.unobserve(sentinel);
-        batchObserver.observe(sentinel);
-      });
-    },
-    { rootMargin: "800px 0px" },
-  );
+  function dispose() {
+    disposed = true;
+    cancelAnimationFrame(frame);
+    observer.disconnect();
+    document.removeEventListener("visibilitychange", syncVisibility);
+  }
 
-  batchObserver.observe(sentinel);
+  stopBatchLoading = dispose;
+  document.addEventListener("visibilitychange", syncVisibility);
+  syncVisibility();
 }
 
 /*

@@ -52,6 +52,7 @@ const MAX_FILE_BYTES = 512 * 1024;
  */
 const DIRECTORY_CONCURRENCY = 6;
 const READ_CONCURRENCY = 12;
+const METADATA_CONCURRENCY = 12;
 const MAX_AVERAGE_LINE_LENGTH = 3000;
 
 export function fileExtension(name) {
@@ -122,10 +123,6 @@ function emptyStats() {
 }
 
 /*
- * Walks one campaign folder. Errors are contained per file and per folder so
- * a single broken campaign cannot end the scan.
- */
-/*
  * Walks one campaign folder.
  *
  * Several directories are in flight at once. Listing a directory and reading
@@ -192,6 +189,7 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
 
         if (!isScannableFile(item.name, item.size)) {
           stats.filesSkipped += 1;
+          adapter.discard?.(item.path);
           continue;
         }
 
@@ -205,7 +203,11 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
           const cacheKey = repository + "/" + item.path;
           const cached = cache && cache.get(cacheKey);
 
-          if (cached && cached.size === item.size && cached.lastModified === item.lastModified) {
+          if (item.error) return { item, cacheKey, error: item.error };
+
+          if (cached && Number.isFinite(item.size) && Number.isFinite(item.lastModified)
+            && cached.size === item.size && cached.lastModified === item.lastModified) {
+            adapter.discard?.(item.path);
             return { item, cacheKey, cached };
           }
 
@@ -404,6 +406,9 @@ export async function scanSources({ adapter, roots, onProgress, minimumOccurrenc
     }
 
     const folders = topLevel.filter((item) => item.kind === "directory" && !SKIP_DIRECTORIES.has(item.name));
+    topLevel.forEach((item) => {
+      if (item.kind !== "directory") adapter.discard?.(item.path);
+    });
     stats.foldersByRepository[root.repository] = folders.length;
 
     for (const folder of folders) {
@@ -512,6 +517,29 @@ export function createHandleAdapter(rootHandle) {
    */
   const opened = new Map();
 
+  /* Share the metadata budget across all directory workers. Opening files
+     serially adds one browser/filesystem round trip per candidate; letting
+     every directory open all its files at once exhausts handles on large
+     archives. Only this small pool may call getFile during listing. */
+  const metadataQueue = [];
+  let activeMetadata = 0;
+
+  const openMetadata = (task) => new Promise((resolve, reject) => {
+    metadataQueue.push({ task, resolve, reject });
+    drainMetadata();
+  });
+
+  const drainMetadata = () => {
+    while (activeMetadata < METADATA_CONCURRENCY && metadataQueue.length) {
+      const job = metadataQueue.shift();
+      activeMetadata += 1;
+      Promise.resolve().then(job.task).then(job.resolve, job.reject).finally(() => {
+        activeMetadata -= 1;
+        drainMetadata();
+      });
+    }
+  };
+
   const resolve = async (path) => {
     if (directories.has(path)) return directories.get(path);
 
@@ -539,36 +567,56 @@ export function createHandleAdapter(rootHandle) {
     async list(path) {
       const handle = await resolve(path);
       const items = [];
+      const pending = new Set();
 
-      for await (const [name, child] of handle.entries()) {
-        const childPath = path ? `${path}/${name}` : name;
+      try {
+        for await (const [name, child] of handle.entries()) {
+          const childPath = path ? `${path}/${name}` : name;
 
-        if (child.kind === "directory") {
-          directories.set(childPath, child);
-          items.push({ kind: "directory", name, path: childPath });
-          continue;
-        }
-
-        let size = NaN;
-        let lastModified = 0;
-
-        /* Opening a file just to read its size is the single most expensive
-           thing this walk can do, so images and video are never touched. */
-        if (hasScannableName(name)) {
-          try {
-            const file = await child.getFile();
-            size = file.size;
-            lastModified = file.lastModified;
-            opened.set(childPath, file);
-          } catch {
-            /* Unreadable entries are simply not offered to the scanner. */
+          if (child.kind === "directory") {
+            directories.set(childPath, child);
+            items.push({ kind: "directory", name, path: childPath });
+            continue;
           }
-        }
 
-        items.push({ kind: "file", name, path: childPath, size, lastModified });
+          const item = { kind: "file", name, path: childPath, size: NaN, lastModified: 0 };
+          items.push(item);
+
+          /* Images, video and runtime libraries never need a file open. */
+          if (!hasScannableName(name)) continue;
+
+          const task = openMetadata(async () => {
+            try {
+              const file = await child.getFile();
+              item.size = file.size;
+              item.lastModified = file.lastModified;
+              if (isScannableFile(name, file.size)) opened.set(childPath, file);
+            } catch (error) {
+              /* Report the original failure without reopening the same file. */
+              item.error = error;
+            }
+          });
+
+          pending.add(task);
+          task.then(() => pending.delete(task));
+
+          /* Backpressure keeps a directory with thousands of source files
+             from queuing thousands of promises. Items retain listing order
+             regardless of the order in which their metadata arrives. */
+          if (pending.size >= METADATA_CONCURRENCY) await Promise.race(pending);
+        }
+        await Promise.all(pending);
+      } catch (error) {
+        await Promise.allSettled(pending);
+        items.forEach((item) => opened.delete(item.path));
+        throw error;
       }
 
       return items;
+    },
+
+    discard(path) {
+      opened.delete(path);
     },
 
     async read(path) {

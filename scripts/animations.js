@@ -272,6 +272,21 @@ export function injectAnimationForPreview(animation) {
   insertedKeyframes.set(animation.id, text);
 }
 
+const activeCardPreviews = new Set();
+let previewLifecycleBound = false;
+
+function bindPreviewLifecycle() {
+  if (previewLifecycleBound) return;
+  previewLifecycleBound = true;
+  const stopActive = () => {
+    for (const stop of activeCardPreviews) stop();
+  };
+  // Switching tabs need not send mouseleave to the previously hovered card.
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stopActive(); });
+  window.addEventListener("blur", stopActive);
+  window.addEventListener("pagehide", stopActive);
+}
+
 export function applyAnimation(element, animation, options = {}) {
   const keyframe = sanitizeAnimationName(animation.animationName);
   const duration = getPreviewDuration(animation);
@@ -294,9 +309,12 @@ export function applyAnimation(element, animation, options = {}) {
    */
 
   element.style.animation = "none";
+  bindPreviewLifecycle();
 
   const playAnimation = () => {
+    if (document.hidden || activeCardPreviews.has(stopAnimation)) return;
     element.style.animation = `${keyframe} ${duration} ${easing} ${delay} infinite`;
+    activeCardPreviews.add(stopAnimation);
 
     element.classList.add("is-animating");
 
@@ -308,6 +326,7 @@ export function applyAnimation(element, animation, options = {}) {
   };
 
   const stopAnimation = () => {
+    activeCardPreviews.delete(stopAnimation);
     element.style.animation = "none";
 
     element.classList.remove("is-animating");

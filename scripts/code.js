@@ -12,9 +12,136 @@ import {
   ensureProjectHandle,
   getAnimationsDirectory,
   getProjectDisplayPath,
-  loadAnimationsFromProject,
   supportsProjectFolders,
 } from "./filesystem.js";
+
+const WRITE_CONCURRENCY = 4;
+let projectWriteQueue = Promise.resolve();
+let queuedWrites = 0;
+let previousProjectBusy = false;
+
+function queueProjectWrite(write, updateWorkspaceUI) {
+  if (queuedWrites++ === 0) previousProjectBusy = state.projectBusy;
+  state.projectBusy = true;
+  updateWorkspaceUI();
+  const result = projectWriteQueue.then(write);
+  projectWriteQueue = result.catch(() => {});
+  return result.finally(() => {
+    if (--queuedWrites === 0) state.projectBusy = previousProjectBusy;
+    updateWorkspaceUI();
+  });
+}
+
+function isCssFileName(fileName) {
+  return typeof fileName === "string" && /\.css$/i.test(fileName) && !/[\\/\0]/.test(fileName);
+}
+
+/* Reserve names before any parallel work, including files belonging to
+   animations outside this batch. A new animation must not replace another
+   animation just because its display name produces the same slug. */
+function createWritePlans(animations) {
+  const reserved = new Map();
+  for (const animation of [...state.animations, ...animations]) {
+    if (isCssFileName(animation.codeFileName)) {
+      const key = animation.codeFileName.toLowerCase();
+      if (!reserved.has(key)) reserved.set(key, animation.id);
+    }
+  }
+
+  return animations.map((animation) => {
+    const preferred = isCssFileName(animation.codeFileName)
+      ? animation.codeFileName : getCodeFileName(animation);
+    const stem = preferred.replace(/\.css$/i, "");
+    let suffix = 1;
+    const nextName = () => {
+      let fileName;
+      do {
+        fileName = suffix === 1 ? preferred : `${stem}-${suffix}.css`;
+        suffix += 1;
+      } while (reserved.has(fileName.toLowerCase()) && reserved.get(fileName.toLowerCase()) !== animation.id);
+      reserved.set(fileName.toLowerCase(), animation.id);
+      return fileName;
+    };
+    return { animation, fileName: nextName(), nextName };
+  });
+}
+
+async function readFile(directory, fileName) {
+  try {
+    const handle = await directory.getFileHandle(fileName);
+    const file = await handle.getFile();
+    return { handle, file, text: await file.text() };
+  } catch (error) {
+    if (error?.name === "NotFoundError") return null;
+    throw error;
+  }
+}
+
+function getFileAnimationId(cssText) {
+  const match = cssText.match(/\/\*\s*@motion-shelf\s*([\s\S]*?)\*\//i);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]).id || null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeChangedText(directory, fileName, text, existing) {
+  if (existing?.text === text) return false;
+  const handle = existing?.handle || await directory.getFileHandle(fileName, { create: true });
+  let writable;
+  try {
+    writable = await handle.createWritable();
+    await writable.write(text);
+    await writable.close();
+    return true;
+  } catch (error) {
+    /* File System Access commits on close. Abort keeps an existing file
+       intact; remove only the new empty entry created for a failed save. */
+    if (writable) await writable.abort().catch(() => {});
+    if (!existing) {
+      try {
+        if ((await handle.getFile()).size === 0) await directory.removeEntry(fileName);
+      } catch (cleanupError) {
+        console.warn(`Could not clean up animations/${fileName}:`, cleanupError);
+      }
+    }
+    throw error;
+  }
+}
+
+async function writeAnimation(directory, plan) {
+  const { animation } = plan;
+  const exportedCss = buildExportCSS(animation);
+  let existing;
+
+  while (true) {
+    try {
+      existing = await readFile(directory, plan.fileName);
+    } catch (error) {
+      if (error?.name !== "TypeMismatchError") throw error;
+      plan.fileName = plan.nextName();
+      continue;
+    }
+    if (!existing || plan.fileName === animation.codeFileName ||
+      existing.text === exportedCss || getFileAnimationId(existing.text) === animation.id) break;
+    plan.fileName = plan.nextName();
+  }
+
+  const changed = await writeChangedText(directory, plan.fileName, exportedCss, existing);
+  animation.codeFileName = plan.fileName;
+  // Editing can continue while a stream is open. Only the exported snapshot
+  // was saved; a newer editor value still needs another push.
+  animation.codeSynced = buildExportCSS(animation) === exportedCss;
+  animation.localPresent = true;
+  animation.localPath = getProjectDisplayPath(plan.fileName);
+  animation.source = "local";
+  animation.rawCss = exportedCss;
+  animation.lastCodePush = changed ? Date.now() : existing.file.lastModified;
+
+  return { changed, fileName: plan.fileName };
+}
 
 export async function pushAnimationToCode(
   id,
@@ -39,44 +166,21 @@ export async function pushAnimationToCode(
     await ensureProjectHandle();
     updateWorkspaceUI();
 
-    const animationsHandle = await getAnimationsDirectory({ create: true });
-
-    const fileName = animation.codeFileName || getCodeFileName(animation);
-
-    const fileHandle = await animationsHandle.getFileHandle(fileName, {
-      create: true,
-    });
-
-    const writable = await fileHandle.createWritable();
-
-    const exportedCss = buildExportCSS(animation);
-    await writable.write(exportedCss);
-
-    await writable.close();
-
-    animation.codeFileName = fileName;
-
-    animation.codeSynced = true;
-
-    animation.localPresent = true;
-
-    animation.localPath = getProjectDisplayPath(fileName);
-
-    animation.source = "local";
-
-    animation.rawCss = exportedCss;
-
-    animation.lastCodePush = Date.now();
+    const { changed, fileName } = await queueProjectWrite(async () => {
+      const directory = await getAnimationsDirectory({ create: true });
+      return writeAnimation(directory, createWritePlans([animation])[0]);
+    }, updateWorkspaceUI);
 
     saveAnimations(state.animations);
-
-    await loadAnimationsFromProject();
 
     render();
 
     updateWorkspaceUI();
 
-    showToast(`Saved locally in animations/${fileName}`, "fa-solid fa-folder-check");
+    showToast(
+      changed ? `Saved locally in animations/${fileName}` : `Already up to date: animations/${fileName}`,
+      "fa-solid fa-folder-check",
+    );
   } catch (error) {
     if (error?.name === "AbortError") {
       return;
@@ -107,11 +211,8 @@ export async function writeAnimationsManifest(animationsHandle) {
 
   files.sort((a, b) => a.localeCompare(b));
 
-  const manifestHandle = await animationsHandle.getFileHandle("manifest.json", { create: true });
-  const writable = await manifestHandle.createWritable();
-
-  await writable.write(JSON.stringify({ version: 1, files }, null, 2) + "\n");
-  await writable.close();
+  const text = JSON.stringify({ version: 1, files }, null, 2) + "\n";
+  await writeChangedText(animationsHandle, "manifest.json", text, await readFile(animationsHandle, "manifest.json"));
 
   return files;
 }
@@ -143,65 +244,85 @@ export async function syncLibraryToProject(
     await ensureProjectHandle();
     updateWorkspaceUI();
 
-    const animationsHandle = await getAnimationsDirectory({ create: true });
+    const result = await queueProjectWrite(async () => {
+      const directory = await getAnimationsDirectory({ create: true });
+      const plans = createWritePlans(animations);
+      let next = 0;
+      let written = 0;
+      let unchanged = 0;
+      let processed = 0;
+      let lastProgress = 0;
+      const failures = [];
+      const completed = [];
+      const report = () => {
+        lastProgress = performance.now();
+        try {
+          Promise.resolve(onProgress({ written, unchanged, processed, total: plans.length }))
+            .catch((error) => console.warn("Could not report save progress:", error));
+        } catch (error) {
+          console.warn("Could not report save progress:", error);
+        }
+      };
+      report();
 
-    let written = 0;
-    const failures = [];
+      await Promise.all(Array.from({ length: Math.min(WRITE_CONCURRENCY, plans.length) }, async () => {
+        while (next < plans.length) {
+          const plan = plans[next++];
+          try {
+            const { changed } = await writeAnimation(directory, plan);
+            if (changed) written += 1;
+            else unchanged += 1;
+            completed.push(plan.animation);
+          } catch (error) {
+            console.warn("Could not write " + plan.fileName + ":", error);
+            failures.push(plan.animation.name);
+          }
 
-    for (const animation of animations) {
-      const fileName = animation.codeFileName || getCodeFileName(animation);
+          processed += 1;
+          if (processed === plans.length || performance.now() - lastProgress >= 50) report();
+        }
+      }));
 
+      /* Publish only after every stream is closed. Even if one CSS file or
+         the manifest fails, retain the successful saves in session state. */
+      let manifest = null;
+      let manifestError = null;
       try {
-        const fileHandle = await animationsHandle.getFileHandle(fileName, { create: true });
-        const writable = await fileHandle.createWritable();
-        const exportedCss = buildExportCSS(animation);
-
-        await writable.write(exportedCss);
-        await writable.close();
-
-        animation.codeFileName = fileName;
-        animation.codeSynced = true;
-        animation.localPresent = true;
-        animation.repositoryPresent = true;
-        animation.localPath = getProjectDisplayPath(fileName);
-        animation.source = "local";
-        animation.rawCss = exportedCss;
-        animation.lastCodePush = Date.now();
-
-        written += 1;
+        manifest = await writeAnimationsManifest(directory);
+        for (const animation of completed) animation.repositoryPresent = true;
       } catch (error) {
-        console.warn("Could not write " + fileName + ":", error);
-        failures.push(animation.name);
+        manifestError = error;
+        console.error("Could not update the animation catalog:", error);
       }
-
-      /* Keep the interface alive while a large library is written. */
-      if (written % 10 === 0) {
-        onProgress({ written, total: animations.length });
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-    }
-
-    const files = await writeAnimationsManifest(animationsHandle);
-
-    saveAnimations(state.animations);
-    await loadAnimationsFromProject();
+      saveAnimations(state.animations);
+      return { written, unchanged, processed, failures, manifest, manifestError };
+    }, updateWorkspaceUI);
 
     render();
     updateWorkspaceUI();
 
-    if (failures.length) {
+    if (result.manifestError) {
       showToast(
-        written + " synced, " + failures.length + " could not be written.",
+        result.written + " saved, " + result.unchanged + " unchanged" +
+          (result.failures.length ? ", " + result.failures.length + " failed" : "") +
+          ". The shared catalog could not be updated; retry Sync.",
+        "fa-solid fa-triangle-exclamation",
+      );
+    } else if (result.failures.length) {
+      showToast(
+        result.written + " saved, " + result.unchanged + " unchanged, " + result.failures.length + " could not be written.",
         "fa-solid fa-triangle-exclamation",
       );
     } else {
       showToast(
-        written + " animation" + (written === 1 ? "" : "s") + " synced. Commit and push to share them.",
+        result.written
+          ? result.written + " saved, " + result.unchanged + " unchanged. Commit and push to share them."
+          : "All " + result.unchanged + " animations are already up to date.",
         "fa-solid fa-users",
       );
     }
 
-    return { written, failures, manifest: files };
+    return result;
   } catch (error) {
     if (error?.name === "AbortError") return null;
 

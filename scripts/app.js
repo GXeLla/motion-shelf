@@ -13,6 +13,8 @@ import {
   getVisibleAnimations,
   initializeFilters,
   renderFilterButtons,
+  areVariantsCollapsed,
+  isAllView,
 } from "./filters.js";
 
 import {
@@ -22,6 +24,8 @@ import {
 } from "./cards.js";
 
 import { toggleFavourite } from "./favourites.js";
+
+import { initializeTooltips } from "./tooltip.js";
 
 import { createModalController } from "./modals.js";
 
@@ -64,6 +68,11 @@ const emptyState = document.getElementById("emptyState");
 const emptyNewButton = document.getElementById("emptyNewButton");
 
 const resultCount = document.getElementById("resultCount");
+const variantsButton = document.getElementById("variantsButton");
+variantsButton.addEventListener("click", () => {
+  state.showAllVariants = !state.showAllVariants;
+  render();
+});
 
 const searchInput = document.getElementById("searchInput");
 
@@ -109,6 +118,9 @@ INITIALIZE
 
 initializeAmbientBackground();
 
+/* One tooltip element for the page; the cards only carry data-tooltip. */
+initializeTooltips();
+
 state.animations = loadAnimations().filter(
   (animation) => !animation.localPresent && animation.source !== "local",
 ).map((animation) => ({ ...animation, codeSynced: false }));
@@ -148,6 +160,11 @@ function render() {
   resultCount.textContent = `${visible.length} ${
     visible.length === 1 ? "animation" : "animations"
   }`;
+  const grouped = areVariantsCollapsed() ? state.animations.length - visible.length : 0;
+  if (grouped) resultCount.textContent += ` · ${grouped} variants grouped`;
+  variantsButton.hidden = !isAllView() || state.selectionMode || (!grouped && !state.showAllVariants);
+  variantsButton.textContent = state.showAllVariants ? "Group variants" : "Show all variants";
+  variantsButton.setAttribute("aria-pressed", String(state.showAllVariants));
 
   emptyState.hidden = visible.length !== 0;
 
@@ -374,7 +391,7 @@ animationGrid.addEventListener("click", async (event) => {
     /* Only when the Favourite filter is up does the star change which cards
        belong on screen; otherwise patch the one card and leave the rest of
        the grid, and its running previews, alone. */
-    if (state.selectedFilters.includes("favourite")) {
+    if (state.selectedFilters.includes("favourite") || areVariantsCollapsed()) {
       render();
     } else {
       refreshCardFavourite(animationGrid, id);

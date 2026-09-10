@@ -100,19 +100,35 @@ export async function loadAnimationsFromProject() {
 
   const localAnimations = [];
   const errors = [];
+  const entries = [];
 
   for await (const [fileName, handle] of directory.entries()) {
     if (handle.kind !== "file" || !fileName.toLowerCase().endsWith(".css")) continue;
-
-    try {
-      const file = await handle.getFile();
-      const cssText = await file.text();
-      localAnimations.push(parseAnimationFile(cssText, fileName, file.lastModified));
-    } catch (error) {
-      console.warn(`Could not load animations/${fileName}:`, error);
-      errors.push({ fileName, error });
-    }
+    entries.push({ fileName, handle });
   }
+
+  // Bound file access, retaining listing order even when reads finish out of order.
+  const loaded = new Array(entries.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(8, entries.length) }, async () => {
+    while (cursor < entries.length) {
+      const index = cursor++;
+      const { fileName, handle } = entries[index];
+      try {
+        const file = await handle.getFile();
+        const cssText = await file.text();
+        loaded[index] = { animation: parseAnimationFile(cssText, fileName, file.lastModified) };
+      } catch (error) {
+        console.warn(`Could not load animations/${fileName}:`, error);
+        loaded[index] = { error: { fileName, error } };
+      }
+    }
+  }));
+
+  loaded.forEach((result) => {
+    if (result.error) errors.push(result.error);
+    else localAnimations.push(result.animation);
+  });
 
   mergeLocalAnimations(localAnimations);
   saveAnimations(state.animations);
@@ -157,7 +173,7 @@ export function parseAnimationFile(cssText, fileName, lastModified = Date.now(),
     ...metadata,
     id,
     name,
-    description: metadata.description || "CSS animation loaded from the linked project folder.",
+    description: metadata.description ?? "CSS animation loaded from the linked project folder.",
     animationName,
     keyframes,
     css,
@@ -176,8 +192,9 @@ export function parseAnimationFile(cssText, fileName, lastModified = Date.now(),
 
 function mergeRepositoryAnimations(repositoryAnimations) {
   const repositoryIds = new Set(repositoryAnimations.map((animation) => animation.id));
+  const findExisting = indexExistingAnimations();
   const merged = repositoryAnimations.map((repository) => {
-    const existing = state.animations.find((animation) => animation.id === repository.id || animation.codeFileName === repository.codeFileName);
+    const existing = findExisting(repository);
     if (existing?.localPresent) return normalizeAnimation({ ...repository, ...existing, repositoryPresent: true, source: "local" });
     return repository;
   });
@@ -186,18 +203,14 @@ function mergeRepositoryAnimations(repositoryAnimations) {
 }
 
 function mergeLocalAnimations(localAnimations) {
+  const findExisting = indexExistingAnimations();
   const localIds = new Set(localAnimations.map((animation) => animation.id));
   const sessionOnly = state.animations.filter(
     (animation) => !animation.localPresent && animation.source !== "local" && !localIds.has(animation.id),
   );
 
   const mergedLocal = localAnimations.map((local) => {
-    const existing = state.animations.find(
-      (animation) =>
-        animation.id === local.id ||
-        animation.codeFileName === local.codeFileName ||
-        (animation.name === local.name && animation.animationName === local.animationName),
-    );
+    const existing = findExisting(local, true);
 
     if (!existing) return local;
 
@@ -218,6 +231,30 @@ function mergeLocalAnimations(localAnimations) {
   state.animations = [...mergedLocal, ...sessionOnly].sort(
     (a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0),
   );
+}
+
+/* Preserve the first-match merge policy without searching the whole library
+   again for each file (quadratic work on large imports). */
+function indexExistingAnimations() {
+  const ids = new Map();
+  const files = new Map();
+  const names = new Map();
+  const nameKey = (animation) => JSON.stringify([animation.name, animation.animationName]);
+  state.animations.forEach((animation, index) => {
+    if (!ids.has(animation.id)) ids.set(animation.id, index);
+    if (!files.has(animation.codeFileName)) files.set(animation.codeFileName, index);
+    const key = nameKey(animation);
+    if (!names.has(key)) names.set(key, index);
+  });
+
+  return (animation, matchName = false) => {
+    const index = Math.min(
+      ids.get(animation.id) ?? Infinity,
+      files.get(animation.codeFileName) ?? Infinity,
+      matchName ? names.get(nameKey(animation)) ?? Infinity : Infinity,
+    );
+    return state.animations[index];
+  };
 }
 
 function readMetadata(cssText) {

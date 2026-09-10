@@ -513,35 +513,67 @@ body::after {
   cursor: help;
 }
 
-.local-source-badge::after,
-.source-badge::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  z-index: 20;
-  left: 0;
-  bottom: calc(100% + 8px);
+/*
+ * THE SHARED TOOLTIP
+ *
+ * These used to be ::after pseudo-elements on the badge itself, which could
+ * not work: the card clips its corners with overflow: hidden and adds paint
+ * containment through content-visibility, so the tooltip was cut off at the
+ * card edge -- right where it started to say something. It is now a single
+ * element on <body>, driven by scripts/tooltip.js, outside everything that
+ * clips.
+ */
+.ms-tooltip {
+  position: fixed;
+  z-index: 2100;
+  inset: auto;
+  margin: 0;
   width: max-content;
-  max-width: 280px;
+  max-width: min(340px, var(--tooltip-width, calc(100vw - 16px)));
+
   padding: 8px 10px;
+
   border: 1px solid var(--border-strong);
   border-radius: 9px;
+
   background: #101c20;
   color: var(--text-soft);
-  box-shadow: var(--shadow-sm);
-  font-size: 10px;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.45),
+    var(--shadow-sm);
+
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: normal;
+  line-height: 1.5;
+
+  /* Provenance tooltips are a sentence and then one path per line. */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+
   opacity: 0;
-  visibility: hidden;
   transform: translateY(4px);
-  transition: 140ms ease;
+  transition:
+    opacity 130ms ease,
+    transform 130ms ease;
+
   pointer-events: none;
 }
 
-.local-source-badge:hover::after {
+/* Flipped below its anchor: the nudge should come from the other side. */
+.ms-tooltip.is-below {
+  transform: translateY(-4px);
+}
+
+.ms-tooltip.is-visible {
   opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-tooltip {
+    transition: none;
+  }
 }
 
 .card-local-path,

@@ -11,6 +11,7 @@
  */
 
 import {
+  addSourceSample,
   describeMotion,
   fingerprintSteps,
   hashString,
@@ -719,9 +720,7 @@ export function buildCanonicalLibrary(entries, options = {}) {
     family.occurrences += entry.occurrences;
 
     entry.sources.forEach((source) => {
-      if (family.sources.length < 6 && !family.sources.some((known) => known.file === source.file)) {
-        family.sources.push(source);
-      }
+      addSourceSample(family.sources, source, 6);
     });
 
     entry.nameVotes.forEach((count, name) => {
@@ -827,7 +826,7 @@ export function buildCanonicalLibrary(entries, options = {}) {
       const variants = ordered.length > 1
         ? ordered.slice(0, 8).map((entry) => ({
           occurrences: entry.occurrences,
-          name: [...entry.nameVotes.keys()][0] || "",
+          name: commonest(entry.nameVotes)?.[0] || "",
         }))
         : [];
 

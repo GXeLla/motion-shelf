@@ -8,6 +8,7 @@ export const state = {
   /* "name" (A to Z, the default) or "uses" (most used first). Sorting is a
      separate axis from filtering, so the two never fight over a slot. */
   sortMode: "name",
+  showAllVariants: false,
 
   /* The brand/campaign folder picked inside an archive filter. Empty means
      every folder in that archive. */
