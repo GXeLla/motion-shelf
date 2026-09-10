@@ -4,7 +4,7 @@ import { loadAnimations, saveAnimations } from "./storage.js";
 
 import {
   findAnimation,
-  buildExportCSS,
+  buildCopyCSS,
   applyPreviewBackdrop,
   createPreviewImage,
 } from "./animations.js";
@@ -370,7 +370,7 @@ animationGrid.addEventListener("click", async (event) => {
 
     const animation = findAnimation(id);
     if (!animation) return;
-    await copyText(buildExportCSS(animation));
+    await copyText(buildCopyCSS(animation));
     target.classList.add("copied");
     setTimeout(() => target.classList.remove("copied"), 500);
     showToast(`${animation.name} CSS copied.`, "fa-solid fa-copy");
@@ -637,7 +637,7 @@ function openDetails(id) {
 
       </div>
 
-      <pre class="code-block">${escapeHtml(buildExportCSS(animation))}</pre>
+      <pre class="code-block">${escapeHtml(buildCopyCSS(animation))}</pre>
 
     </div>
 
@@ -709,7 +709,7 @@ function openDetails(id) {
         const action = button.dataset.detailAction;
 
         if (action === "copy") {
-          await copyText(buildExportCSS(animation));
+          await copyText(buildCopyCSS(animation));
 
           showToast("CSS copied.", "fa-solid fa-copy");
 

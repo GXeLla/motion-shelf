@@ -33,9 +33,9 @@
     0.95
   ],
   "iterationCount": "infinite",
-  "css": "--ms-distance: 2%;\n--ms-scale: 1.035;\n--ms-duration: 8s;\n--ms-delay: 0s;\n--ms-ease: sine.inOut;\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "css": "--ms-distance: 2%;\n--ms-scale: 1.035;\n--ms-object-fit: contain;\n--ms-object-position-x: center;\n--ms-object-position-y: center;\n--ms-origin-x: center;\n--ms-origin-y: center;\n--ms-backface: hidden;\n--ms-duration: 8s;\n--ms-delay: 0s;\n--ms-ease: cubic-bezier(0.445, 0.05, 0.55, 0.95);\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: var(--ms-object-fit, contain);\nobject-position: var(--ms-object-position-x, center) var(--ms-object-position-y, center);\ntransform-origin: var(--ms-origin-x, center) var(--ms-origin-y, center);\nbackface-visibility: var(--ms-backface, hidden);\nwill-change: transform, opacity, filter;",
   "keyframes": "0% {\n    transform: translate3d(calc(var(--ms-distance, 2%) * -1), 0, 0) scale(1.015);\n    filter: brightness(0.97);\n  }\n\n  50% {\n    transform: translate3d(var(--ms-distance, 2%), 0, 0) scale(var(--ms-scale, 1.035));\n    filter: brightness(1.04);\n  }\n\n  100% {\n    transform: translate3d(calc(var(--ms-distance, 2%) * -1), 0, 0) scale(1.015);\n    filter: brightness(0.97);\n  }",
-  "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1200px;\ntransform-style: preserve-3d;",
+  "parent": "--ms-overflow: hidden;\n--ms-perspective: 1200px;\n--ms-transform-style: preserve-3d;\nwidth: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: var(--ms-overflow, hidden);\nperspective: var(--ms-perspective, 1200px);\ntransform-style: var(--ms-transform-style, preserve-3d);",
   "createdAt": 1786714028977,
   "updatedAt": 1789030161107,
   "template": {
@@ -56,6 +56,139 @@
       }
     ],
     "gsapConfig": null
+  },
+  "parameters": {
+    "target": [
+      {
+        "name": "--ms-duration",
+        "label": "Duration",
+        "kind": "time",
+        "group": "timing",
+        "value": "8s",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-delay",
+        "label": "Delay",
+        "kind": "time",
+        "group": "timing",
+        "value": "0s",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-ease",
+        "label": "Easing",
+        "kind": "easing",
+        "group": "timing",
+        "value": "cubic-bezier(0.445, 0.05, 0.55, 0.95)",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-distance",
+        "label": "Distance",
+        "value": "2%",
+        "kind": "translateX",
+        "group": "motion",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-scale",
+        "label": "Scale",
+        "value": "1.035",
+        "kind": "scale",
+        "group": "motion",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-object-fit",
+        "label": "Object fit",
+        "value": "contain",
+        "kind": "keyword",
+        "group": "image",
+        "property": "object-fit",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-object-position-x",
+        "label": "Object position X",
+        "value": "center",
+        "kind": "position",
+        "group": "image",
+        "property": "object-position",
+        "axis": "x",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-object-position-y",
+        "label": "Object position Y",
+        "value": "center",
+        "kind": "position",
+        "group": "image",
+        "property": "object-position",
+        "axis": "y",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-origin-x",
+        "label": "Transform origin X",
+        "value": "center",
+        "kind": "position",
+        "group": "transform",
+        "property": "transform-origin",
+        "axis": "x",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-origin-y",
+        "label": "Transform origin Y",
+        "value": "center",
+        "kind": "position",
+        "group": "transform",
+        "property": "transform-origin",
+        "axis": "y",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-backface",
+        "label": "Backface visibility",
+        "value": "hidden",
+        "kind": "keyword",
+        "group": "3d",
+        "property": "backface-visibility",
+        "scope": "target"
+      }
+    ],
+    "parent": [
+      {
+        "name": "--ms-overflow",
+        "label": "Overflow",
+        "value": "hidden",
+        "kind": "keyword",
+        "group": "container",
+        "property": "overflow",
+        "scope": "parent"
+      },
+      {
+        "name": "--ms-perspective",
+        "label": "Perspective",
+        "value": "1200px",
+        "kind": "length",
+        "group": "3d",
+        "property": "perspective",
+        "scope": "parent"
+      },
+      {
+        "name": "--ms-transform-style",
+        "label": "Transform style",
+        "value": "preserve-3d",
+        "kind": "keyword",
+        "group": "3d",
+        "property": "transform-style",
+        "scope": "parent"
+      }
+    ],
+    "parentRequired": true,
+    "parentClassName": "ms-horizontal-parallax-glide-parent"
   }
 }
   */
@@ -65,13 +198,16 @@
   /* Parent properties */
   
   .ms-horizontal-parallax-glide-parent {
-      width: 100%;
+      --ms-overflow: hidden;
+    --ms-perspective: 1200px;
+    --ms-transform-style: preserve-3d;
+    width: 100%;
     height: 100%;
     display: grid;
     place-items: center;
-    overflow: hidden;
-    perspective: 1200px;
-    transform-style: preserve-3d;
+    overflow: var(--ms-overflow, hidden);
+    perspective: var(--ms-perspective, 1200px);
+    transform-style: var(--ms-transform-style, preserve-3d);
   }
   
   
@@ -80,18 +216,24 @@
   .ms-horizontal-parallax-glide {
     --ms-distance: 2%;
     --ms-scale: 1.035;
+    --ms-object-fit: contain;
+    --ms-object-position-x: center;
+    --ms-object-position-y: center;
+    --ms-origin-x: center;
+    --ms-origin-y: center;
+    --ms-backface: hidden;
     --ms-duration: 8s;
     --ms-delay: 0s;
-    --ms-ease: sine.inOut;
+    --ms-ease: cubic-bezier(0.445, 0.05, 0.55, 0.95);
     width: 100%;
     height: 100%;
     max-width: 100%;
     max-height: 100%;
     display: block;
-    object-fit: contain;
-    object-position: center;
-    transform-origin: center center;
-    backface-visibility: hidden;
+    object-fit: var(--ms-object-fit, contain);
+    object-position: var(--ms-object-position-x, center) var(--ms-object-position-y, center);
+    transform-origin: var(--ms-origin-x, center) var(--ms-origin-y, center);
+    backface-visibility: var(--ms-backface, hidden);
     will-change: transform, opacity, filter;
     animation-name: msHorizontalParallaxGlide;
     animation-duration: var(--ms-duration, 8s);

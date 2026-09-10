@@ -25,6 +25,13 @@ import {
 
 import { resolveEasing } from "./easing.js";
 
+import {
+  buildParameterSet,
+  detectThreeD,
+  parameteriseDeclarations,
+  splitSupport,
+} from "./parameters.js";
+
 /* ==================================================
 VALUE ANATOMY
 
@@ -261,35 +268,35 @@ export function detectTarget(context = {}) {
  * properties an animation genuinely breaks without -- clipping, depth and
  * transform context -- not campaign layout.
  */
-export function detectContainerNeeds(steps, parentStyles = {}) {
-  const needs = { ...parentStyles };
-  let uses3d = false;
-  let leavesBox = false;
+export function detectContainerNeeds(steps, support = {}, gsapConfig = null) {
+  /* What the extractor gathered, filed by what CSS actually requires rather
+     than by which rule it was written in. */
+  const split = splitSupport(
+    support && (support.element || support.parent)
+      ? support
+      : { parent: support },
+  );
 
-  steps.forEach(({ declarations }) => {
-    Object.entries(declarations).forEach(([rawProperty, value]) => {
-      const property = unprefixProperty(rawProperty);
-      const components = componentsFor(property, value);
-      if (!components) return;
+  const parent = { ...split.parent };
+  const target = { ...split.target };
 
-      components.forEach((fn) => {
-        if (/^(?:rotate[XY]|translateZ|perspective|rotate3d|translate3d)$/i.test(fn.name)) uses3d = true;
+  const { is3d } = detectThreeD({ steps, target, parent, gsapConfig });
 
-        if (/^translate/i.test(fn.name)) {
-          fn.args.forEach((argument) => {
-            const parsed = readNumber(argument);
-            if (parsed && Math.abs(parsed.number) > 0) leavesBox = true;
-          });
-        }
-      });
-    });
-  });
+  if (is3d) {
+    /* Perspective is the one thing a 3D animation cannot supply for itself:
+       it belongs to the container, and without it a rotateY renders as a flat
+       squash. The campaign had one somewhere above the element, so a depth
+       that reads as depth is the honest default when it was not captured. */
+    if (!parent.perspective) parent.perspective = "1000px";
 
-  if (uses3d && !needs.perspective) needs.perspective = "1000px";
-  if (uses3d && !needs["transform-style"]) needs["transform-style"] = "preserve-3d";
-  void leavesBox;
+    /* `transform-style` is not the container's business -- it governs how the
+       transformed element treats its own children, so it goes on the element
+       being transformed. Putting it on the parent is what flattened nested
+       3D and left the property looking like it did nothing. */
+    if (!target["transform-style"]) target["transform-style"] = "preserve-3d";
+  }
 
-  return needs;
+  return { parent, target };
 }
 
 /* ==================================================
@@ -471,7 +478,13 @@ const VARIABLE_NAMES = {
   skewX: "--ms-skew-x",
   skewY: "--ms-skew-y",
   opacity: "--ms-opacity",
-  perspective: "--ms-perspective",
+  /* Not `--ms-perspective`: that name belongs to the container's perspective
+     property, and these are two different depths. Sharing one name put two
+     controls called "Perspective" in the editor, and left a project that set
+     `--ms-perspective` on the container wondering why the flip did not get
+     deeper -- the element declares its own, which shadows the inherited one.
+     GSAP calls this one `transformPerspective` for the same reason. */
+  perspective: "--ms-transform-perspective",
 };
 
 const VARIABLE_LABELS = {
@@ -488,10 +501,57 @@ const VARIABLE_LABELS = {
   "--ms-skew-x": "Skew X",
   "--ms-skew-y": "Skew Y",
   "--ms-opacity": "Opacity",
+  "--ms-transform-perspective": "Transform Perspective",
   "--ms-duration": "Duration",
   "--ms-delay": "Delay",
   "--ms-ease": "Easing",
 };
+
+/*
+ * Stage names.
+ *
+ * A translate spread over six stages has one control, because every stage is a
+ * proportion of the furthest one and scaling them together is what keeps the
+ * shape of the move. Scale and opacity are not like that: they swing around a
+ * rest value rather than away from zero, so a proportion is meaningless and
+ * every stage the animation actually visits is worth its own control.
+ *
+ * Those controls need names a person can read, so each stage is named for the
+ * part it plays -- where the motion starts, how far past the target it swings,
+ * where it settles -- rather than by its index.
+ */
+function stageRoles(keys, values, { scaleLike }) {
+  if (keys.length === 1) return [""];
+
+  const rest = scaleLike ? 1 : 0;
+  const distance = (key) => Math.abs(values.get(key) - rest);
+
+  /* The furthest stage that is neither the first nor the last is an
+     overshoot: the animation went past where it ends up. */
+  const middle = keys.slice(1, -1);
+  const overshoot = middle.length
+    ? middle.reduce((best, key) => (distance(key) > distance(best) ? key : best), middle[0])
+    : null;
+
+  const past = overshoot && distance(overshoot) > distance(keys[keys.length - 1]);
+
+  let filler = 0;
+
+  return keys.map((key, index) => {
+    if (index === 0) return "start";
+    if (index === keys.length - 1) return past ? "settle" : "end";
+    if (key === overshoot && past) return "overshoot";
+
+    filler += 1;
+    return "stage-" + (filler + 1);
+  });
+}
+
+function stageVariableName(base, role) {
+  if (!role) return base;
+
+  return "--ms-" + role + "-" + base.replace(/^--ms-/, "");
+}
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -542,6 +602,12 @@ export function buildTemplate(members) {
   const translateKinds = [...byKind.keys()].filter((kind) => /^translate/i.test(kind));
   const singleAxis = translateKinds.length === 1;
 
+  const claim = (candidate) => {
+    const seen = used.get(candidate) || 0;
+    used.set(candidate, seen + 1);
+    return seen ? candidate + "-" + (seen + 1) : candidate;
+  };
+
   byKind.forEach((keys, kind) => {
     const scaleLike = /^scale/i.test(kind);
     const slot = base.slots.get(keys[0]);
@@ -549,9 +615,36 @@ export function buildTemplate(members) {
     let name = VARIABLE_NAMES[kind] || "--ms-value";
     if (singleAxis && /^translate/i.test(kind)) name = "--ms-distance";
 
-    const seen = used.get(name) || 0;
-    used.set(name, seen + 1);
-    if (seen) name = name + "-" + (seen + 1);
+    /* Every stage of a scale or a fade is its own control, so each is named
+       for the part it plays instead of one of them standing for all. */
+    if ((scaleLike || kind === "opacity") && keys.length > 1) {
+      const roles = stageRoles(keys, slotValue, { scaleLike });
+
+      keys.forEach((key, index) => {
+        const value = slotValue.get(key);
+        if (!Number.isFinite(value)) return;
+
+        const stageName = claim(stageVariableName(name, roles[index]));
+        const stageSlot = base.slots.get(key) || slot;
+
+        const variable = {
+          name: stageName,
+          value,
+          unit: stageSlot.unit,
+          kind,
+          stage: roles[index],
+          label: VARIABLE_LABELS[stageName] || titleFromName(stageName.replace("--ms-", "")),
+          default: Number(value.toFixed(4)) + (stageSlot.unit || ""),
+        };
+
+        variables.push(variable);
+        bySlot.set(key, variable);
+      });
+
+      return;
+    }
+
+    name = claim(name);
 
     /* The stage that departs furthest from rest is the one worth exposing. */
     const anchorKey = keys.reduce((best, key) => {
@@ -563,7 +656,14 @@ export function buildTemplate(members) {
     }, keys[0]);
 
     const anchor = slotValue.get(anchorKey);
+
+    /* A distance of zero cannot anchor the proportions of the other stages:
+       every ratio would be a division by zero. `analyzeSteps` already keeps
+       identity values out of the slots, so this guards the arithmetic rather
+       than a case that is expected to arrive. */
     if (!Number.isFinite(anchor) || anchor === 0) return;
+
+    const singleStage = scaleLike || kind === "opacity";
 
     const variable = {
       name,
@@ -576,8 +676,8 @@ export function buildTemplate(members) {
 
     variables.push(variable);
 
-    if (scaleLike || kind === "opacity") {
-      /* Only the anchor stage is adjustable; the rest keep their own values. */
+    if (singleStage) {
+      /* One stage, so there is nothing to name it apart from. */
       bySlot.set(anchorKey, variable);
       return;
     }
@@ -798,17 +898,36 @@ export function buildCanonicalLibrary(entries, options = {}) {
       const interactionVote = commonest(family.interactionVotes);
       const targetVote = commonest(family.targetVotes);
 
-      const parentStyles = detectContainerNeeds(canonical.steps, canonical.support.parent);
+      const engine = canonical.kind.startsWith("gsap") ? "gsap" : "css";
+      const gsapConfig = engine === "gsap" ? canonical.gsapConfig || null : null;
 
-      const elementStyles = { ...canonical.support.element };
+      const scoped = detectContainerNeeds(canonical.steps, canonical.support, gsapConfig);
+
+      const elementStyles = { ...scoped.target };
       delete elementStyles.transform;
       delete elementStyles.opacity;
+
+      /* Every retained style the motion depends on becomes adjustable in
+         place: the declaration reads from a namespaced variable whose
+         fallback is the value the campaign had, so an untouched animation
+         renders exactly as it did and a project can change one number. */
+      const targetSupport = parameteriseDeclarations(elementStyles, { scope: "target" });
+      const parentSupport = parameteriseDeclarations(scoped.parent, { scope: "parent" });
 
       /* Defaults live on the class, so the animation works untouched and any
          project can override a single value without copying it. */
       const variableDeclarations = {};
       template.variables.forEach((variable) => {
         variableDeclarations[variable.name] = variable.default;
+      });
+
+      targetSupport.parameters.forEach((entry) => {
+        variableDeclarations[entry.name] = entry.value;
+      });
+
+      const parentVariables = {};
+      parentSupport.parameters.forEach((entry) => {
+        parentVariables[entry.name] = entry.value;
       });
 
       /* A raw cubic-bezier() is not one of the editor's easing values, so it
@@ -821,7 +940,18 @@ export function buildCanonicalLibrary(entries, options = {}) {
         "--ms-ease": resolveEasing(resolvedEasing.easing, resolvedEasing.cubicBezier),
       };
 
-      const engine = canonical.kind.startsWith("gsap") ? "gsap" : "css";
+      const parameters = buildParameterSet({
+        keyframe: template.variables.map((variable) => ({
+          name: variable.name,
+          label: variable.label,
+          value: variable.default,
+          kind: variable.kind,
+        })),
+        target: targetSupport.parameters,
+        parent: parentSupport.parameters,
+        timingValues: timingVariables,
+        parentClassName: className + "-parent",
+      });
 
       const variants = ordered.length > 1
         ? ordered.slice(0, 8).map((entry) => ({
@@ -838,7 +968,11 @@ export function buildCanonicalLibrary(entries, options = {}) {
           + (family.members.length > 1 ? " across " + family.members.length + " value variants." : "."),
         device: resolveDevice(family.deviceVotes),
         interaction: interactionVote ? interactionVote[0] : canonical.interaction,
-        categories: inferCategories(canonical.steps, canonical.timing),
+        categories: inferCategories(canonical.steps, canonical.timing, {
+          target: scoped.target,
+          parent: scoped.parent,
+          gsapConfig,
+        }),
         animationName: keyframeName,
         className,
         duration: Number(duration),
@@ -848,9 +982,18 @@ export function buildCanonicalLibrary(entries, options = {}) {
         easing: resolvedEasing.easing,
         cubicBezier: resolvedEasing.cubicBezier,
         iterationCount: canonical.timing.iterationCount,
-        css: declarationsToText({ ...variableDeclarations, ...timingVariables, ...elementStyles }),
+        css: declarationsToText({
+          ...variableDeclarations,
+          ...timingVariables,
+          ...targetSupport.declarations,
+        }),
         keyframes: stepsToKeyframeCss(template.steps),
-        parent: declarationsToText(parentStyles),
+        /* Nothing to say about the container means nothing written about it:
+           no empty rule, no placeholder for a project to wonder about. */
+        parent: parameters.parentRequired
+          ? declarationsToText({ ...parentVariables, ...parentSupport.declarations })
+          : "",
+        parameters,
         template: {
           engine,
           variables: template.variables.map((variable) => ({
@@ -860,7 +1003,7 @@ export function buildCanonicalLibrary(entries, options = {}) {
             kind: variable.kind,
           })),
           timingVariables: true,
-          gsapConfig: engine === "gsap" ? canonical.gsapConfig || null : null,
+          gsapConfig,
         },
         origin: {
           kind: canonical.kind,

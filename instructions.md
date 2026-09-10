@@ -54,6 +54,12 @@ Outside the All view, **favourites lead**. This does not pull a starred animatio
 
 The unfiltered **All** view groups numbered imported names such as Blink, Blink 2 and Blink 7. It shows the most-used variant plus every favourited variant in that group. This is display grouping, not deletion or a claim that the underlying CSS is identical. **Show all variants**, search, any filter, and deletion-selection mode reveal the full set. Hand-made animations are never grouped. `scripts/variant-groups.js` selects representatives; the library and exported files keep every animation.
 
+## The card grid
+
+`grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr))` -- the column count follows the width rather than being fixed. Four across the 1440px container, three around 1100px, two around 760-900px, one at 600px and below, with no breakpoints of its own. The `min(290px, 100%)` matters: a bare `minmax(290px, 1fr)` forces a 290px track onto a 280px screen and the page scrolls sideways.
+
+Card padding, type and controls are all a notch smaller than they were so four columns stay comfortable -- 13px content padding, a 15.5px title, 12.5px description, 10.5px tags and dates, 31px buttons. The card title wraps to two lines and clamps there instead of truncating on one: at three columns a name like "3D Image Turn Reveal" fitted a single line, and at four it lost its last word.
+
 ## Previews are not the animation
 
 The header carries a standing caveat next to the legend -- an amber `!` that

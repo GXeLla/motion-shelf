@@ -15,6 +15,8 @@ import { normalizeBezier, resolveEasing } from "./easing.js";
 
 import { createScenePreview, createSceneBackdrop } from "./preview-scene.js";
 
+import { readWrappedVariables } from "./parameters.js";
+
 export function findAnimation(id) {
   return state.animations.find((animation) => animation.id === id);
 }
@@ -58,6 +60,11 @@ export function createAnimation(data) {
     keyframes: data.keyframes.trim(),
 
     parent: data.parent.trim(),
+
+    /* What the animation says is adjustable about itself. Absent for one
+       written by hand here, which is fine: the editor reads the declarations
+       directly when there is no metadata to describe them. */
+    parameters: data.parameters || null,
 
     codeFileName: null,
 
@@ -125,6 +132,10 @@ export function updateAnimation(id, data) {
   animation.keyframes = data.keyframes.trim();
 
   animation.parent = data.parent.trim();
+
+  /* An edit changes the values, not what the animation is capable of, so the
+     description of its controls survives unless a new one is supplied. */
+  if (data.parameters !== undefined) animation.parameters = data.parameters;
 
   animation.updatedAt = Date.now();
 
@@ -439,6 +450,11 @@ export function buildMotionShelfMetadata(animation) {
   if (animation.origin) metadata.origin = animation.origin;
   if (animation.template) metadata.template = animation.template;
 
+  /* What the animation says is adjustable about it, so the editor builds the
+     same controls wherever the file is opened rather than re-deriving them
+     from the declarations and losing the labels and the scopes. */
+  if (animation.parameters) metadata.parameters = animation.parameters;
+
   return `/* @motion-shelf
   ${JSON.stringify(metadata, null, 2)}
   */`;
@@ -447,6 +463,91 @@ export function buildMotionShelfMetadata(animation) {
 
 export function normalizeKeyframesForExport(animation) {
   return normalizeKeyframes(animation);
+}
+
+/*
+ * Only what changed.
+ *
+ * Every parameterised value is written twice: once as `--ms-scale: 0.92` at
+ * the top of the rule, and once as the fallback in `scale(var(--ms-scale,
+ * 0.92))` that the keyframe reads. While the two agree the declaration is
+ * saying nothing -- removing it renders exactly the same animation.
+ *
+ * So the copied CSS carries the declarations a person has actually retuned,
+ * and leaves the rest to speak through their own defaults. Someone pasting it
+ * sees at a glance which three values this animation departs from, instead of
+ * a wall of numbers with no way to tell which of them matter.
+ *
+ * The files on disk keep the full set: they are the record, not a quotation
+ * of it.
+ */
+function unchangedVariables(animation) {
+  /* The animation shorthand reads the timing variables and is generated
+     rather than stored, so it has to be searched too. */
+  const text = [
+    animation.css,
+    animation.parent,
+    animation.keyframes,
+    getAnimationInlineCSS(animation),
+  ].join("\n");
+
+  const declared = new Map();
+
+  String(animation.css + "\n" + animation.parent).split(";").forEach((declaration) => {
+    const at = declaration.indexOf(":");
+    if (at < 1) return;
+
+    const name = declaration.slice(0, at).trim();
+    if (!/^--ms-[\w-]+$/.test(name)) return;
+
+    declared.set(name, declaration.slice(at + 1).trim());
+  });
+
+  const unchanged = new Set();
+
+  /* Fallbacks nest -- `var(--ms-ease, cubic-bezier(0.23, 1, 0.32, 1))` -- so
+     the uses are scanned by counting brackets rather than matched. */
+  const uses = readWrappedVariables(text);
+
+  declared.forEach((value, name) => {
+    /* Every use of it has to agree, and there has to be a use: a variable
+       nothing reads is not redundant, it is the only place that value
+       survives. */
+    const mine = uses.filter((use) => use.name === name);
+    if (!mine.length) return;
+
+    if (mine.every((use) => use.value === value)) unchanged.add(name);
+  });
+
+  return unchanged;
+}
+
+function withoutVariables(text, names) {
+  return String(text || "")
+    .split("\n")
+    .filter((line) => {
+      const at = line.indexOf(":");
+      if (at < 1) return true;
+
+      return !names.has(line.slice(0, at).trim());
+    })
+    .join("\n");
+}
+
+/*
+ * What goes on the clipboard: the animation, with the values it has actually
+ * been given rather than every value it has.
+ */
+export function buildCopyCSS(animation) {
+  const unchanged = unchangedVariables(animation);
+
+  if (!unchanged.size) return buildExportCSS(animation);
+
+  return buildExportCSS({
+    ...animation,
+    css: withoutVariables(animation.css, unchanged),
+    parent: withoutVariables(animation.parent, unchanged),
+  });
 }
 
 export function buildExportCSS(animation) {

@@ -33,9 +33,9 @@
     1
   ],
   "iterationCount": "1",
-  "css": "--ms-distance: 8%;\n--ms-scale-x: 0.08;\n--ms-scale-y: 0.08;\n--ms-duration: 1.3s;\n--ms-delay: 0s;\n--ms-ease: power2.out;\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nwill-change: transform, opacity, filter;",
+  "css": "--ms-distance: 8%;\n--ms-scale-x: 0.08;\n--ms-scale-y: 0.08;\n--ms-object-fit: contain;\n--ms-object-position-x: center;\n--ms-object-position-y: center;\n--ms-origin-x: center;\n--ms-origin-y: center;\n--ms-duration: 1.3s;\n--ms-delay: 0s;\n--ms-ease: cubic-bezier(0.215, 0.61, 0.355, 1);\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: var(--ms-object-fit, contain);\nobject-position: var(--ms-object-position-x, center) var(--ms-object-position-y, center);\ntransform-origin: var(--ms-origin-x, center) var(--ms-origin-y, center);\nwill-change: transform, opacity, filter;",
   "keyframes": "0% {\n    opacity: 0;\n    transform: translateY(var(--ms-distance, 8%)) scaleX(var(--ms-scale-x, 0.08)) scaleY(var(--ms-scale-y, 0.08));\n    filter: blur(16px)\n      brightness(1.5);\n  }\n\n  28% {\n    opacity: 1;\n    transform: translateY(calc(var(--ms-distance, 8%) * -0.375)) scaleX(1.3) scaleY(0.76);\n    filter: blur(0)\n      brightness(1.12);\n  }\n\n  44% {\n    transform: translateY(calc(var(--ms-distance, 8%) * 0.125)) scaleX(0.82) scaleY(1.2);\n  }\n\n  58% {\n    transform: translateY(calc(var(--ms-distance, 8%) * -0.0625)) scaleX(1.14) scaleY(0.9);\n  }\n\n  70% {\n    transform: translateY(calc(var(--ms-distance, 8%) * 0.0375)) scaleX(0.93) scaleY(1.08);\n  }\n\n  81% {\n    transform: translateY(0) scaleX(1.045) scaleY(0.97);\n  }\n\n  90% {\n    transform: scaleX(0.985) scaleY(1.018);\n  }\n\n  100% {\n    opacity: 1;\n    transform: translateY(0) scaleX(1) scaleY(1);\n    filter: blur(0)\n      brightness(1);\n  }",
-  "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;",
+  "parent": "--ms-overflow: hidden;\nwidth: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: var(--ms-overflow, hidden);",
   "createdAt": 1786714144385,
   "updatedAt": 1789030161106,
   "template": {
@@ -62,6 +62,120 @@
       }
     ],
     "gsapConfig": null
+  },
+  "parameters": {
+    "target": [
+      {
+        "name": "--ms-duration",
+        "label": "Duration",
+        "kind": "time",
+        "group": "timing",
+        "value": "1.3s",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-delay",
+        "label": "Delay",
+        "kind": "time",
+        "group": "timing",
+        "value": "0s",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-ease",
+        "label": "Easing",
+        "kind": "easing",
+        "group": "timing",
+        "value": "cubic-bezier(0.215, 0.61, 0.355, 1)",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-distance",
+        "label": "Distance",
+        "value": "8%",
+        "kind": "translateY",
+        "group": "motion",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-scale-x",
+        "label": "Scale X",
+        "value": "0.08",
+        "kind": "scaleX",
+        "group": "motion",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-scale-y",
+        "label": "Scale Y",
+        "value": "0.08",
+        "kind": "scaleY",
+        "group": "motion",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-object-fit",
+        "label": "Object fit",
+        "value": "contain",
+        "kind": "keyword",
+        "group": "image",
+        "property": "object-fit",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-object-position-x",
+        "label": "Object position X",
+        "value": "center",
+        "kind": "position",
+        "group": "image",
+        "property": "object-position",
+        "axis": "x",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-object-position-y",
+        "label": "Object position Y",
+        "value": "center",
+        "kind": "position",
+        "group": "image",
+        "property": "object-position",
+        "axis": "y",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-origin-x",
+        "label": "Transform origin X",
+        "value": "center",
+        "kind": "position",
+        "group": "transform",
+        "property": "transform-origin",
+        "axis": "x",
+        "scope": "target"
+      },
+      {
+        "name": "--ms-origin-y",
+        "label": "Transform origin Y",
+        "value": "center",
+        "kind": "position",
+        "group": "transform",
+        "property": "transform-origin",
+        "axis": "y",
+        "scope": "target"
+      }
+    ],
+    "parent": [
+      {
+        "name": "--ms-overflow",
+        "label": "Overflow",
+        "value": "hidden",
+        "kind": "keyword",
+        "group": "container",
+        "property": "overflow",
+        "scope": "parent"
+      }
+    ],
+    "parentRequired": true,
+    "parentClassName": "ms-elastic-squash-pop-parent"
   }
 }
   */
@@ -71,11 +185,12 @@
   /* Parent properties */
   
   .ms-elastic-squash-pop-parent {
-      width: 100%;
+      --ms-overflow: hidden;
+    width: 100%;
     height: 100%;
     display: grid;
     place-items: center;
-    overflow: hidden;
+    overflow: var(--ms-overflow, hidden);
   }
   
   
@@ -85,17 +200,22 @@
     --ms-distance: 8%;
     --ms-scale-x: 0.08;
     --ms-scale-y: 0.08;
+    --ms-object-fit: contain;
+    --ms-object-position-x: center;
+    --ms-object-position-y: center;
+    --ms-origin-x: center;
+    --ms-origin-y: center;
     --ms-duration: 1.3s;
     --ms-delay: 0s;
-    --ms-ease: power2.out;
+    --ms-ease: cubic-bezier(0.215, 0.61, 0.355, 1);
     width: 100%;
     height: 100%;
     max-width: 100%;
     max-height: 100%;
     display: block;
-    object-fit: contain;
-    object-position: center;
-    transform-origin: center center;
+    object-fit: var(--ms-object-fit, contain);
+    object-position: var(--ms-object-position-x, center) var(--ms-object-position-y, center);
+    transform-origin: var(--ms-origin-x, center) var(--ms-origin-y, center);
     will-change: transform, opacity, filter;
     animation-name: msElasticSquashPop;
     animation-duration: var(--ms-duration, 1.3s);

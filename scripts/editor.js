@@ -30,6 +30,7 @@ import {
   normalizeBezier,
   resolveEasing,
 } from "./easing.js";
+import { labelForVariable, resolveParameters } from "./parameters.js";
 
 const AVAILABLE_CATEGORIES = [
   "image", "photo", "text", "scale", "rotate", "slide", "fade", "3d",
@@ -208,64 +209,120 @@ export function initializeEditor({ modalController, render, showToast }) {
    * declaration, which the live preview already reacts to, so a template can
    * be retuned without rewriting its keyframes.
    */
-  const VALUE_LABELS = {
-    "--ms-distance": "Distance", "--ms-x": "Distance X", "--ms-y": "Distance Y",
-    "--ms-z": "Distance Z", "--ms-scale": "Scale", "--ms-scale-x": "Scale X",
-    "--ms-scale-y": "Scale Y", "--ms-rotation": "Rotation",
-    "--ms-rotation-x": "Rotation X", "--ms-rotation-y": "Rotation Y",
-    "--ms-skew-x": "Skew X", "--ms-skew-y": "Skew Y", "--ms-opacity": "Opacity",
-    "--ms-duration": "Duration", "--ms-delay": "Delay", "--ms-ease": "Easing",
-    "--ms-origin": "Transform origin", "--ms-perspective": "Perspective",
+  /* What the animation being edited says about itself. The declarations in
+     the two textareas are the live truth -- they are what the person is
+     changing -- and this supplies the labels and the grouping around them. */
+  let editingParameters = null;
+
+  const GROUP_TITLES = {
+    timing: "Timing",
+    motion: "Motion",
+    transform: "Transform",
+    image: "Image",
+    shape: "Shape",
+    "3d": "Depth",
+    box: "Size",
+    container: "Container",
   };
 
-  function readTemplateValues() {
-    const found = [];
+  /*
+   * The order the groups read in: what the animation does first, then how it
+   * is drawn, then the container it needs. Anything unrecognised falls to the
+   * end rather than being dropped.
+   */
+  const GROUP_ORDER = ["timing", "motion", "transform", "3d", "image", "shape", "box", "container"];
 
-    String(form.elements.css.value || "")
-      .split(";")
-      .forEach((declaration) => {
-        const separator = declaration.indexOf(":");
-        if (separator < 1) return;
-
-        const name = declaration.slice(0, separator).trim();
-        const value = declaration.slice(separator + 1).trim();
-        if (!/^--ms-[\w-]+$/.test(name) || !value) return;
-
-        found.push({ name, value });
-      });
-
-    return found;
+  function groupRank(group) {
+    const index = GROUP_ORDER.indexOf(group);
+    return index === -1 ? GROUP_ORDER.length : index;
   }
 
-  function writeTemplateValue(name, value) {
+  function currentParameters() {
+    return resolveParameters({
+      css: form.elements.css.value,
+      parent: form.elements.parent.value,
+      parameters: editingParameters,
+    });
+  }
+
+  function writeTemplateValue(name, value, scope) {
+    const field = scope === "parent" ? form.elements.parent : form.elements.css;
     const pattern = new RegExp("(^|\\n)\\s*" + name + "\\s*:[^;]*;?", "m");
     const declaration = name + ": " + value + ";";
 
-    form.elements.css.value = pattern.test(form.elements.css.value)
-      ? form.elements.css.value.replace(pattern, "$1" + declaration)
-      : declaration + "\n" + form.elements.css.value;
+    field.value = pattern.test(field.value)
+      ? field.value.replace(pattern, "$1" + declaration)
+      : declaration + "\n" + field.value;
 
     saveDraft();
     updateLivePreview();
   }
 
-  function renderTemplateValues() {
-    const values = readTemplateValues();
-    templateValues.hidden = values.length === 0;
+  function renderControl(entry) {
+    return '<label class="template-value">'
+      + "<span>" + escapeHtml(entry.label || labelForVariable(entry.name)) + "</span>"
+      + '<input type="text" spellcheck="false" data-template-value="'
+      + escapeAttribute(entry.name) + '" data-template-scope="' + escapeAttribute(entry.scope || "target")
+      + '" value="' + escapeAttribute(entry.value) + '" />'
+      + "</label>";
+  }
 
-    if (!values.length) {
+  function renderGroups(entries) {
+    const groups = new Map();
+
+    entries.forEach((entry) => {
+      const group = entry.group || "motion";
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(entry);
+    });
+
+    return [...groups.entries()]
+      .sort((a, b) => groupRank(a[0]) - groupRank(b[0]))
+      .map(([group, list]) => '<div class="template-group">'
+        + '<span class="template-group-title">' + escapeHtml(GROUP_TITLES[group] || group) + "</span>"
+        + list.map(renderControl).join("")
+        + "</div>")
+      .join("");
+  }
+
+  /*
+   * The controls are the animation's own, not a fixed list: an animation with
+   * no container needs shows no container section, and a value the animation
+   * does not have gets no control to set it with.
+   */
+  function renderTemplateValues() {
+    const parameters = currentParameters();
+    const hasAny = parameters.target.length > 0 || parameters.parent.length > 0;
+
+    templateValues.hidden = !hasAny;
+
+    if (!hasAny) {
       templateValues.innerHTML = "";
       return;
     }
 
-    templateValues.innerHTML = '<span class="template-values-title">Adjustable values</span>'
-      + values.map((entry) => (
-        '<label class="template-value">'
-        + "<span>" + escapeHtml(VALUE_LABELS[entry.name] || entry.name.replace("--ms-", "")) + "</span>"
-        + '<input type="text" spellcheck="false" data-template-value="'
-        + escapeAttribute(entry.name) + '" value="' + escapeAttribute(entry.value) + '" />'
-        + "</label>"
-      )).join("");
+    const sections = [];
+
+    if (parameters.target.length) {
+      sections.push('<div class="template-section">'
+        + '<span class="template-values-title">Animation</span>'
+        + renderGroups(parameters.target)
+        + "</div>");
+    }
+
+    if (parameters.parent.length) {
+      sections.push('<div class="template-section">'
+        + '<span class="template-values-title">Parent / container</span>'
+        + '<p class="template-section-note">These belong on the element around the animated one'
+        + (parameters.parentClassName
+          ? ", copied out as <code>." + escapeHtml(parameters.parentClassName.replace(/^\./, "")) + "</code>"
+          : "")
+        + ".</p>"
+        + renderGroups(parameters.parent)
+        + "</div>");
+    }
+
+    templateValues.innerHTML = sections.join("");
   }
 
   templateValues.addEventListener("input", (event) => {
@@ -273,10 +330,11 @@ export function initializeEditor({ modalController, render, showToast }) {
     if (!input) return;
 
     event.stopPropagation();
-    writeTemplateValue(input.dataset.templateValue, input.value.trim());
+    writeTemplateValue(input.dataset.templateValue, input.value.trim(), input.dataset.templateScope);
   });
 
   function fillForm(data) {
+    editingParameters = data.parameters || null;
     form.elements.name.value = data.name || "";
     form.elements.target.value = data.target || "img";
     form.elements.description.value = data.description || "";
@@ -735,7 +793,10 @@ export function initializeEditor({ modalController, render, showToast }) {
   editorModal.addEventListener("scroll", syncPreviewStickiness, { passive: true });
   form.addEventListener("input", (event) => {
     clearErrors(event.target.name);
-    if (event.target.name === "css") renderTemplateValues();
+    /* Both textareas hold controls now, so either one changing rebuilds the
+       list -- a person who deletes a parent declaration should see the
+       container section go with it. */
+    if (event.target.name === "css" || event.target.name === "parent") renderTemplateValues();
     saveDraft();
     updateLivePreview();
   });

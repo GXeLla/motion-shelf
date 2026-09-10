@@ -10,6 +10,8 @@
  * onto a single library entry.
  */
 
+import { detectThreeD } from "./parameters.js";
+
 /* ==================================================
 CSS VALUE + DECLARATION PARSING
 ================================================== */
@@ -363,11 +365,19 @@ SUPPORTING STYLES
 ================================================== */
 
 /* Properties worth carrying over because the motion depends on them. Layout,
-   branding and placement are deliberately excluded. */
+   branding and placement are deliberately excluded.
+
+   The image properties are here because an animated <img> that is not sitting
+   in its box the way the campaign put it does not look like the same
+   animation: a pan across a photo is `object-position` moving, and dropping it
+   leaves the pan centred and wrong. Sizes are still excluded -- a banner's
+   width is the creative, not the motion. */
 const ELEMENT_SUPPORT = new Set([
   "transform-origin", "transform-style", "backface-visibility", "perspective",
   "perspective-origin", "will-change", "clip-path", "mask", "mask-image",
-  "filter", "mix-blend-mode", "opacity", "transform",
+  "filter", "mix-blend-mode", "opacity", "transform", "transform-box",
+  "object-fit", "object-position", "background-position", "background-size",
+  "border-radius",
 ]);
 
 const PARENT_SUPPORT = new Set([
@@ -1542,7 +1552,7 @@ Restricted to the category list the editor already offers, so imported
 animations filter and search exactly like hand made ones.
 ================================================== */
 
-export function inferCategories(steps, timing) {
+export function inferCategories(steps, timing, context = {}) {
   const categories = new Set();
   const properties = new Set();
   const transforms = new Set();
@@ -1560,7 +1570,15 @@ export function inferCategories(steps, timing) {
   if (transforms.has("translateX") || transforms.has("translateY")) categories.add("slide");
   if (transforms.has("scale") || transforms.has("scaleX") || transforms.has("scaleY")) categories.add("scale");
   if (transforms.has("rotate")) categories.add("rotate");
-  if (transforms.has("rotateX") || transforms.has("rotateY") || transforms.has("translateZ")) categories.add("3d");
+  /* Depth is more than three transform functions: a perspective on the
+     container, a `translate3d` with a Z, a GSAP `rotationY` all make an
+     animation 3D, and `detectThreeD` is the one place that decides. */
+  if (detectThreeD({
+    steps,
+    target: context.target || {},
+    parent: context.parent || {},
+    gsapConfig: context.gsapConfig || null,
+  }).is3d) categories.add("3d");
   if (properties.has("clip-path") || properties.has("mask") || properties.has("mask-image")) categories.add("fade");
 
   const easing = String(timing && timing.easing || "");

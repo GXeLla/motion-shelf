@@ -95,6 +95,8 @@ export function normalizeAnimation(animation) {
 
     template: normalizeTemplate(animation.template),
 
+    parameters: normalizeParameters(animation.parameters),
+
     rawCss: String(animation.rawCss || ""),
 
     createdAt: animation.createdAt || Date.now(),
@@ -166,6 +168,45 @@ function normalizeTemplate(template) {
     gsapConfig: template.gsapConfig && typeof template.gsapConfig === "object"
       ? template.gsapConfig
       : null,
+  };
+}
+
+/*
+ * What the animation says is adjustable about it, and in which scope. This is
+ * what the editor builds its controls from, so an entry that names no variable
+ * is dropped rather than becoming a control that sets nothing.
+ *
+ * Absent is a valid answer: an animation written here by hand has no metadata,
+ * and the editor reads its declarations directly instead.
+ */
+function normalizeParameters(parameters) {
+  if (!parameters || typeof parameters !== "object") return null;
+
+  const clean = (list, scope) => (Array.isArray(list) ? list : [])
+    .filter((entry) => entry && /^--ms-[\w-]+$/.test(String(entry.name)))
+    .map((entry) => ({
+      name: String(entry.name),
+      label: String(entry.label || entry.name),
+      value: String(entry.value ?? ""),
+      kind: String(entry.kind || "value"),
+      group: String(entry.group || "motion"),
+      scope,
+      ...(entry.property ? { property: String(entry.property) } : {}),
+      ...(entry.axis ? { axis: String(entry.axis) } : {}),
+    }));
+
+  const target = clean(parameters.target, "target");
+  const parent = clean(parameters.parent, "parent");
+
+  if (!target.length && !parent.length) return null;
+
+  return {
+    target,
+    parent,
+    /* A container is required when the animation actually needs one, never
+       because the record claimed so with nothing to put in it. */
+    parentRequired: parent.length > 0,
+    parentClassName: parent.length ? String(parameters.parentClassName || "") : "",
   };
 }
 
