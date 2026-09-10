@@ -2,7 +2,12 @@ import { state } from "./state.js";
 
 import { loadAnimations, saveAnimations } from "./storage.js";
 
-import { findAnimation, buildExportCSS, createPreviewImage } from "./animations.js";
+import {
+  findAnimation,
+  buildExportCSS,
+  applyPreviewBackdrop,
+  createPreviewImage,
+} from "./animations.js";
 
 import {
   getVisibleAnimations,
@@ -10,7 +15,13 @@ import {
   renderFilterButtons,
 } from "./filters.js";
 
-import { renderCards } from "./cards.js";
+import {
+  renderCards,
+  refreshCardFavourite,
+  refreshCardSelection,
+} from "./cards.js";
+
+import { toggleFavourite } from "./favourites.js";
 
 import { createModalController } from "./modals.js";
 
@@ -26,7 +37,6 @@ import {
   escapeHtml,
   escapeAttribute,
   isTypingElement,
-  normalizeImageUrl,
   formatDateTimeDDMMYY,
 } from "./utils.js";
 
@@ -336,7 +346,8 @@ animationGrid.addEventListener("click", async (event) => {
         state.selectedIds.add(id);
       }
 
-      render();
+      refreshCardSelection(animationGrid, id, state.selectedIds.has(id));
+      updateSelectionUI();
       return;
     }
 
@@ -346,6 +357,29 @@ animationGrid.addEventListener("click", async (event) => {
     target.classList.add("copied");
     setTimeout(() => target.classList.remove("copied"), 500);
     showToast(`${animation.name} CSS copied.`, "fa-solid fa-copy");
+    return;
+  }
+
+  if (action === "favourite") {
+    const animation = findAnimation(id);
+    const saved = toggleFavourite(id);
+
+    showToast(
+      saved
+        ? `${animation?.name || "Animation"} saved to favourites.`
+        : `${animation?.name || "Animation"} removed from favourites.`,
+      saved ? "fa-solid fa-star" : "fa-regular fa-star",
+    );
+
+    /* Only when the Favourite filter is up does the star change which cards
+       belong on screen; otherwise patch the one card and leave the rest of
+       the grid, and its running previews, alone. */
+    if (state.selectedFilters.includes("favourite")) {
+      render();
+    } else {
+      refreshCardFavourite(animationGrid, id);
+    }
+
     return;
   }
 
@@ -407,7 +441,8 @@ animationGrid.addEventListener("change", (event) => {
     state.selectedIds.delete(id);
   }
 
-  render();
+  refreshCardSelection(animationGrid, id, input.checked);
+  updateSelectionUI();
 });
 
 function updateSelectionUI() {
@@ -493,8 +528,7 @@ function openDetails(id) {
 
   state.detailId = id;
 
-  const imageSrc =
-    normalizeImageUrl(animation.imageUrl) || createSafePreview(animation);
+  const imageSrc = createSafePreview(animation);
 
   detailModalContent.innerHTML = `
 <div class="modal-heading">
@@ -559,25 +593,6 @@ function openDetails(id) {
 
     </div>
 
-
-    ${
-      animation.imageUrl
-        ? `
-          <div
-            class="image-url-display"
-            style="
-              margin: 20px 30px 0;
-              color: var(--text-muted);
-              font-size: 12px;
-              word-break: break-all;
-            "
-          >
-            <i class="fa-solid fa-image"></i>
-            ${escapeHtml(animation.imageUrl)}
-          </div>
-        `
-        : ""
-    }
 
 
     <p class="detail-description">
@@ -656,6 +671,11 @@ function openDetails(id) {
   `;
 
   const preview = document.getElementById("detailPreviewImage");
+
+  applyPreviewBackdrop(
+    detailModalContent.querySelector(".detail-preview"),
+    animation,
+  );
 
   if (preview) {
     import("./animations.js").then(({ applyAnimation }) => {

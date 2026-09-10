@@ -470,6 +470,7 @@ const VARIABLE_NAMES = {
   skewX: "--ms-skew-x",
   skewY: "--ms-skew-y",
   opacity: "--ms-opacity",
+  perspective: "--ms-perspective",
 };
 
 const VARIABLE_LABELS = {
@@ -512,54 +513,84 @@ export function buildTemplate(members) {
   const analyses = members.map((member) => analyzeSteps(member.steps));
   const base = analyses[0];
 
-  /* Slots that move together across the family share one variable. */
-  const groups = new Map();
-
+  /* Each slot's default is the middle of what the family actually used. */
+  const slotValue = new Map();
   base.slots.forEach((slot, key) => {
-    const vector = analyses
-      .map((analysis) => (analysis.slots.get(key) || slot).magnitude)
-      .map((value) => Number(Number(value).toFixed(4)));
-
-    const signature = slot.kind + "|" + vector.join(",");
-    if (!groups.has(signature)) groups.set(signature, { kind: slot.kind, unit: slot.unit, keys: [], vector });
-    groups.get(signature).keys.push(key);
+    const vector = analyses.map((analysis) => (analysis.slots.get(key) || slot).magnitude);
+    slotValue.set(key, median(vector));
   });
 
-  /* A single translate axis reads better as "distance" than as x or y. */
-  const translateKinds = new Set(
-    [...groups.values()]
-      .map((group) => group.kind)
-      .filter((kind) => /^translate/i.test(kind)),
-  );
-  const singleAxis = translateKinds.size === 1;
+  /*
+   * One control per kind of motion, not one per keyframe stage. A six stage
+   * overshoot has a single "distance": the other stages are expressed as a
+   * proportion of it, so turning it up scales the whole move and the shape of
+   * the animation survives. Scale is different -- it swings around 1 rather
+   * than 0 -- so only its most extreme stage becomes a control.
+   */
+  const byKind = new Map();
+  base.slots.forEach((slot, key) => {
+    if (!byKind.has(slot.kind)) byKind.set(slot.kind, []);
+    byKind.get(slot.kind).push(key);
+  });
 
-  const used = new Map();
   const variables = [];
   const bySlot = new Map();
+  const proportional = new Map();
+  const used = new Map();
 
-  groups.forEach((group) => {
-    let name = VARIABLE_NAMES[group.kind] || "--ms-value";
-    if (singleAxis && /^translate/i.test(group.kind)) name = "--ms-distance";
+  const translateKinds = [...byKind.keys()].filter((kind) => /^translate/i.test(kind));
+  const singleAxis = translateKinds.length === 1;
+
+  byKind.forEach((keys, kind) => {
+    const scaleLike = /^scale/i.test(kind);
+    const slot = base.slots.get(keys[0]);
+
+    let name = VARIABLE_NAMES[kind] || "--ms-value";
+    if (singleAxis && /^translate/i.test(kind)) name = "--ms-distance";
 
     const seen = used.get(name) || 0;
     used.set(name, seen + 1);
     if (seen) name = name + "-" + (seen + 1);
 
-    const value = median(group.vector);
+    /* The stage that departs furthest from rest is the one worth exposing. */
+    const anchorKey = keys.reduce((best, key) => {
+      const value = slotValue.get(key);
+      const reference = scaleLike ? Math.abs(value - 1) : Math.abs(value);
+      const bestValue = slotValue.get(best);
+      const bestReference = scaleLike ? Math.abs(bestValue - 1) : Math.abs(bestValue);
+      return reference > bestReference ? key : best;
+    }, keys[0]);
+
+    const anchor = slotValue.get(anchorKey);
+    if (!Number.isFinite(anchor) || anchor === 0) return;
+
     const variable = {
       name,
-      value,
-      unit: group.unit,
-      kind: group.kind,
+      value: anchor,
+      unit: slot.unit,
+      kind,
       label: VARIABLE_LABELS[name] || titleFromName(name.replace("--ms-", "")),
-      default: value + (group.unit || ""),
+      default: Number(anchor.toFixed(4)) + (slot.unit || ""),
     };
 
     variables.push(variable);
-    group.keys.forEach((key) => bySlot.set(key, variable));
+
+    if (scaleLike || kind === "opacity") {
+      /* Only the anchor stage is adjustable; the rest keep their own values. */
+      bySlot.set(anchorKey, variable);
+      return;
+    }
+
+    keys.forEach((key) => {
+      bySlot.set(key, variable);
+      /* Six places, so scaling a multi-stage move reproduces its original
+         values rather than drifting a fraction of a percent. */
+      const ratio = Number((slotValue.get(key) / anchor).toFixed(6));
+      proportional.set(key, ratio);
+    });
   });
 
-  /* Rewrite the canonical keyframes to read from those variables. */
+  /* Rewrite the canonical keyframes to read from those controls. */
   const steps = canonical.steps.map((step, stepIndex) => {
     const declarations = {};
 
@@ -576,10 +607,13 @@ export function buildTemplate(members) {
 
             const slot = base.slots.get(key);
             const reference = "var(" + variable.name + ", " + variable.default + ")";
+            const ratio = proportional.has(key) ? proportional.get(key) : 1;
+            const signed = (slot && slot.sign < 0 ? -1 : 1) * ratio;
 
-            /* The variable carries a magnitude; the direction stays in the
-               keyframe so overriding it cannot flip the motion by accident. */
-            return slot && slot.sign < 0 ? "calc(" + reference + " * -1)" : reference;
+            /* Direction stays in the keyframe, so raising a value can never
+               reverse the motion. */
+            if (signed === 1) return reference;
+            return "calc(" + reference + " * " + Number(signed.toFixed(6)) + ")";
           });
 
           return property === "transform"
@@ -609,12 +643,33 @@ export function buildTemplate(members) {
   return { steps, variables };
 }
 
+
 /* ==================================================
 CANONICAL LIBRARY
 ================================================== */
 
+/*
+ * An animation used on both desktop and mobile creatives is genuinely for
+ * both; one only ever seen on one of them is reported as such. No evidence
+ * means no claim, so it stays "both".
+ */
+function resolveDevice(votes) {
+  const desktop = votes.get("desktop") || 0;
+  const mobile = votes.get("mobile") || 0;
+  const both = votes.get("both") || 0;
+
+  if (both || (desktop && mobile)) return "both";
+  if (desktop) return "desktop";
+  if (mobile) return "mobile";
+
+  return "both";
+}
+
+/* Ties break on the key, never on insertion order: the scan walks several
+   directories at once, so arrival order is not something to depend on. */
 function commonest(votes) {
-  return [...votes.entries()].sort((a, b) => b[1] - a[1])[0];
+  return [...votes.entries()]
+    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))[0];
 }
 
 function slug(value) {
@@ -656,7 +711,7 @@ export function buildCanonicalLibrary(entries, options = {}) {
     });
 
     if (!families.has(fingerprint)) {
-      families.set(fingerprint, { fingerprint, members: [], occurrences: 0, sources: [], nameVotes: new Map(), interactionVotes: new Map(), targetVotes: new Map(), timingVotes: new Map() });
+      families.set(fingerprint, { fingerprint, members: [], occurrences: 0, sources: [], nameVotes: new Map(), interactionVotes: new Map(), targetVotes: new Map(), timingVotes: new Map(), deviceVotes: new Map() });
     }
 
     const family = families.get(fingerprint);
@@ -676,6 +731,10 @@ export function buildCanonicalLibrary(entries, options = {}) {
       family.interactionVotes.set(interaction, (family.interactionVotes.get(interaction) || 0) + count);
     });
 
+    (entry.deviceVotes || new Map()).forEach((count, device) => {
+      family.deviceVotes.set(device, (family.deviceVotes.get(device) || 0) + count);
+    });
+
     const target = record.target || "div";
     family.targetVotes.set(target, (family.targetVotes.get(target) || 0) + entry.occurrences);
 
@@ -688,10 +747,14 @@ export function buildCanonicalLibrary(entries, options = {}) {
 
   return [...families.values()]
     .filter((family) => family.occurrences >= minimumOccurrences)
-    .sort((a, b) => b.occurrences - a.occurrences)
+    .sort((a, b) =>
+      b.occurrences - a.occurrences
+      || String(a.fingerprint).localeCompare(String(b.fingerprint)))
     .map((family) => {
       /* The most used member sets the canonical structure. */
-      const ordered = [...family.members].sort((a, b) => b.occurrences - a.occurrences);
+      const ordered = [...family.members].sort((a, b) =>
+        b.occurrences - a.occurrences
+        || String(a.fingerprint).localeCompare(String(b.fingerprint)));
       const canonical = ordered[0].record;
 
       const template = buildTemplate(ordered.map((entry) => entry.record));
@@ -774,7 +837,7 @@ export function buildCanonicalLibrary(entries, options = {}) {
         description: behaviourName + " technique, found in " + family.occurrences
           + " place" + (family.occurrences === 1 ? "" : "s")
           + (family.members.length > 1 ? " across " + family.members.length + " value variants." : "."),
-        device: "both",
+        device: resolveDevice(family.deviceVotes),
         interaction: interactionVote ? interactionVote[0] : canonical.interaction,
         categories: inferCategories(canonical.steps, canonical.timing),
         animationName: keyframeName,
@@ -789,7 +852,6 @@ export function buildCanonicalLibrary(entries, options = {}) {
         css: declarationsToText({ ...variableDeclarations, ...timingVariables, ...elementStyles }),
         keyframes: stepsToKeyframeCss(template.steps),
         parent: declarationsToText(parentStyles),
-        imageUrl: "",
         template: {
           engine,
           variables: template.variables.map((variable) => ({

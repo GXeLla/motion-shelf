@@ -543,6 +543,24 @@ export function fingerprintSteps(steps, options = {}) {
   return hashString(`${geometry}#${loops}#${direction}`);
 }
 
+/*
+ * Ad archives file creatives by format, and those folder names say which
+ * screen the animation was built for: .../dynamic-head-desktop/, .../midscroll-mobile/.
+ * Roughly two fifths of the archive names a device this way.
+ */
+export function deviceFromPath(file) {
+  const lower = String(file || "").toLowerCase();
+
+  const desktop = /(?:^|[^a-z])desktop(?:[^a-z]|$)|[_-]dtp(?:[^a-z]|$)/.test(lower);
+  const mobile = /(?:^|[^a-z])mobile(?:[^a-z]|$)|[_-]mob(?:[^a-z]|$)/.test(lower);
+
+  if (desktop && mobile) return "both";
+  if (desktop) return "desktop";
+  if (mobile) return "mobile";
+
+  return "";
+}
+
 /* Small, dependency free, stable across browser and Node: FNV-1a. */
 export function hashString(value) {
   let hash = 0x811c9dc5;
@@ -1657,6 +1675,9 @@ export class AnimationLibrary {
         (existing.interactionVotes.get(record.interaction) || 0) + 1,
       );
 
+      const device = deviceFromPath(origin.file);
+      if (device) existing.deviceVotes.set(device, (existing.deviceVotes.get(device) || 0) + 1);
+
       const alreadyRecorded = existing.sources.some((source) => source.file === origin.file);
       if (!alreadyRecorded && existing.sources.length < 5) existing.sources.push(origin);
       return existing;
@@ -1672,6 +1693,7 @@ export class AnimationLibrary {
       ]]),
       nameVotes: new Map(record.originalName ? [[record.originalName, 1]] : []),
       interactionVotes: new Map([[record.interaction, 1]]),
+      deviceVotes: new Map(deviceFromPath(origin.file) ? [[deviceFromPath(origin.file), 1]] : []),
     };
 
     this.entries.set(fingerprint, entry);

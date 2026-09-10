@@ -21,6 +21,7 @@
     "parallax"
   ],
   "animationName": "msImageCinematicDrift",
+  "className": "ms-cinematic-image-drift",
   "duration": 10,
   "durationUnit": "s",
   "delay": 0,
@@ -33,12 +34,36 @@
     0.95
   ],
   "iterationCount": "infinite",
-  "imageUrl": "https://picsum.photos/id/73/900/600",
-  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
-  "keyframes": "@keyframes msImageCinematicDrift {\n  0%,\n  100% {\n    transform: translate3d(-1.2%, 0.8%, 0) scale(1);\n    filter: brightness(0.96) saturate(0.96);\n  }\n\n  50% {\n    transform: translate3d(1.2%, -0.8%, 0) scale(1.035);\n    filter: brightness(1.05) saturate(1.08);\n  }\n}",
+  "css": "--ms-x: 1.2%;\n--ms-y: 0.8%;\n--ms-scale: 1.035;\n--ms-duration: 10s;\n--ms-delay: 0s;\n--ms-ease: sine.inOut;\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "keyframes": "0% {\n    transform: translate3d(calc(var(--ms-x, 1.2%) * -1), var(--ms-y, 0.8%), 0) scale(1);\n    filter: brightness(0.96) saturate(0.96);\n  }\n\n  50% {\n    transform: translate3d(var(--ms-x, 1.2%), calc(var(--ms-y, 0.8%) * -1), 0) scale(var(--ms-scale, 1.035));\n    filter: brightness(1.05) saturate(1.08);\n  }\n\n  100% {\n    transform: translate3d(calc(var(--ms-x, 1.2%) * -1), var(--ms-y, 0.8%), 0) scale(1);\n    filter: brightness(0.96) saturate(0.96);\n  }",
   "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1200px;",
   "createdAt": 1786713752110,
-  "updatedAt": 1786713752110
+  "updatedAt": 1789030161102,
+  "template": {
+    "engine": "css",
+    "timingVariables": true,
+    "variables": [
+      {
+        "name": "--ms-x",
+        "label": "Distance X",
+        "value": "1.2%",
+        "kind": "translateX"
+      },
+      {
+        "name": "--ms-y",
+        "label": "Distance Y",
+        "value": "0.8%",
+        "kind": "translateY"
+      },
+      {
+        "name": "--ms-scale",
+        "label": "Scale",
+        "value": "1.035",
+        "kind": "scale"
+      }
+    ],
+    "gsapConfig": null
+  }
 }
   */
   
@@ -59,8 +84,12 @@
   /* Animation */
   
   .ms-cinematic-image-drift {
-    --motion-shelf-image: url("https://picsum.photos/id/73/900/600");
-    content: var(--motion-shelf-image);
+    --ms-x: 1.2%;
+    --ms-y: 0.8%;
+    --ms-scale: 1.035;
+    --ms-duration: 10s;
+    --ms-delay: 0s;
+    --ms-ease: sine.inOut;
     width: 100%;
     height: 100%;
     max-width: 100%;
@@ -72,25 +101,31 @@
     backface-visibility: hidden;
     will-change: transform, opacity, filter;
     animation-name: msImageCinematicDrift;
-    animation-duration: 10s;
-    animation-delay: 0s;
-    animation-timing-function: cubic-bezier(0.445, 0.05, 0.55, 0.95);
+    animation-duration: var(--ms-duration, 10s);
+    animation-delay: var(--ms-delay, 0s);
+    animation-timing-function: var(--ms-ease, cubic-bezier(0.445, 0.05, 0.55, 0.95));
     animation-iteration-count: infinite;
     animation-fill-mode: both;
 }
   
   /* Keyframes */
   
+  
   @keyframes msImageCinematicDrift {
-  0%,
-  100% {
-    transform: translate3d(-1.2%, 0.8%, 0) scale(1);
+  0% {
+    transform: translate3d(calc(var(--ms-x, 1.2%) * -1), var(--ms-y, 0.8%), 0) scale(1);
     filter: brightness(0.96) saturate(0.96);
   }
 
   50% {
-    transform: translate3d(1.2%, -0.8%, 0) scale(1.035);
+    transform: translate3d(var(--ms-x, 1.2%), calc(var(--ms-y, 0.8%) * -1), 0) scale(var(--ms-scale, 1.035));
     filter: brightness(1.05) saturate(1.08);
   }
-}
+
+  100% {
+    transform: translate3d(calc(var(--ms-x, 1.2%) * -1), var(--ms-y, 0.8%), 0) scale(1);
+    filter: brightness(0.96) saturate(0.96);
+  }
+  }
+  
   

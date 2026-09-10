@@ -66,14 +66,6 @@ export function validateAnimationDraft(data) {
   const keyframeError = validateKeyframes(data.keyframes, animationName);
   if (keyframeError) errors.keyframes = keyframeError;
 
-  if (data.imageUrl) {
-    try {
-      new URL(data.imageUrl, window.location.href);
-    } catch {
-      errors.imageUrl = "Enter a valid image URL or project-relative path.";
-    }
-  }
-
   return errors;
 }
 

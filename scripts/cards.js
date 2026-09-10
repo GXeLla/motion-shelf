@@ -8,22 +8,252 @@ import {
   formatDateTimeDDMMYY,
 } from "./utils.js";
 
-import { applyAnimation, createPreviewImage } from "./animations.js";
+import {
+  applyAnimation,
+  applyPreviewBackdrop,
+  createPreviewImage,
+} from "./animations.js";
 
 import { getCategoryIcon, animationMatchesFilter } from "./filters.js";
 
-export function renderCards(animationGrid, animations) {
-  animationGrid.innerHTML = "";
+import { isFavourite } from "./favourites.js";
 
-  animations.forEach((animation) => {
-    animationGrid.appendChild(createCard(animation));
+import { describeOrigin } from "./origin.js";
+
+/*
+ * WINDOWED RENDERING
+ *
+ * The library is one grid, but only a screenful of it is ever built. Each
+ * card costs roughly 40 nodes and two generated images; building a thousand
+ * of them took minutes and had to be repeated on every filter click, search
+ * keystroke and star. Now a batch is built, and the next one follows when a
+ * sentinel below the grid comes within 800px of the viewport -- so the cards
+ * exist before you scroll to them, and a filter click builds 48 cards instead
+ * of the whole archive.
+ */
+const BATCH = 48;
+
+/* How much of an already-scrolled grid a re-render will rebuild before
+   falling back to lazy batches. */
+const MAX_KEPT = 240;
+
+/* Only one grid is ever on screen, so a single observer is enough; it is
+   disconnected before each render so an abandoned list cannot keep appending
+   cards into a grid that has already moved on. */
+let batchObserver = null;
+
+/*
+ * Everything a card draws from, in one string.
+ *
+ * A render used to empty the grid and build it again, which is why applying a
+ * sync flashed: every card on screen was destroyed and replaced, previews and
+ * all, even though almost all of them were about to be drawn identically.
+ * Comparing this against what a card was built from says whether the existing
+ * node can simply be moved into place instead.
+ */
+function cardSignature(animation) {
+  return [
+    animation.updatedAt,
+    animation.name,
+    animation.description,
+    animation.target,
+    animation.device,
+    animation.interaction,
+    normalizeCategories(animation.categories).join(","),
+    animation.className,
+    animation.animationName,
+    animation.css,
+    animation.keyframes,
+    animation.duration,
+    animation.durationUnit,
+    animation.delay,
+    animation.delayUnit,
+    animation.easing,
+    animation.iterationCount,
+    animation.localPresent ? 1 : 0,
+    animation.repositoryPresent ? 1 : 0,
+    animation.localPath,
+    animation.codeSynced ? 1 : 0,
+    animation.origin ? JSON.stringify(animation.origin) : "",
+    /* Not on the record, but the card is drawn differently for each. */
+    state.selectionMode ? 1 : 0,
+    state.selectedIds.has(animation.id) ? 1 : 0,
+    isFavourite(animation.id) ? 1 : 0,
+    (state.selectedFilters || []).join("|"),
+  ].join("\u0001");
+}
+
+export function renderCards(animationGrid, animations) {
+  if (batchObserver) {
+    batchObserver.disconnect();
+    batchObserver = null;
+  }
+
+  /* What is on screen right now, so identical cards can be kept. */
+  const existing = new Map();
+
+  animationGrid.querySelectorAll(".animation-card").forEach((card) => {
+    existing.set(card.dataset.id, card);
   });
+
+  /*
+   * Rebuild at least a screenful, and as much as was already rendered, so a
+   * re-render does not collapse the page under someone who had scrolled a
+   * long way down it.
+   */
+  const initial = Math.max(BATCH, Math.min(existing.size, MAX_KEPT));
+
+  let sentinel = animationGrid.querySelector(".grid-sentinel");
+
+  if (!sentinel) {
+    sentinel = document.createElement("div");
+    sentinel.className = "grid-sentinel";
+    sentinel.setAttribute("aria-hidden", "true");
+  }
+
+  /* Always last: every card is inserted before it. */
+  animationGrid.appendChild(sentinel);
+
+  let cursor = 0;
+
+  /* The nodes this render has placed. Tracked as elements rather than ids:
+     when a card has to be rebuilt, its old node must go even though the id
+     stays in the grid. */
+  const placed = new Set();
+
+  /* Returns whether anything is still waiting to be rendered. */
+  const appendBatch = (size = BATCH) => {
+    const slice = animations.slice(cursor, cursor + size);
+
+    if (!slice.length) {
+      return false;
+    }
+
+    slice.forEach((animation) => {
+      const signature = cardSignature(animation);
+      const previous = existing.get(animation.id);
+
+      let card;
+
+      if (previous && previous.dataset.signature === signature) {
+        /* Identical: move the live node, keeping its preview and any
+           animation already running in it. */
+        card = previous;
+      } else {
+        card = createCard(animation);
+        card.dataset.signature = signature;
+
+        /* The card it replaces has to go now; leaving it for the sweep below
+           would leave two cards for one animation, because the sweep only
+           knows which nodes this render placed. */
+        if (previous) previous.remove();
+        else card.classList.add("is-entering");
+      }
+
+      animationGrid.insertBefore(card, sentinel);
+
+      placed.add(card);
+    });
+
+    cursor += slice.length;
+
+    return cursor < animations.length;
+  };
+
+  const more = appendBatch(initial);
+
+  /* Whatever is left belonged to the previous list. */
+  existing.forEach((card) => {
+    if (!placed.has(card)) card.remove();
+  });
+
+  if (!more) {
+    sentinel.remove();
+    return;
+  }
+
+  batchObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) {
+        return;
+      }
+
+      if (!appendBatch()) {
+        batchObserver.disconnect();
+        batchObserver = null;
+        sentinel.remove();
+        return;
+      }
+
+      /*
+       * An observer only reports a *change*, so if one batch was not enough
+       * to push the sentinel back out of view -- a jump to the end of the
+       * page, a tall window -- no second callback would ever arrive and
+       * loading would stall. Re-observing asks for a fresh reading on the
+       * next frame, which cascades until the sentinel is genuinely offscreen.
+       */
+      requestAnimationFrame(() => {
+        if (!batchObserver) return;
+
+        batchObserver.unobserve(sentinel);
+        batchObserver.observe(sentinel);
+      });
+    },
+    { rootMargin: "800px 0px" },
+  );
+
+  batchObserver.observe(sentinel);
+}
+
+/*
+ * Starring a card changes one card. Rebuilding the grid for it would throw
+ * away every preview on screen and restart every animation, so the card is
+ * patched where it stands.
+ */
+export function refreshCardFavourite(animationGrid, id) {
+  const card = animationGrid.querySelector(
+    `.animation-card[data-id="${CSS.escape(String(id))}"]`,
+  );
+
+  if (!card) return;
+
+  const button = card.querySelector(".card-favourite");
+  const starred = isFavourite(id);
+
+  card.classList.toggle("is-favourite", starred);
+
+  if (!button) return;
+
+  button.classList.toggle("is-on", starred);
+  button.title = starred ? "Remove from favourites" : "Save to favourites";
+  button.setAttribute("aria-label", button.title);
+  button.setAttribute("aria-pressed", starred ? "true" : "false");
+  button.innerHTML = `<i class="${starred ? "fa-solid" : "fa-regular"} fa-star"></i>`;
+}
+
+/* Same reasoning for ticking a card in selection mode. */
+export function refreshCardSelection(animationGrid, id, selected) {
+  const card = animationGrid.querySelector(
+    `.animation-card[data-id="${CSS.escape(String(id))}"]`,
+  );
+
+  if (!card) return;
+
+  card.classList.toggle("selected", selected);
+
+  const input = card.querySelector('input[data-action="select"]');
+
+  if (input) input.checked = selected;
 }
 
 export function createCard(animation) {
   const card = document.createElement("article");
 
   card.className = "animation-card";
+
+  const favourited = isFavourite(animation.id);
+
+  card.classList.toggle("is-favourite", favourited);
 
   card.dataset.action = "copy";
 
@@ -42,6 +272,8 @@ export function createCard(animation) {
   const preview = document.createElement("div");
 
   preview.className = "card-preview";
+
+  applyPreviewBackdrop(preview, animation);
 
   /*
    * LIVE / PRESENCE INDICATOR
@@ -67,23 +299,7 @@ export function createCard(animation) {
 
   image.alt = animation.name;
 
-  const actualImage = animation.imageUrl;
-
-  image.src = actualImage || createPreviewImage(animation);
-
-  image.onerror = () => {
-    image.src = createPreviewImage(animation);
-  };
-
-  if (animation.target !== "img" && actualImage) {
-    image.style.backgroundImage = `url("${actualImage}")`;
-
-    image.style.backgroundSize = "cover";
-
-    image.style.backgroundPosition = "center";
-
-    image.style.objectFit = "cover";
-  }
+  image.src = createPreviewImage(animation);
 
   preview.appendChild(image);
 
@@ -116,6 +332,43 @@ export function createCard(animation) {
           : "MOTION";
 
   preview.appendChild(previewType);
+
+  /*
+   * FAVOURITE
+   *
+   * A real <button>, so the card's own click-to-copy handler steps aside for
+   * it instead of copying CSS every time somebody stars something.
+   */
+  /* Selection mode is dedicated to choosing cards for deletion. Leave the
+     star out of its controls entirely, including for already favourited
+     cards, so clicking the preview can only select the animation. */
+  if (!state.selectionMode) {
+    const favouriteButton = document.createElement("button");
+
+    favouriteButton.type = "button";
+
+    favouriteButton.className = "card-favourite";
+
+    favouriteButton.classList.toggle("is-on", favourited);
+
+    favouriteButton.dataset.action = "favourite";
+
+    favouriteButton.dataset.id = animation.id;
+
+    favouriteButton.title = favourited
+      ? "Remove from favourites"
+      : "Save to favourites";
+
+    favouriteButton.setAttribute("aria-label", favouriteButton.title);
+
+    favouriteButton.setAttribute("aria-pressed", favourited ? "true" : "false");
+
+    favouriteButton.innerHTML = `<i class="${
+      favourited ? "fa-solid" : "fa-regular"
+    } fa-star"></i>`;
+
+    preview.appendChild(favouriteButton);
+  }
 
   /*
    * SELECTION
@@ -169,6 +422,28 @@ export function createCard(animation) {
   titleRow.appendChild(title);
 
   titleRow.appendChild(targetBadge);
+
+  /*
+   * Where it came from. Every card says this: an archive and, when the
+   * animation came out of a single one, the brand folder inside it -- or
+   * Custom for anything written here by hand. The LOCAL badge is a different
+   * question (is the file in the linked folder) and keeps its own place.
+   */
+  const origin = describeOrigin(animation);
+
+  const originBadge = document.createElement("span");
+
+  originBadge.className = `source-badge source-${origin.kind}`;
+
+  originBadge.dataset.tooltip = origin.tooltip;
+
+  originBadge.innerHTML = `
+    <i class="${escapeAttribute(origin.icon)}"></i>
+    <span>${escapeHtml(origin.label)}</span>
+    ${origin.brand ? `<b>${escapeHtml(origin.brand)}</b>` : ""}
+  `;
+
+  titleRow.appendChild(originBadge);
 
   if (!animation.repositoryPresent) {
     const localBadge = document.createElement("span");
@@ -422,4 +697,3 @@ export function buildTags(animation) {
 
   return tags;
 }
-

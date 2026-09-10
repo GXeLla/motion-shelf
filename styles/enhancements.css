@@ -277,11 +277,72 @@ body::after {
 .animation-card {
   position: relative;
   cursor: copy;
+
+  /*
+   * Cards that are built but scrolled away skip layout, style and paint
+   * entirely. contain-intrinsic-size gives the browser a height to reserve
+   * for them so the scrollbar and the page height stay honest.
+   */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
+}
+
+/* The batch loader watches this; it has no appearance of its own. */
+.grid-sentinel {
+  grid-column: 1 / -1;
+  height: 1px;
+}
+
+/*
+ * A card that was not on screen a moment ago -- a sync import, a new
+ * animation -- rises into place instead of appearing. Cards that were already
+ * there are moved rather than rebuilt, so nothing around it flickers.
+ */
+@keyframes ms-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animation-card.is-entering {
+  animation: ms-card-enter 260ms cubic-bezier(0.22, 0.68, 0.35, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animation-card.is-entering {
+    animation: none;
+  }
 }
 .animation-card button,
 .animation-card input,
 .animation-card label {
   cursor: pointer;
+}
+
+/*
+ * A favourite keeps a warm rim and a soft glow, so a shortlisted animation is
+ * findable by eye in a grid of a thousand.
+ */
+.animation-card.is-favourite {
+  border-color: rgba(255, 199, 88, 0.38);
+  box-shadow:
+    0 0 0 1px rgba(255, 199, 88, 0.12),
+    0 0 26px rgba(255, 184, 77, 0.13),
+    var(--shadow-sm);
+}
+
+.animation-card.is-favourite:hover {
+  border-color: rgba(255, 199, 88, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(255, 199, 88, 0.2),
+    0 0 34px rgba(255, 184, 77, 0.22),
+    var(--shadow-sm);
 }
 
 .animation-card.copied {
@@ -318,9 +379,62 @@ body::after {
     monospace;
 }
 
-.card-title-row .local-source-badge {
-  margin-left: auto;
+.card-title-row .local-source-badge,
+.card-title-row .source-badge {
   flex: 0 0 auto;
+}
+
+/* Pushes the provenance badges to the end of the title row, whichever of them
+   the card happens to have. */
+.card-title-row .source-badge {
+  margin-left: auto;
+}
+
+.card-title-row .source-badge ~ .local-source-badge {
+  margin-left: 0;
+}
+
+.source-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: help;
+}
+
+/* The brand or campaign folder, when there is exactly one. */
+.source-badge b {
+  padding-left: 5px;
+  margin-left: 1px;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.source-badge.source-custom {
+  border-color: rgba(154, 176, 255, 0.32);
+  background: rgba(122, 150, 255, 0.1);
+  color: #a9bcff;
+}
+
+.source-badge.source-campaigns {
+  border-color: rgba(255, 176, 92, 0.3);
+  background: rgba(255, 168, 76, 0.09);
+  color: #ffb85c;
+}
+
+.source-badge.source-previews-only {
+  border-color: rgba(186, 148, 255, 0.3);
+  background: rgba(170, 132, 255, 0.09);
+  color: #c3a6ff;
 }
 .card-actions {
   flex-wrap: wrap;
@@ -399,7 +513,8 @@ body::after {
   cursor: help;
 }
 
-.local-source-badge::after {
+.local-source-badge::after,
+.source-badge::after {
   content: attr(data-tooltip);
   position: absolute;
   z-index: 20;
@@ -545,13 +660,11 @@ body::after {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background:
-    radial-gradient(
-      circle at 50% 42%,
-      rgba(42, 111, 111, 0.22),
-      transparent 50%
-    ),
-    linear-gradient(135deg, #0b1418, #111622);
+  /* Same split as the cards: scenery on the stage, subject on the image. */
+  background-color: #0b1418;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
 }
 
 .editor-live-stage {

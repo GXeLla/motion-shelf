@@ -18,9 +18,12 @@ import {
   discoverSourceRoots,
   isSameArchive,
   loadRememberedRoots,
+  loadScanCache,
   pickSourceRoot,
   rememberSourceRoot,
+  saveScanCache,
   scanSources,
+  splitCacheByRepository,
   supportsSourceScanning,
 } from "./campaign-scan.js";
 
@@ -164,14 +167,43 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
 
       setLabel("Scanning...");
 
+      /*
+       * What the last sync learned about each archive. A file whose size and
+       * modification time are unchanged is never read or parsed again -- only
+       * opened far enough to compare those two numbers -- which is most of
+       * the work in every sync after the first.
+       */
+      const previousCaches = await Promise.all(
+        roots.map((root) => loadScanCache(root.repository)),
+      );
+
+      const cache = new Map();
+
+      previousCaches.forEach((entries) => {
+        entries.forEach((value, key) => cache.set(key, value));
+      });
+
       const result = await scanSources({
         adapter: createCompositeAdapter(roots),
         roots: roots.map((root) => ({ repository: root.repository, path: root.repository })),
+        cache,
         onProgress: async (stats) => {
           setLabel(stats.campaignFoldersInspected + " folders, " + stats.uniqueAnimations + " found");
           await new Promise((resolve) => setTimeout(resolve, 0));
         },
       });
+
+      /* Stored per archive, so one that was not available this time keeps
+         the cache it already had instead of being emptied. */
+      const nextCaches = splitCacheByRepository(
+        result.cache || new Map(),
+        roots.map((root) => root.repository),
+      );
+
+      await Promise.all(
+        [...nextCaches.entries()].map(([repository, entries]) =>
+          saveScanCache(repository, entries)),
+      );
 
       pending = result.animations;
 

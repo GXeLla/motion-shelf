@@ -5,11 +5,11 @@ import {
   escapeHtml,
   formatCategoryLabel,
   normalizeCategories,
-  normalizeImageUrl,
   getScopedClassName,
   sanitizeAnimationName,
 } from "./utils.js";
 import {
+  applyPreviewBackdrop,
   createAnimation,
   createPreviewImage,
   findAnimation,
@@ -292,7 +292,6 @@ export function initializeEditor({ modalController, render, showToast }) {
     form.elements.css.value = data.css || "";
     form.elements.keyframes.value = data.keyframes || "";
     form.elements.parent.value = data.parent || "";
-    form.elements.imageUrl.value = normalizeImageUrl(data.imageUrl || "");
     setBezierInputs(normalizeBezier(data.cubicBezier));
     setDevice(data.device || "desktop", false);
     renderCategoryPicker(normalizeCategories(data.categories));
@@ -317,7 +316,6 @@ export function initializeEditor({ modalController, render, showToast }) {
       css: "width: 260px;\nborder-radius: 24px;\nfilter: drop-shadow(0 20px 30px rgba(0, 0, 0, .3));\nwill-change: transform;",
       keyframes: "0%, 100% {\n  transform: translateY(0) rotate(-1deg);\n}\n\n50% {\n  transform: translateY(-22px) rotate(1deg);\n}",
       parent: "perspective: 1000px;\noverflow: visible;",
-      imageUrl: "",
       device: "both",
       categories: ["image", "slide"],
     });
@@ -367,7 +365,6 @@ export function initializeEditor({ modalController, render, showToast }) {
   function getFormData() {
     const data = Object.fromEntries(new FormData(form).entries());
     data.categories = getSelectedCategories();
-    data.imageUrl = normalizeImageUrl(data.imageUrl);
     data.duration = Number(data.duration);
     data.delay = Number(data.delay);
     data.cubicBezier = normalizeBezier([
@@ -438,10 +435,16 @@ export function initializeEditor({ modalController, render, showToast }) {
       liveImage.style.cssText = "";
       liveImage.className = scopedClassName;
       classPreview.textContent = `.${scopedClassName}`;
-      liveImage.src = data.imageUrl || createPreviewImage({ ...previewAnimation, name: data.name || "Live Preview" });
-      liveImage.onerror = () => {
-        liveImage.src = createPreviewImage({ ...previewAnimation, name: data.name || "Live Preview" });
+      /* Seeded from the animation being edited, so the editor shows the same
+         character as its card. */
+      const previewKey = {
+        ...previewAnimation,
+        id: state.editingId || "editor-live",
+        name: data.name || "Live Preview",
       };
+
+      liveImage.src = createPreviewImage(previewKey);
+      applyPreviewBackdrop(liveStage, previewKey);
 
       if (parentIsValid) applyDeclarationBlock(liveParent, data.parent);
       if (cssIsValid) applyDeclarationBlock(liveImage, data.css);

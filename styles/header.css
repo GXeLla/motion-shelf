@@ -250,6 +250,16 @@ SELECTION BAR
 ================================================== */
 
 .selection-bar {
+  /*
+   * It starts in its natural place under the header, then stays available
+   * while a long library is being reviewed for deletion. As a child of
+   * .app-shell it automatically releases again at the end of the page, and
+   * returns to this position when the user scrolls back up.
+   */
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+
   display: flex;
   align-items: center;
   justify-content: space-between;

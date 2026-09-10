@@ -61,24 +61,6 @@ export function normalizeCategories(value) {
   return [...new Set(normalized)];
 }
 
-export function normalizeImageUrl(value) {
-  let url = String(value || "").trim();
-
-  if (!url) {
-    return "";
-  }
-
-  const markdownMatch = url.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-
-  if (markdownMatch) {
-    url = markdownMatch[2].trim();
-  }
-
-  url = url.replace(/^["']|["']$/g, "");
-
-  return url;
-}
-
 export function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -90,13 +72,6 @@ export function escapeHtml(value) {
 
 export function escapeAttribute(value) {
   return escapeHtml(value);
-}
-
-export function escapeCssUrl(value) {
-  return String(value)
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, "");
 }
 
 export function escapeSvg(value) {

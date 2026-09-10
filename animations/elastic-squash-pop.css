@@ -20,6 +20,7 @@
     "elastic"
   ],
   "animationName": "msElasticSquashPop",
+  "className": "ms-elastic-squash-pop",
   "duration": 1.3,
   "durationUnit": "s",
   "delay": 0,
@@ -32,12 +33,36 @@
     1
   ],
   "iterationCount": "1",
-  "imageUrl": "https://picsum.photos/id/446/900/600",
-  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nwill-change: transform, opacity, filter;",
-  "keyframes": "@keyframes msElasticSquashPop {\n  0% {\n    opacity: 0;\n    transform:\n      translateY(8%)\n      scaleX(0.08)\n      scaleY(0.08);\n\n    filter:\n      blur(16px)\n      brightness(1.5);\n  }\n\n  28% {\n    opacity: 1;\n    transform:\n      translateY(-3%)\n      scaleX(1.3)\n      scaleY(0.76);\n\n    filter:\n      blur(0)\n      brightness(1.12);\n  }\n\n  44% {\n    transform:\n      translateY(1%)\n      scaleX(0.82)\n      scaleY(1.2);\n  }\n\n  58% {\n    transform:\n      translateY(-0.5%)\n      scaleX(1.14)\n      scaleY(0.9);\n  }\n\n  70% {\n    transform:\n      translateY(0.3%)\n      scaleX(0.93)\n      scaleY(1.08);\n  }\n\n  81% {\n    transform:\n      translateY(0)\n      scaleX(1.045)\n      scaleY(0.97);\n  }\n\n  90% {\n    transform:\n      scaleX(0.985)\n      scaleY(1.018);\n  }\n\n  100% {\n    opacity: 1;\n    transform:\n      translateY(0)\n      scaleX(1)\n      scaleY(1);\n\n    filter:\n      blur(0)\n      brightness(1);\n  }\n}",
+  "css": "--ms-distance: 8%;\n--ms-scale-x: 0.08;\n--ms-scale-y: 0.08;\n--ms-duration: 1.3s;\n--ms-delay: 0s;\n--ms-ease: power2.out;\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nwill-change: transform, opacity, filter;",
+  "keyframes": "0% {\n    opacity: 0;\n    transform: translateY(var(--ms-distance, 8%)) scaleX(var(--ms-scale-x, 0.08)) scaleY(var(--ms-scale-y, 0.08));\n    filter: blur(16px)\n      brightness(1.5);\n  }\n\n  28% {\n    opacity: 1;\n    transform: translateY(calc(var(--ms-distance, 8%) * -0.375)) scaleX(1.3) scaleY(0.76);\n    filter: blur(0)\n      brightness(1.12);\n  }\n\n  44% {\n    transform: translateY(calc(var(--ms-distance, 8%) * 0.125)) scaleX(0.82) scaleY(1.2);\n  }\n\n  58% {\n    transform: translateY(calc(var(--ms-distance, 8%) * -0.0625)) scaleX(1.14) scaleY(0.9);\n  }\n\n  70% {\n    transform: translateY(calc(var(--ms-distance, 8%) * 0.0375)) scaleX(0.93) scaleY(1.08);\n  }\n\n  81% {\n    transform: translateY(0) scaleX(1.045) scaleY(0.97);\n  }\n\n  90% {\n    transform: scaleX(0.985) scaleY(1.018);\n  }\n\n  100% {\n    opacity: 1;\n    transform: translateY(0) scaleX(1) scaleY(1);\n    filter: blur(0)\n      brightness(1);\n  }",
   "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;",
   "createdAt": 1786714144385,
-  "updatedAt": 1786715176203
+  "updatedAt": 1789030161106,
+  "template": {
+    "engine": "css",
+    "timingVariables": true,
+    "variables": [
+      {
+        "name": "--ms-distance",
+        "label": "Distance",
+        "value": "8%",
+        "kind": "translateY"
+      },
+      {
+        "name": "--ms-scale-x",
+        "label": "Scale X",
+        "value": "0.08",
+        "kind": "scaleX"
+      },
+      {
+        "name": "--ms-scale-y",
+        "label": "Scale Y",
+        "value": "0.08",
+        "kind": "scaleY"
+      }
+    ],
+    "gsapConfig": null
+  }
 }
   */
   
@@ -57,8 +82,12 @@
   /* Animation */
   
   .ms-elastic-squash-pop {
-    --motion-shelf-image: url("https://picsum.photos/id/446/900/600");
-    content: var(--motion-shelf-image);
+    --ms-distance: 8%;
+    --ms-scale-x: 0.08;
+    --ms-scale-y: 0.08;
+    --ms-duration: 1.3s;
+    --ms-delay: 0s;
+    --ms-ease: power2.out;
     width: 100%;
     height: 100%;
     max-width: 100%;
@@ -69,84 +98,57 @@
     transform-origin: center center;
     will-change: transform, opacity, filter;
     animation-name: msElasticSquashPop;
-    animation-duration: 1.3s;
-    animation-delay: 0s;
-    animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+    animation-duration: var(--ms-duration, 1.3s);
+    animation-delay: var(--ms-delay, 0s);
+    animation-timing-function: var(--ms-ease, cubic-bezier(0.215, 0.61, 0.355, 1));
     animation-iteration-count: 1;
     animation-fill-mode: both;
 }
   
   /* Keyframes */
   
+  
   @keyframes msElasticSquashPop {
   0% {
     opacity: 0;
-    transform:
-      translateY(8%)
-      scaleX(0.08)
-      scaleY(0.08);
-
-    filter:
-      blur(16px)
+    transform: translateY(var(--ms-distance, 8%)) scaleX(var(--ms-scale-x, 0.08)) scaleY(var(--ms-scale-y, 0.08));
+    filter: blur(16px)
       brightness(1.5);
   }
 
   28% {
     opacity: 1;
-    transform:
-      translateY(-3%)
-      scaleX(1.3)
-      scaleY(0.76);
-
-    filter:
-      blur(0)
+    transform: translateY(calc(var(--ms-distance, 8%) * -0.375)) scaleX(1.3) scaleY(0.76);
+    filter: blur(0)
       brightness(1.12);
   }
 
   44% {
-    transform:
-      translateY(1%)
-      scaleX(0.82)
-      scaleY(1.2);
+    transform: translateY(calc(var(--ms-distance, 8%) * 0.125)) scaleX(0.82) scaleY(1.2);
   }
 
   58% {
-    transform:
-      translateY(-0.5%)
-      scaleX(1.14)
-      scaleY(0.9);
+    transform: translateY(calc(var(--ms-distance, 8%) * -0.0625)) scaleX(1.14) scaleY(0.9);
   }
 
   70% {
-    transform:
-      translateY(0.3%)
-      scaleX(0.93)
-      scaleY(1.08);
+    transform: translateY(calc(var(--ms-distance, 8%) * 0.0375)) scaleX(0.93) scaleY(1.08);
   }
 
   81% {
-    transform:
-      translateY(0)
-      scaleX(1.045)
-      scaleY(0.97);
+    transform: translateY(0) scaleX(1.045) scaleY(0.97);
   }
 
   90% {
-    transform:
-      scaleX(0.985)
-      scaleY(1.018);
+    transform: scaleX(0.985) scaleY(1.018);
   }
 
   100% {
     opacity: 1;
-    transform:
-      translateY(0)
-      scaleX(1)
-      scaleY(1);
-
-    filter:
-      blur(0)
+    transform: translateY(0) scaleX(1) scaleY(1);
+    filter: blur(0)
       brightness(1);
   }
-}
+  }
+  
   

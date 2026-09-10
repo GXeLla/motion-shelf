@@ -19,6 +19,7 @@
     "fade"
   ],
   "animationName": "msImageSoftBreath",
+  "className": "ms-soft-image-breathing",
   "duration": 3.8,
   "durationUnit": "s",
   "delay": 0,
@@ -31,12 +32,30 @@
     1
   ],
   "iterationCount": "infinite",
-  "imageUrl": "https://picsum.photos/id/1018/900/600",
-  "css": "width: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
-  "keyframes": "@keyframes msImageSoftBreath {\n  0%,\n  100% {\n    opacity: 0.92;\n    transform: scale(0.975);\n    filter: brightness(0.96);\n  }\n\n  50% {\n    opacity: 1;\n    transform: scale(1.025);\n    filter: brightness(1.04);\n  }\n}",
+  "css": "--ms-opacity: 0.92;\n--ms-scale: 0.975;\n--ms-duration: 3.8s;\n--ms-delay: 0s;\n--ms-ease: ease-in-out;\nwidth: 100%;\nheight: 100%;\nmax-width: 100%;\nmax-height: 100%;\ndisplay: block;\nobject-fit: contain;\nobject-position: center;\ntransform-origin: center center;\nbackface-visibility: hidden;\nwill-change: transform, opacity, filter;",
+  "keyframes": "0% {\n    opacity: var(--ms-opacity, 0.92);\n    transform: scale(var(--ms-scale, 0.975));\n    filter: brightness(0.96);\n  }\n\n  50% {\n    opacity: 1;\n    transform: scale(1.025);\n    filter: brightness(1.04);\n  }\n\n  100% {\n    opacity: 0.92;\n    transform: scale(0.975);\n    filter: brightness(0.96);\n  }",
   "parent": "width: 100%;\nheight: 100%;\ndisplay: grid;\nplace-items: center;\noverflow: hidden;\nperspective: 1200px;",
   "createdAt": 1786713095183,
-  "updatedAt": 1786713095183
+  "updatedAt": 1789030161110,
+  "template": {
+    "engine": "css",
+    "timingVariables": true,
+    "variables": [
+      {
+        "name": "--ms-opacity",
+        "label": "Opacity",
+        "value": "0.92",
+        "kind": "opacity"
+      },
+      {
+        "name": "--ms-scale",
+        "label": "Scale",
+        "value": "0.975",
+        "kind": "scale"
+      }
+    ],
+    "gsapConfig": null
+  }
 }
   */
   
@@ -57,8 +76,11 @@
   /* Animation */
   
   .ms-soft-image-breathing {
-    --motion-shelf-image: url("https://picsum.photos/id/1018/900/600");
-    content: var(--motion-shelf-image);
+    --ms-opacity: 0.92;
+    --ms-scale: 0.975;
+    --ms-duration: 3.8s;
+    --ms-delay: 0s;
+    --ms-ease: ease-in-out;
     width: 100%;
     height: 100%;
     max-width: 100%;
@@ -70,20 +92,20 @@
     backface-visibility: hidden;
     will-change: transform, opacity, filter;
     animation-name: msImageSoftBreath;
-    animation-duration: 3.8s;
-    animation-delay: 0s;
-    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    animation-duration: var(--ms-duration, 3.8s);
+    animation-delay: var(--ms-delay, 0s);
+    animation-timing-function: var(--ms-ease, ease-in-out);
     animation-iteration-count: infinite;
     animation-fill-mode: both;
 }
   
   /* Keyframes */
   
+  
   @keyframes msImageSoftBreath {
-  0%,
-  100% {
-    opacity: 0.92;
-    transform: scale(0.975);
+  0% {
+    opacity: var(--ms-opacity, 0.92);
+    transform: scale(var(--ms-scale, 0.975));
     filter: brightness(0.96);
   }
 
@@ -92,5 +114,12 @@
     transform: scale(1.025);
     filter: brightness(1.04);
   }
-}
+
+  100% {
+    opacity: 0.92;
+    transform: scale(0.975);
+    filter: brightness(0.96);
+  }
+  }
+  
   

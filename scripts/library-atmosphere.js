@@ -101,6 +101,22 @@ export function initializeLibraryAtmosphere(root = document.getElementById("libr
     if (!frame) frame = requestAnimationFrame(tick);
   }
 
+  /* Held for the length of a scroll, then released shortly after it stops.
+     The CSS above reads it to park the decorative animations. */
+  let scrollIdle = 0;
+
+  function markScrolling() {
+    if (root.dataset.scrolling !== "true") {
+      root.dataset.scrolling = "true";
+    }
+
+    clearTimeout(scrollIdle);
+
+    scrollIdle = setTimeout(() => {
+      delete root.dataset.scrolling;
+    }, 180);
+  }
+
   function resetPointer() {
     pointer.x = 0;
     pointer.y = 0;
@@ -130,7 +146,10 @@ export function initializeLibraryAtmosphere(root = document.getElementById("libr
   }, options);
   document.documentElement.addEventListener("pointerleave", resetPointer, options);
   window.addEventListener("blur", resetPointer, options);
-  window.addEventListener("scroll", updateTarget, options);
+  window.addEventListener("scroll", () => {
+    markScrolling();
+    updateTarget();
+  }, options);
   window.addEventListener("resize", resetPointer, options);
   document.addEventListener("visibilitychange", syncMotion, options);
   window.addEventListener("pagehide", () => { pageActive = false; syncMotion(); }, options);
@@ -141,6 +160,8 @@ export function initializeLibraryAtmosphere(root = document.getElementById("libr
 
   return () => {
     listeners.abort();
+    clearTimeout(scrollIdle);
+    delete root.dataset.scrolling;
     cancelAnimationFrame(frame);
     reducedMotion.removeEventListener("change", syncMotion);
     finePointer.removeEventListener("change", syncMotion);

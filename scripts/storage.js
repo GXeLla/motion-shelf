@@ -2,7 +2,6 @@ import { STORAGE_KEY } from "./state.js";
 
 import {
   normalizeCategories,
-  normalizeImageUrl,
   getScopedClassName,
   sanitizeAnimationName,
   createId,
@@ -79,8 +78,6 @@ export function normalizeAnimation(animation) {
     keyframes: String(animation.keyframes || "").trim(),
 
     parent: String(animation.parent || "").trim(),
-
-    imageUrl: normalizeImageUrl(animation.imageUrl || ""),
 
     codeFileName: animation.codeFileName || null,
 

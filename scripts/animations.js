@@ -6,8 +6,6 @@ import {
   getScopedClassName,
   sanitizeAnimationName,
   normalizeCategories,
-  normalizeImageUrl,
-  escapeCssUrl,
   indentCSS,
 } from "./utils.js";
 
@@ -15,7 +13,7 @@ import { saveAnimations } from "./storage.js";
 
 import { normalizeBezier, resolveEasing } from "./easing.js";
 
-import { createFigurePreview } from "./preview-figures.js";
+import { createScenePreview, createSceneBackdrop } from "./preview-scene.js";
 
 export function findAnimation(id) {
   return state.animations.find((animation) => animation.id === id);
@@ -60,8 +58,6 @@ export function createAnimation(data) {
     keyframes: data.keyframes.trim(),
 
     parent: data.parent.trim(),
-
-    imageUrl: normalizeImageUrl(data.imageUrl),
 
     codeFileName: null,
 
@@ -129,8 +125,6 @@ export function updateAnimation(id, data) {
   animation.keyframes = data.keyframes.trim();
 
   animation.parent = data.parent.trim();
-
-  animation.imageUrl = normalizeImageUrl(data.imageUrl);
 
   animation.updatedAt = Date.now();
 
@@ -204,20 +198,78 @@ export function normalizeKeyframes(animation) {
   `;
 }
 
-export function injectAnimationForPreview(animation) {
-  const styleId = `preview-style-${animation.id}`;
+/*
+ * ONE STYLESHEET FOR EVERY PREVIEW
+ *
+ * This used to append a <style> element per animation and rewrite its text on
+ * every render -- a thousand stylesheets, each rewrite forcing a style
+ * recalculation. Now every preview's keyframes live as rules in a single
+ * sheet, inserted once and left alone: rendering the same card again costs a
+ * Map lookup.
+ */
+let previewSheetElement = null;
 
-  let style = document.getElementById(styleId);
+const insertedKeyframes = new Map();
 
-  if (!style) {
-    style = document.createElement("style");
+function previewStyleSheet() {
+  if (!previewSheetElement || !previewSheetElement.isConnected) {
+    previewSheetElement = document.createElement("style");
 
-    style.id = styleId;
+    previewSheetElement.id = "ms-preview-keyframes";
 
-    document.head.appendChild(style);
+    document.head.appendChild(previewSheetElement);
+
+    insertedKeyframes.clear();
   }
 
-  style.textContent = normalizeKeyframes(animation);
+  return previewSheetElement;
+}
+
+/* An edited animation keeps its keyframe name, so the stale rule has to go or
+   the sheet would grow a duplicate on every save. */
+function dropKeyframesNamed(sheet, name) {
+  for (let index = sheet.cssRules.length - 1; index >= 0; index -= 1) {
+    const rule = sheet.cssRules[index];
+
+    if (rule instanceof CSSKeyframesRule && rule.name === name) {
+      sheet.deleteRule(index);
+    }
+  }
+}
+
+export function injectAnimationForPreview(animation) {
+  const text = normalizeKeyframes(animation);
+
+  if (insertedKeyframes.get(animation.id) === text) {
+    return;
+  }
+
+  const element = previewStyleSheet();
+  const sheet = element.sheet;
+
+  /* No stylesheet object yet (very early call): fall back to appending text,
+     which the branch above still de-duplicates. */
+  if (!sheet) {
+    element.textContent += text;
+
+    insertedKeyframes.set(animation.id, text);
+
+    return;
+  }
+
+  try {
+    if (insertedKeyframes.has(animation.id)) {
+      dropKeyframesNamed(sheet, sanitizeAnimationName(animation.animationName));
+    }
+
+    sheet.insertRule(text, sheet.cssRules.length);
+  } catch (error) {
+    /* An animation with unparseable keyframes should not take the grid down
+       with it; the card simply does not move. */
+    console.error("Could not register preview keyframes:", error);
+  }
+
+  insertedKeyframes.set(animation.id, text);
 }
 
 export function applyAnimation(element, animation, options = {}) {
@@ -279,12 +331,26 @@ export function applyAnimation(element, animation, options = {}) {
 }
 
 /*
- * The stand-in shown when an animation has no image of its own, which is
- * every imported one: nothing is taken from the campaign archives. A little
- * character makes the motion far easier to read than an abstract shape.
+ * Every animation's preview. Nothing is taken from the campaign archives, so
+ * the scene is generated from the animation's own id.
  */
 export function createPreviewImage(animation) {
-  return createFigurePreview(animation);
+  return createScenePreview(animation);
+}
+
+/*
+ * The still landscape that sits behind the animated element. Applied to the
+ * stage rather than to the element itself, so however far a keyframe moves,
+ * scales or turns the subject, the frame is never left empty.
+ */
+export function createPreviewBackdrop(animation) {
+  return createSceneBackdrop(animation);
+}
+
+export function applyPreviewBackdrop(stage, animation) {
+  if (!stage) return;
+
+  stage.style.backgroundImage = 'url("' + createSceneBackdrop(animation) + '")';
 }
 
 
@@ -344,7 +410,6 @@ export function buildMotionShelfMetadata(animation) {
     easing: animation.easing || "ease-in-out",
     cubicBezier: normalizeBezier(animation.cubicBezier),
     iterationCount: animation.iterationCount || "1",
-    imageUrl: normalizeImageUrl(animation.imageUrl),
     css: animation.css,
     keyframes: animation.keyframes,
     parent: animation.parent,
@@ -360,23 +425,6 @@ export function buildMotionShelfMetadata(animation) {
   */`;
 }
 
-export function injectImageIntoCss(css, url, type) {
-  if (!url) {
-    return css;
-  }
-
-  let result = String(css)
-    .replace(/background-image\s*:\s*url\(\s*(['"]?)(.*?)\1\s*\)\s*;?/gi, "")
-    .replace(/background\s*:\s*url\(\s*(['"]?)(.*?)\1\s*\)\s*;?/gi, "");
-
-  if (type === "src") {
-    result = `--motion-shelf-image: url("${escapeCssUrl(url)}");\ncontent: var(--motion-shelf-image);\n${result}`;
-  } else {
-    result = `background-image: url("${escapeCssUrl(url)}");\n${result}`;
-  }
-
-  return result.trim();
-}
 
 export function normalizeKeyframesForExport(animation) {
   return normalizeKeyframes(animation);
@@ -398,15 +446,7 @@ export function buildExportCSS(animation) {
   `
     : "";
 
-  let css = stripAnimationDeclarations(animation.css);
-
-  if (animation.imageUrl) {
-    css = injectImageIntoCss(
-      css,
-      normalizeImageUrl(animation.imageUrl),
-      animation.target === "img" ? "src" : "background",
-    );
-  }
+  const css = stripAnimationDeclarations(animation.css);
 
   const animationRules = getAnimationInlineCSS(animation).trim();
   const baseRule = `${className} {

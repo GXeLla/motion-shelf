@@ -137,10 +137,19 @@
     linear-gradient(0deg, #0309078c, transparent 24%, transparent 85%, #03090729);
 }
 
-/* Pause all decorative animation when the tab is hidden. */
+/*
+ * Pause all decorative animation when the tab is hidden -- and while the page
+ * is being scrolled. The aurora, the haze and the meteors repaint a large,
+ * blurred surface on every frame, which is precisely the budget a scroll
+ * needs; nobody has ever noticed a 26 second drift standing still for the
+ * length of a flick, and it starts again a moment after the scroll stops.
+ */
 .library-atmosphere[data-motion="paused"] *,
 .library-atmosphere[data-motion="paused"] *::before,
-.library-atmosphere[data-motion="paused"] *::after {
+.library-atmosphere[data-motion="paused"] *::after,
+.library-atmosphere[data-scrolling="true"] *,
+.library-atmosphere[data-scrolling="true"] *::before,
+.library-atmosphere[data-scrolling="true"] *::after {
   animation-play-state: paused !important;
 }
 

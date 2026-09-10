@@ -162,19 +162,17 @@ MODAL BACKDROP
   border: 1px solid var(--border);
   border-radius: 17px;
 
-  background:
-    radial-gradient(
-      circle at 50% 45%,
-      rgba(84, 169, 234, 0.12),
-      transparent 65%
-    ),
-    #0b1111;
+  /* Same split as the cards: scenery on the stage, subject on the image. */
+  background-color: #0b1111;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
 }
 
 .detail-preview img {
-  width: min(80%, 540px);
+  width: min(52%, 360px);
 
-  max-height: 320px;
+  max-height: 210px;
 
   object-fit: contain;
 }

@@ -1,9 +1,45 @@
 import { state } from "./state.js";
 
-import { normalizeCategories, formatCategoryLabel } from "./utils.js";
+import {
+  normalizeCategories,
+  formatCategoryLabel,
+  escapeHtml,
+} from "./utils.js";
+
+import { isFavourite } from "./favourites.js";
+
+import { createFolderPicker } from "./folder-picker.js";
+
+import {
+  ARCHIVES,
+  animationArchives,
+  animationFolders,
+  archiveLabel,
+  collectFolders,
+} from "./origin.js";
+
+/* The picker is a live component; renderFolderPicker needs the same render
+   callback the filter chips use. */
+let requestRender = () => {};
 
 export function initializeFilters({ filterList, searchInput, render }) {
+  requestRender = render;
+
   filterList.addEventListener("click", (event) => {
+    /* "Most used" reorders rather than narrows, so it is a sort chip and is
+       kept out of selectedFilters -- otherwise it would count as one of the
+       two allowed filters and quietly evict a real one. */
+    const sortButton = event.target.closest("[data-sort]");
+
+    if (sortButton) {
+      const mode = sortButton.dataset.sort;
+
+      state.sortMode = state.sortMode === mode ? DEFAULT_SORT : mode;
+
+      render();
+      return;
+    }
+
     const button = event.target.closest("[data-filter]");
 
     if (!button) {
@@ -14,6 +50,7 @@ export function initializeFilters({ filterList, searchInput, render }) {
 
     if (filter === "all") {
       state.selectedFilters = [];
+      state.sourceFolder = "";
       render();
       return;
     }
@@ -30,27 +67,93 @@ export function initializeFilters({ filterList, searchInput, render }) {
       state.selectedFilters.push(filter);
     }
 
+    /* The brand list belongs to one archive; leaving a stale brand selected
+       while switching archives would silently empty the grid. */
+    if (!activeArchive()) {
+      state.sourceFolder = "";
+    }
+
     render();
   });
+
+
+  /*
+   * A keystroke re-filters and re-renders the grid. Waiting for a pause in
+   * the typing means "parallax" costs one render instead of nine.
+   */
+  let searchTimer = 0;
 
   searchInput.addEventListener("input", (event) => {
     state.searchTerm = event.target.value.trim().toLowerCase();
 
-    render();
+    clearTimeout(searchTimer);
+
+    searchTimer = setTimeout(render, 140);
   });
 }
 
+export const DEFAULT_SORT = "name";
+
+/*
+ * How often an animation is actually used out in the campaigns. Sync records
+ * it while it collapses duplicates; anything hand-made was written once and
+ * counts as one, which puts customs at the bottom of a "Most used" list
+ * rather than pretending they have a history.
+ */
+export function usageCount(animation) {
+  const occurrences = Number(animation?.origin?.occurrences);
+
+  return Number.isFinite(occurrences) && occurrences > 0 ? occurrences : 1;
+}
+
+function compareByName(a, b) {
+  return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+    sensitivity: "base",
+  });
+}
+
+function compareForSort(a, b) {
+  if (state.sortMode === "uses") {
+    return usageCount(b) - usageCount(a) || compareByName(a, b);
+  }
+
+  return compareByName(a, b);
+}
+
+/* Which archive chip is up, if any -- the brand dropdown belongs to it. */
+export function activeArchive() {
+  return ARCHIVES.map((archive) => archive.value)
+    .find((value) => state.selectedFilters.includes(value)) || "";
+}
+
+/*
+ * The chosen brand narrows on top of everything else rather than joining the
+ * filter chips: it is a second axis, and it would otherwise eat one of the
+ * two filter slots that the archive chip already occupies.
+ */
+function matchesFolder(animation) {
+  if (!state.sourceFolder) {
+    return true;
+  }
+
+  return animationFolders(animation, activeArchive()).has(state.sourceFolder);
+}
+
 export function getVisibleAnimations() {
-  const matches = state.animations.filter(matchesSearch);
+  const matches = state.animations.filter(
+    (animation) => matchesSearch(animation) && matchesFolder(animation),
+  );
 
   if (state.selectedFilters.length === 0) {
-    return matches;
+    return [...matches].sort(compareForSort);
   }
 
   if (state.selectedFilters.length === 1) {
-    return matches.filter((animation) =>
-      animationMatchesFilter(animation, state.selectedFilters[0]),
-    );
+    return matches
+      .filter((animation) =>
+        animationMatchesFilter(animation, state.selectedFilters[0]),
+      )
+      .sort(compareForSort);
   }
 
   const scored = matches
@@ -66,12 +169,34 @@ export function getVisibleAnimations() {
     })
     .filter((item) => item.matchCount > 0);
 
-  scored.sort((a, b) => b.matchCount - a.matchCount);
+  /* With two filters up, how many of them an animation matches still comes
+     first -- the chosen order decides between equals. */
+  scored.sort((a, b) =>
+    b.matchCount - a.matchCount || compareForSort(a.animation, b.animation),
+  );
 
   return scored.map((item) => item.animation);
 }
 
 export function animationMatchesFilter(animation, filter) {
+  if (filter === "favourite") {
+    return isFavourite(animation.id);
+  }
+
+  /* Hand-made rather than imported: a synced animation always carries the
+     origin block that says which archive it came from. */
+  if (filter === "custom") {
+    return !animation.origin;
+  }
+
+  if (filter === "local") {
+    return Boolean(animation.localPresent);
+  }
+
+  if (filter === "campaigns" || filter === "previews-only") {
+    return animationArchives(animation).has(filter);
+  }
+
   const device = animation.device || "";
 
   const interaction = animation.interaction || "";
@@ -106,7 +231,6 @@ function matchesSearch(animation) {
     animation.interaction,
     animation.animationName,
     ...normalizeCategories(animation.categories),
-    animation.imageUrl,
     animation.localPath,
   ]
     .filter(Boolean)
@@ -116,63 +240,45 @@ function matchesSearch(animation) {
   return haystack.includes(state.searchTerm);
 }
 
+/*
+ * The chips that stay put and the chips that scroll.
+ *
+ * All, Desktop, Mobile, Favourite and Most used are the ones reached
+ * constantly, so they are never pushed off the side by however many
+ * categories a sync brings in; everything else lives in the strip that
+ * scrolls sideways next to them.
+ */
+const PINNED_FILTERS = [
+  { value: "desktop", label: "Desktop", icon: "fa-solid fa-desktop" },
+  { value: "mobile", label: "Mobile", icon: "fa-solid fa-mobile-screen" },
+  { value: "favourite", label: "Favourite", icon: "fa-solid fa-star" },
+];
+
+const SCROLLING_FILTERS = [
+  { value: "local", label: "Local", icon: "fa-solid fa-hard-drive" },
+  { value: "custom", label: "Custom", icon: "fa-solid fa-pen-ruler" },
+  ...ARCHIVES,
+  { value: "hover", label: "Hover", icon: "fa-solid fa-hand-pointer" },
+  { value: "infinite", label: "Infinite", icon: "fa-solid fa-infinity" },
+  { value: "appear", label: "Appear", icon: "fa-solid fa-eye" },
+  { value: "disappear", label: "Disappear", icon: "fa-solid fa-eye-slash" },
+  { value: "static", label: "Static", icon: "fa-solid fa-pause" },
+  { value: "3d", label: "3D", icon: "fa-solid fa-cube" },
+];
+
 export function renderFilterButtons(filterList) {
-  const categories = getAllCategories();
+  const filters = [...SCROLLING_FILTERS];
 
-  const filters = [
-    {
-      value: "desktop",
-      label: "Desktop",
-      icon: "fa-solid fa-desktop",
-    },
+  const taken = new Set(
+    [...PINNED_FILTERS, ...SCROLLING_FILTERS].map((filter) => filter.value),
+  );
 
-    {
-      value: "mobile",
-      label: "Mobile",
-      icon: "fa-solid fa-mobile-screen",
-    },
-
-    {
-      value: "hover",
-      label: "Hover",
-      icon: "fa-solid fa-hand-pointer",
-    },
-
-    {
-      value: "infinite",
-      label: "Infinite",
-      icon: "fa-solid fa-infinity",
-    },
-
-    {
-      value: "appear",
-      label: "Appear",
-      icon: "fa-solid fa-eye",
-    },
-
-    {
-      value: "disappear",
-      label: "Disappear",
-      icon: "fa-solid fa-eye-slash",
-    },
-
-    {
-      value: "static",
-      label: "Static",
-      icon: "fa-solid fa-pause",
-    },
-
-    {
-      value: "3d",
-      label: "3D",
-      icon: "fa-solid fa-cube",
-    },
-  ];
-
-  categories.forEach((category) => {
-    if (filters.some((filter) => filter.value === category)) {
+  getAllCategories().forEach((category) => {
+    if (taken.has(category)) {
       return;
     }
+
+    taken.add(category);
 
     filters.push({
       value: category,
@@ -181,9 +287,24 @@ export function renderFilterButtons(filterList) {
     });
   });
 
+  /*
+   * Rebuilding the row throws away how far it was scrolled, which sends you
+   * back to the start of the strip every time you pick a category from the
+   * far end of it. Remember the offset and put it back.
+   */
+  const previousScroll = filterList.querySelector(".filter-scroll")?.scrollLeft || 0;
+
   filterList.innerHTML = "";
 
-  filterList.appendChild(
+  const pinned = document.createElement("div");
+
+  pinned.className = "filter-pinned";
+
+  const scrolling = document.createElement("div");
+
+  scrolling.className = "filter-scroll";
+
+  pinned.appendChild(
     createFilterButton(
       "all",
       "All",
@@ -192,8 +313,8 @@ export function renderFilterButtons(filterList) {
     ),
   );
 
-  filters.forEach((filter) => {
-    filterList.appendChild(
+  PINNED_FILTERS.forEach((filter) => {
+    pinned.appendChild(
       createFilterButton(
         filter.value,
         filter.label,
@@ -202,6 +323,119 @@ export function renderFilterButtons(filterList) {
       ),
     );
   });
+
+  pinned.appendChild(
+    createSortButton(
+      "uses",
+      "Most used",
+      "fa-solid fa-fire",
+      state.sortMode === "uses",
+    ),
+  );
+
+  filters.forEach((filter) => {
+    scrolling.appendChild(
+      createFilterButton(
+        filter.value,
+        filter.label,
+        filter.icon,
+        state.selectedFilters.includes(filter.value),
+      ),
+    );
+  });
+
+  filterList.appendChild(pinned);
+
+  filterList.appendChild(scrolling);
+
+  /* Set directly rather than through scrollTo: this runs inside a render, and
+     a smooth scroll would animate the strip on every filter click. */
+  scrolling.scrollLeft = previousScroll;
+
+  renderFolderPicker(filterList);
+}
+
+/*
+ * The brand picker. Both archives are organised the same way -- one folder
+ * per brand or campaign -- so choosing an archive chip reveals a searchable
+ * dropdown of the folders actually present in the library, with how many
+ * animations came out of each.
+ */
+let picker = null;
+let pickerArchive = "";
+let pickerSignature = "";
+
+function renderFolderPicker(filterList) {
+  const archive = activeArchive();
+
+  if (!archive) {
+    /* Nothing is holding it open; drop it so a stale panel cannot reappear
+       the next time an archive chip is picked. */
+    picker = null;
+    pickerArchive = "";
+    pickerSignature = "";
+    return;
+  }
+
+  const folders = collectFolders(state.animations, archive);
+
+  const extras = document.createElement("div");
+
+  extras.className = "filter-extras";
+
+  if (!folders.length) {
+    picker = null;
+    pickerSignature = "";
+
+    extras.innerHTML = `
+      <span class="filter-extras-empty">
+        <i class="fa-solid fa-circle-info"></i>
+        No ${escapeHtml(archiveLabel(archive).toLowerCase())} folders in the library yet -- run a Sync first.
+      </span>
+    `;
+
+    filterList.appendChild(extras);
+
+    return;
+  }
+
+  /* A brand that is no longer in the library (a filter changed under it)
+     would otherwise leave the picker showing a value it cannot honour. */
+  const current = folders.some((entry) => entry.folder === state.sourceFolder)
+    ? state.sourceFolder
+    : "";
+
+  if (current !== state.sourceFolder) {
+    state.sourceFolder = current;
+  }
+
+  const signature = archive + "\u0001" + folders.map((entry) => entry.folder + ":" + entry.count).join(",");
+
+  /*
+   * Reuse the element whenever it would be rebuilt identically. A render can
+   * happen for reasons that have nothing to do with this picker, and building
+   * a new one would close the panel and throw away whatever was typed in it.
+   */
+  if (picker && pickerArchive === archive && pickerSignature === signature) {
+    picker.update({ value: current });
+  } else {
+    picker = createFolderPicker({
+      label: archiveLabel(archive),
+      options: folders,
+      value: current,
+      onSelect: (folder) => {
+        state.sourceFolder = folder;
+        requestRender();
+      },
+    });
+
+    pickerArchive = archive;
+    pickerSignature = signature;
+  }
+
+  extras.appendChild(picker);
+
+  filterList.appendChild(extras);
 }
 
 export function getAllCategories() {
@@ -237,6 +471,24 @@ export function getCategoryIcon(category) {
   };
 
   return icons[category] || "fa-solid fa-tag";
+}
+
+function createSortButton(value, label, icon, active) {
+  const button = createFilterButton(value, label, icon, active);
+
+  delete button.dataset.filter;
+
+  button.dataset.sort = value;
+
+  button.classList.add("filter-sort");
+
+  button.title = active
+    ? "Sorted by how often it is used -- click to go back to A to Z"
+    : "Sort by how often the animation is used";
+
+  button.setAttribute("aria-pressed", active ? "true" : "false");
+
+  return button;
 }
 
 function createFilterButton(value, label, icon, active) {
