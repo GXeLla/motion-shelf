@@ -91,6 +91,126 @@ export async function pushAnimationToCode(
   }
 }
 
+/*
+ * Rebuilds animations/manifest.json from whatever CSS files actually exist in
+ * the folder. The manifest is what every visitor loads, so it is derived from
+ * the directory rather than tracked by hand.
+ */
+export async function writeAnimationsManifest(animationsHandle) {
+  const files = [];
+
+  for await (const [fileName, handle] of animationsHandle.entries()) {
+    if (handle.kind !== "file") continue;
+    if (!fileName.toLowerCase().endsWith(".css")) continue;
+    files.push(fileName);
+  }
+
+  files.sort((a, b) => a.localeCompare(b));
+
+  const manifestHandle = await animationsHandle.getFileHandle("manifest.json", { create: true });
+  const writable = await manifestHandle.createWritable();
+
+  await writable.write(JSON.stringify({ version: 1, files }, null, 2) + "\n");
+  await writable.close();
+
+  return files;
+}
+
+/*
+ * Publishes the library so the whole team gets it: every animation is written
+ * into animations/ and the manifest is regenerated, which is what turns a
+ * local session into the committed catalog everyone loads. Committing and
+ * pushing is still the developer's own step.
+ */
+export async function syncLibraryToProject(
+  animations,
+  { showToast, render, updateWorkspaceUI = () => {}, onProgress = () => {} },
+) {
+  if (!animations.length) {
+    showToast("There is nothing to sync yet.", "fa-solid fa-triangle-exclamation");
+    return null;
+  }
+
+  if (!supportsProjectFolders()) {
+    showToast(
+      "Your browser does not support folder access. Use Chrome or Edge.",
+      "fa-solid fa-triangle-exclamation",
+    );
+    return null;
+  }
+
+  try {
+    await ensureProjectHandle();
+    updateWorkspaceUI();
+
+    const animationsHandle = await getAnimationsDirectory({ create: true });
+
+    let written = 0;
+    const failures = [];
+
+    for (const animation of animations) {
+      const fileName = animation.codeFileName || getCodeFileName(animation);
+
+      try {
+        const fileHandle = await animationsHandle.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        const exportedCss = buildExportCSS(animation);
+
+        await writable.write(exportedCss);
+        await writable.close();
+
+        animation.codeFileName = fileName;
+        animation.codeSynced = true;
+        animation.localPresent = true;
+        animation.repositoryPresent = true;
+        animation.localPath = getProjectDisplayPath(fileName);
+        animation.source = "local";
+        animation.rawCss = exportedCss;
+        animation.lastCodePush = Date.now();
+
+        written += 1;
+      } catch (error) {
+        console.warn("Could not write " + fileName + ":", error);
+        failures.push(animation.name);
+      }
+
+      /* Keep the interface alive while a large library is written. */
+      if (written % 10 === 0) {
+        onProgress({ written, total: animations.length });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    const files = await writeAnimationsManifest(animationsHandle);
+
+    saveAnimations(state.animations);
+    await loadAnimationsFromProject();
+
+    render();
+    updateWorkspaceUI();
+
+    if (failures.length) {
+      showToast(
+        written + " synced, " + failures.length + " could not be written.",
+        "fa-solid fa-triangle-exclamation",
+      );
+    } else {
+      showToast(
+        written + " animation" + (written === 1 ? "" : "s") + " synced. Commit and push to share them.",
+        "fa-solid fa-users",
+      );
+    }
+
+    return { written, failures, manifest: files };
+  } catch (error) {
+    if (error?.name === "AbortError") return null;
+
+    console.error("Sync failed:", error);
+    showToast("Could not sync the library.", "fa-solid fa-triangle-exclamation");
+    return null;
+  }
+}
+
 export async function deleteAnimationsFromCode(
   ids,
   { showToast, render, closeAll, updateWorkspaceUI = () => {} },

@@ -32,10 +32,10 @@
       "assignee": "Georgi",
       "favorite": false,
       "important": true,
-      "completed": false,
+      "completed": true,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T22:00:11.957Z"
+      "updatedAt": "2026-09-09T22:19:02.526Z"
     },
     {
       "id": "task-cdn-tree-shakable-animation-library",
@@ -56,10 +56,10 @@
       "assignee": "Georgi",
       "favorite": false,
       "important": true,
-      "completed": false,
+      "completed": true,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T22:00:17.580Z"
+      "updatedAt": "2026-09-09T22:19:02.526Z"
     },
     {
       "id": "task-scan-and-integrate-campaign-animations",

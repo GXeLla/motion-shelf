@@ -325,6 +325,24 @@ export function createCard(animation) {
 
   card.appendChild(content);
 
+  /*
+   * Template animations carry their adjustable values as custom properties.
+   * Only those are applied to the preview -- the rest of the class styles
+   * belong to the exported animation, not to a card thumbnail.
+   */
+  String(animation.css || "")
+    .split(";")
+    .forEach((declaration) => {
+      const separator = declaration.indexOf(":");
+      if (separator < 1) return;
+
+      const property = declaration.slice(0, separator).trim();
+      const value = declaration.slice(separator + 1).trim();
+      if (!property.startsWith("--ms-") || !value) return;
+
+      image.style.setProperty(property, value);
+    });
+
   applyAnimation(image, animation);
 
   return card;

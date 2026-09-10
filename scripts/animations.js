@@ -7,7 +7,6 @@ import {
   sanitizeAnimationName,
   normalizeCategories,
   normalizeImageUrl,
-  escapeSvg,
   escapeCssUrl,
   indentCSS,
 } from "./utils.js";
@@ -15,6 +14,8 @@ import {
 import { saveAnimations } from "./storage.js";
 
 import { normalizeBezier, resolveEasing } from "./easing.js";
+
+import { createFigurePreview } from "./preview-figures.js";
 
 export function findAnimation(id) {
   return state.animations.find((animation) => animation.id === id);
@@ -277,94 +278,15 @@ export function applyAnimation(element, animation, options = {}) {
   element.addEventListener("blur", stopAnimation);
 }
 
+/*
+ * The stand-in shown when an animation has no image of its own, which is
+ * every imported one: nothing is taken from the campaign archives. A little
+ * character makes the motion far easier to read than an abstract shape.
+ */
 export function createPreviewImage(animation) {
-  const name = escapeSvg(animation.name);
-
-  const svg = `
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="640"
-    height="400"
-    viewBox="0 0 640 400"
-  >
-    <defs>
-      <linearGradient
-        id="motionGradient"
-        x1="0"
-        y1="0"
-        x2="1"
-        y2="1"
-      >
-        <stop
-          offset="0%"
-          stop-color="#1CB8BA"
-        />
-
-        <stop
-          offset="55%"
-          stop-color="#3575BD"
-        />
-
-        <stop
-          offset="100%"
-          stop-color="#54A9EA"
-        />
-      </linearGradient>
-    </defs>
-  
-    <rect
-      width="640"
-      height="400"
-      rx="30"
-      fill="#111717"
-    />
-  
-    <circle
-      cx="320"
-      cy="195"
-      r="105"
-      fill="url(#motionGradient)"
-      opacity=".8"
-    />
-  
-    <rect
-      x="185"
-      y="140"
-      width="270"
-      height="110"
-      rx="22"
-      fill="#f4f7f7"
-      opacity=".92"
-    />
-  
-    <text
-      x="320"
-      y="198"
-      text-anchor="middle"
-      dominant-baseline="middle"
-      font-family="Arial, sans-serif"
-      font-size="23"
-      font-weight="700"
-      fill="#101313"
-    >
-      ${name}
-    </text>
-  
-    <text
-      x="320"
-      y="232"
-      text-anchor="middle"
-      font-family="Arial, sans-serif"
-      font-size="13"
-      fill="#526060"
-    >
-      Motion Shelf
-    </text>
-  </svg>
-  `;
-
-  return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  return createFigurePreview(animation);
 }
+
 
 export function getAnimationInlineCSS(animation) {
   const name = sanitizeAnimationName(animation.animationName);
@@ -375,11 +297,22 @@ export function getAnimationInlineCSS(animation) {
   const iteration = animation.iterationCount ||
     (animation.interaction === "infinite" ? "infinite" : "1");
 
+  /*
+   * Template animations read their timing from custom properties, so a
+   * project can retime one element without touching the shared definition.
+   * The declared values stay as the fallbacks, so nothing has to be set.
+   */
+  const useVariables = Boolean(animation.template && animation.template.timingVariables);
+
+  const durationValue = useVariables ? `var(--ms-duration, ${duration})` : duration;
+  const delayValue = useVariables ? `var(--ms-delay, ${delay})` : delay;
+  const easingValue = useVariables ? `var(--ms-ease, ${easing})` : easing;
+
   return [
     `animation-name: ${name};`,
-    `animation-duration: ${duration};`,
-    `animation-delay: ${delay};`,
-    `animation-timing-function: ${easing};`,
+    `animation-duration: ${durationValue};`,
+    `animation-delay: ${delayValue};`,
+    `animation-timing-function: ${easingValue};`,
     `animation-iteration-count: ${iteration};`,
     "animation-fill-mode: both;",
   ].join("\n");
@@ -418,6 +351,9 @@ export function buildMotionShelfMetadata(animation) {
     createdAt: animation.createdAt,
     updatedAt: animation.updatedAt,
   };
+
+  if (animation.origin) metadata.origin = animation.origin;
+  if (animation.template) metadata.template = animation.template;
 
   return `/* @motion-shelf
   ${JSON.stringify(metadata, null, 2)}

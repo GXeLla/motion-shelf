@@ -134,6 +134,15 @@
             <i class="fa-solid fa-list-check"></i>
             <span>Tasks</span>
           </a>
+          <button
+            class="button secondary"
+            id="syncButton"
+            type="button"
+            title="Read the campaign archives, classify and group what they contain, and bring the canonical animations into the library. The archives are opened read only."
+          >
+            <i class="fa-solid fa-rotate"></i>
+            <span>Sync</span>
+          </button>
           <div class="project-link" id="projectLink" data-status="unlinked">
             <button
               class="project-link-main"
@@ -626,6 +635,13 @@
             <label class="full">
               <span> Styles for this class </span>
 
+              <div
+                class="template-values"
+                id="templateValues"
+                aria-label="Adjustable values"
+                hidden
+              ></div>
+
               <textarea
                 name="css"
                 rows="7"
@@ -708,6 +724,50 @@ transform-style: preserve-3d;"
     <!-- ==================================================
   DELETE MODAL
   ================================================== -->
+
+    <div class="modal-backdrop" id="scanModalBackdrop" hidden>
+      <section
+        class="modal small-modal scan-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scanModalTitle"
+      >
+        <button
+          class="modal-close"
+          id="scanCloseButton"
+          type="button"
+          aria-label="Close"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="modal-heading">
+          <span class="eyebrow">
+            <i class="fa-solid fa-radar"></i>
+            ARCHIVE SCAN
+          </span>
+
+          <h2 id="scanModalTitle">Sync results</h2>
+
+          <p id="scanModalDescription">
+            The archives were read without being modified.
+          </p>
+        </div>
+
+        <dl class="scan-stats" id="scanStats"></dl>
+
+        <div class="scan-actions">
+          <button class="button secondary" id="scanDismissButton" type="button">
+            Close
+          </button>
+
+          <button class="button primary" id="scanImportButton" type="button">
+            <i class="fa-solid fa-file-import"></i>
+            <span id="scanImportLabel">Add to library</span>
+          </button>
+        </div>
+      </section>
+    </div>
 
     <div class="modal-backdrop" id="deleteModalBackdrop" hidden>
       <div

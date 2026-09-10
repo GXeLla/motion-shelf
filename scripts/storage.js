@@ -94,6 +94,10 @@ export function normalizeAnimation(animation) {
 
     source: ["local", "repository"].includes(animation.source) ? animation.source : "session",
 
+    origin: normalizeOrigin(animation.origin),
+
+    template: normalizeTemplate(animation.template),
+
     rawCss: String(animation.rawCss || ""),
 
     createdAt: animation.createdAt || Date.now(),
@@ -101,6 +105,70 @@ export function normalizeAnimation(animation) {
     updatedAt: animation.updatedAt || Date.now(),
 
     lastCodePush: animation.lastCodePush || null,
+  };
+}
+
+/*
+ * Where an imported animation came from. Paths stay relative to their source
+ * archive, never absolute, so a shared animation file never leaks one
+ * developer's folder layout.
+ */
+function normalizeOrigin(origin) {
+  if (!origin || typeof origin !== "object") return null;
+
+  const sources = Array.isArray(origin.sources) ? origin.sources : [];
+
+  return {
+    kind: String(origin.kind || "css"),
+    occurrences: Number(origin.occurrences) || 1,
+    variants: Number(origin.variants) || 1,
+
+    /* Two identities: the exact motion, and the family it belongs to. The
+       family one is what a later sync matches against so a known technique
+       is refreshed instead of duplicated. */
+    exactFingerprint: String(origin.exactFingerprint || ""),
+    familyFingerprint: String(origin.familyFingerprint || ""),
+
+    originalName: String(origin.originalName || ""),
+    originalSelector: String(origin.originalSelector || ""),
+    variantNames: Array.isArray(origin.variantNames)
+      ? origin.variantNames.slice(0, 8).map((variant) => ({
+        name: String(variant.name || ""),
+        occurrences: Number(variant.occurrences) || 1,
+      }))
+      : [],
+    sources: sources.slice(0, 5).map((source) => ({
+      repository: String(source.repository || ""),
+      folder: String(source.folder || ""),
+      file: String(source.file || "").replace(/^([A-Za-z]:)?[\\/].*?([^\\/]+[\\/](?:campaigns|previews-only|previous-only)[\\/])/, "$2"),
+      type: String(source.type || ""),
+    })),
+  };
+}
+
+/*
+ * The adjustable side of an imported animation: which custom properties it
+ * exposes, and for GSAP families the configuration rather than CSS variables.
+ */
+function normalizeTemplate(template) {
+  if (!template || typeof template !== "object") return null;
+
+  const variables = Array.isArray(template.variables) ? template.variables : [];
+
+  return {
+    engine: template.engine === "gsap" ? "gsap" : "css",
+    timingVariables: template.timingVariables !== false,
+    variables: variables
+      .filter((variable) => variable && /^--ms-[\w-]+$/.test(String(variable.name)))
+      .map((variable) => ({
+        name: String(variable.name),
+        label: String(variable.label || variable.name),
+        value: String(variable.value),
+        kind: String(variable.kind || ""),
+      })),
+    gsapConfig: template.gsapConfig && typeof template.gsapConfig === "object"
+      ? template.gsapConfig
+      : null,
   };
 }
 

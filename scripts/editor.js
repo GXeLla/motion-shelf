@@ -66,6 +66,7 @@ export function initializeEditor({ modalController, render, showToast }) {
   const liveSection = document.querySelector(".editor-workspace .editor-live-section");
   const editorModal = document.querySelector("#editorModalBackdrop .editor-modal");
   const classPreview = document.getElementById("editorClassPreview");
+  const templateValues = document.getElementById("templateValues");
   const easingRunner = document.getElementById("easingRunner");
   const bezierCurve = document.getElementById("bezierCurve");
   const bezierGuideOne = document.getElementById("bezierGuideOne");
@@ -201,6 +202,80 @@ export function initializeEditor({ modalController, render, showToast }) {
     });
   }
 
+  /*
+   * Imported animations expose their adjustable values as --ms-* custom
+   * properties in the class body. Editing them here rewrites that
+   * declaration, which the live preview already reacts to, so a template can
+   * be retuned without rewriting its keyframes.
+   */
+  const VALUE_LABELS = {
+    "--ms-distance": "Distance", "--ms-x": "Distance X", "--ms-y": "Distance Y",
+    "--ms-z": "Distance Z", "--ms-scale": "Scale", "--ms-scale-x": "Scale X",
+    "--ms-scale-y": "Scale Y", "--ms-rotation": "Rotation",
+    "--ms-rotation-x": "Rotation X", "--ms-rotation-y": "Rotation Y",
+    "--ms-skew-x": "Skew X", "--ms-skew-y": "Skew Y", "--ms-opacity": "Opacity",
+    "--ms-duration": "Duration", "--ms-delay": "Delay", "--ms-ease": "Easing",
+    "--ms-origin": "Transform origin", "--ms-perspective": "Perspective",
+  };
+
+  function readTemplateValues() {
+    const found = [];
+
+    String(form.elements.css.value || "")
+      .split(";")
+      .forEach((declaration) => {
+        const separator = declaration.indexOf(":");
+        if (separator < 1) return;
+
+        const name = declaration.slice(0, separator).trim();
+        const value = declaration.slice(separator + 1).trim();
+        if (!/^--ms-[\w-]+$/.test(name) || !value) return;
+
+        found.push({ name, value });
+      });
+
+    return found;
+  }
+
+  function writeTemplateValue(name, value) {
+    const pattern = new RegExp("(^|\\n)\\s*" + name + "\\s*:[^;]*;?", "m");
+    const declaration = name + ": " + value + ";";
+
+    form.elements.css.value = pattern.test(form.elements.css.value)
+      ? form.elements.css.value.replace(pattern, "$1" + declaration)
+      : declaration + "\n" + form.elements.css.value;
+
+    saveDraft();
+    updateLivePreview();
+  }
+
+  function renderTemplateValues() {
+    const values = readTemplateValues();
+    templateValues.hidden = values.length === 0;
+
+    if (!values.length) {
+      templateValues.innerHTML = "";
+      return;
+    }
+
+    templateValues.innerHTML = '<span class="template-values-title">Adjustable values</span>'
+      + values.map((entry) => (
+        '<label class="template-value">'
+        + "<span>" + escapeHtml(VALUE_LABELS[entry.name] || entry.name.replace("--ms-", "")) + "</span>"
+        + '<input type="text" spellcheck="false" data-template-value="'
+        + escapeAttribute(entry.name) + '" value="' + escapeAttribute(entry.value) + '" />'
+        + "</label>"
+      )).join("");
+  }
+
+  templateValues.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-template-value]");
+    if (!input) return;
+
+    event.stopPropagation();
+    writeTemplateValue(input.dataset.templateValue, input.value.trim());
+  });
+
   function fillForm(data) {
     form.elements.name.value = data.name || "";
     form.elements.target.value = data.target || "img";
@@ -221,6 +296,7 @@ export function initializeEditor({ modalController, render, showToast }) {
     setBezierInputs(normalizeBezier(data.cubicBezier));
     setDevice(data.device || "desktop", false);
     renderCategoryPicker(normalizeCategories(data.categories));
+    renderTemplateValues();
   }
 
   function setDefaultValues() {
@@ -656,6 +732,7 @@ export function initializeEditor({ modalController, render, showToast }) {
   editorModal.addEventListener("scroll", syncPreviewStickiness, { passive: true });
   form.addEventListener("input", (event) => {
     clearErrors(event.target.name);
+    if (event.target.name === "css") renderTemplateValues();
     saveDraft();
     updateLivePreview();
   });

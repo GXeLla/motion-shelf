@@ -2,7 +2,7 @@ import { state } from "./state.js";
 
 import { loadAnimations, saveAnimations } from "./storage.js";
 
-import { findAnimation, buildExportCSS } from "./animations.js";
+import { findAnimation, buildExportCSS, createPreviewImage } from "./animations.js";
 
 import {
   getVisibleAnimations,
@@ -40,6 +40,8 @@ import {
 } from "./filesystem.js";
 
 import { initializeAmbientBackground } from "./background.js";
+
+import { initializeSync } from "./sync-ui.js";
 
 /* ==================================================
 DOM
@@ -113,6 +115,12 @@ initializeFilters({
   filterList,
   searchInput,
   render,
+});
+
+initializeSync({
+  render,
+  showToast,
+  updateWorkspaceUI,
 });
 
 initializeRepositoryAnimations();
@@ -695,65 +703,9 @@ function openDetails(id) {
 }
 
 function createSafePreview(animation) {
-  const svg = `
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="640"
-      height="400"
-    >
-      <rect
-        width="640"
-        height="400"
-        rx="30"
-        fill="#111717"
-      />
-
-      <circle
-        cx="320"
-        cy="195"
-        r="105"
-        fill="url(#motionGradient)"
-        opacity=".82"
-      />
-
-      <rect
-        x="185"
-        y="140"
-        width="270"
-        height="110"
-        rx="22"
-        fill="#f4f7f7"
-        opacity=".92"
-      />
-
-      <text
-        x="320"
-        y="198"
-        text-anchor="middle"
-        dominant-baseline="middle"
-        font-family="Arial"
-        font-size="23"
-        font-weight="700"
-        fill="#101313"
-      >
-        ${escapeHtml(animation.name)}
-      </text>
-
-      <text
-        x="320"
-        y="232"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="13"
-        fill="#526060"
-      >
-        Motion Shelf
-      </text>
-    </svg>
-  `;
-
-  return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  return createPreviewImage(animation);
 }
+
 
 function buildDetailTags(animation) {
   const tags = [];
