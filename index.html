@@ -188,6 +188,20 @@
             <span>Select</span>
           </button>
 
+          <button
+            class="preview-notice"
+            id="previewNotice"
+            type="button"
+            data-tooltip-place="below"
+            data-tooltip="Card previews are a guide, not the finished animation.
+Every preview loops, whatever the animation's real iteration count -- so a one-shot motion restarts over and over and can look broken, a long delay leaves the card still for a moment, and a very short duration reads as flicker.
+The subject is a stand-in, not the artwork the animation was written for, and the parent perspective and clipping differ too.
+The CSS you copy, export or push runs with the real iteration count and parent styles."
+          >
+            <span class="preview-notice-mark" aria-hidden="true">!</span>
+            <span class="preview-notice-label">Previews are approximate</span>
+          </button>
+
           <div class="legend" aria-label="Animation types">
             <span
               class="legend-item"

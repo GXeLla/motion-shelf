@@ -279,12 +279,20 @@ body::after {
   cursor: copy;
 
   /*
-   * Cards that are built but scrolled away skip layout, style and paint
-   * entirely. contain-intrinsic-size gives the browser a height to reserve
-   * for them so the scrollbar and the page height stay honest.
+   * No content-visibility here, deliberately.
+   *
+   * Cards used to carry `content-visibility: auto` with a
+   * `contain-intrinsic-size` reserving their height. Its skipped-rendering
+   * state is driven by an internal relevance check that does not run while a
+   * tab is hidden, and when that check is missed on the way back the boxes
+   * keep reserving their space while their contents are never painted -- a
+   * full-height page of blank cards, intermittently, after a tab switch.
+   *
+   * It was also earning nothing: the grid is windowed, so only a screenful
+   * plus what you have scrolled past exists at all. Measured over a 3s scroll
+   * with 276 cards in the DOM, median frame time was 106ms with it and 103ms
+   * without.
    */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 520px;
 }
 
 /* The batch loader watches this; it has no appearance of its own. */

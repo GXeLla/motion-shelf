@@ -50,9 +50,38 @@ Clicking a chip re-renders the row, which used to throw away how far the strip h
 
 The default order is **A to Z by name**, applied to every filter combination. When two filters are up, how many of them an animation matches still decides first; the sort order only breaks ties.
 
+Outside the All view, **favourites lead**. This does not pull a starred animation into a section it does not belong to -- the filter still decides what is on screen, and this only orders what survived it, ahead of both the A to Z and the Most used orderings. It is off in All on purpose, where the list is already grouped by variant and a starred card is kept for that reason instead.
+
 The unfiltered **All** view groups numbered imported names such as Blink, Blink 2 and Blink 7. It shows the most-used variant plus every favourited variant in that group. This is display grouping, not deletion or a claim that the underlying CSS is identical. **Show all variants**, search, any filter, and deletion-selection mode reveal the full set. Hand-made animations are never grouped. `scripts/variant-groups.js` selects representatives; the library and exported files keep every animation.
 
-Tooltips are one element on `<body>`, drawn by `scripts/tooltip.js` from any `[data-tooltip]` attribute. They cannot be pseudo-elements on the badge: a card clips its corners with `overflow: hidden` and adds paint containment through `content-visibility`, so a tooltip drawn inside one was cut off at the card edge -- exactly where it started to be worth reading. The shared element sits outside everything that clips, flips below its anchor when the top of the window is in the way (or when the anchor asks for it with `data-tooltip-place="below"`, as the header legend does), and is pulled back inside the window rather than hanging off the side.
+## Previews are not the animation
+
+The header carries a standing caveat next to the legend -- an amber `!` that
+explains itself on hover -- because a card preview is a guide rather than the
+finished animation, and often enough it looks wrong in ways the exported CSS is
+not:
+
+- **It always loops.** `applyAnimation` runs a card preview with `infinite`,
+  whatever the animation's own `iterationCount`. A one-shot entrance therefore
+  restarts over and over, which reads as stuttering or as a broken animation.
+- **The delay is honoured.** An animation written with a long lead-in leaves the
+  card apparently doing nothing for the first part of a hover.
+- **A very short duration on a loop reads as flicker**, where in place it would
+  be a single quick move.
+- **The subject is a stand-in.** It is the generated plate from
+  `preview-scene.js`, not the artwork the animation was written against, and the
+  parent perspective and clipping differ from the exported parent class.
+
+What `buildExportCSS` produces -- what you copy, export or push -- uses the real
+iteration count and the parent styles. That is the animation; the card is a
+thumbnail of it.
+
+The wording lives in the button's `data-tooltip` in `index.html`. The label is
+present for screen readers but not painted: the header row is width-capped by
+the app shell and has under 100px of slack, so any visible label pushes the
+legend onto a second line at every viewport width, 2200px included.
+
+Tooltips are one element on `<body>`, drawn by `scripts/tooltip.js` from any `[data-tooltip]` attribute. They cannot be pseudo-elements on the badge: a card used to clip its corners with `overflow: hidden` and add paint containment through `content-visibility`, so a tooltip drawn inside one was cut off at the card edge -- exactly where it started to be worth reading. The shared element sits outside everything that clips, flips below its anchor when the top of the window is in the way (or when the anchor asks for it with `data-tooltip-place="below"`, as the header legend does), and is pulled back inside the window rather than hanging off the side.
 
 Every card says where it came from, next to its title: **Custom** for anything written here by hand, or the archive and -- when the animation came out of a single folder -- the brand: `Campaigns | Aldi`. The tooltip gives the occurrence count and the first few relative source paths. That badge answers "where is this from"; the separate **LOCAL** badge answers the different question of whether the CSS file is in the linked project folder, and both can appear at once. `scripts/origin.js` holds the reading of `origin.sources` -- archive-name normalisation included, since the second archive has been spelled `previews-only` and `previous-only` over the years.
 
@@ -307,13 +336,17 @@ Seven animations forgive anything; a synced archive is a different program. Meas
 
 **One stylesheet holds every preview's keyframes.** There used to be a `<style>` element per animation, rewritten on every render. Now `injectAnimationForPreview` inserts each animation's `@keyframes` once into `#ms-preview-keyframes` and remembers it; rendering the same card again costs a Map lookup. An edit replaces that animation's rule rather than appending a second one with the same name.
 
-**Cards that are off screen cost nothing.** `content-visibility: auto` with `contain-intrinsic-size: auto 520px` lets the browser skip style, layout and paint for built-but-unseen cards while keeping the page height honest.
+**No `content-visibility` on cards, deliberately.** They carried `content-visibility: auto` with a `contain-intrinsic-size` reserving their height, so built-but-unseen cards skipped style, layout and paint. It was removed. Its skipped-rendering state is decided by an internal relevance check that does not run while a tab is hidden, and when that check is missed on the way back the boxes keep reserving their space while their contents are never painted -- a full-height page of blank cards, intermittently, after a tab switch. It also earns nothing here, because the grid is windowed and only a screenful plus what you have scrolled past exists at all: over a 3s scroll with 276 cards in the DOM, median frame time was 106ms with it and 103ms without. Removing it also settled the page height, which used to shift by several hundred pixels on the first tab switch as `contain-intrinsic-size: auto` re-measured.
 
 **Not everything is a re-render.** Typing waits 140ms for a pause before filtering. Starring a card patches that one card (`refreshCardFavourite`) unless the Favourite filter is up and the star changes what belongs on screen. Ticking a card in selection mode patches it too (`refreshCardSelection`). Rebuilding the grid throws away every preview on screen and restarts every animation, so it is reserved for changes that actually alter the list.
 
 Measured after all five, at 1,000 animations: first render ~1s, a filter click ~30ms, five search keystrokes ~90ms, 3,000 DOM nodes and one style element.
 
 The decorative atmosphere pauses its animations while the page is scrolling (`[data-scrolling="true"]` in `library-atmosphere.css`), on top of the existing pause for a hidden tab.
+
+It is also the most expensive thing on the page, and its cost scales with the area it covers -- which is what zooming out enlarges, and why repeated zooming plus scrolling turns choppy. Measured over a 3s scroll: with the aurora's `filter: blur()` on, 2.5fps at a 2600px-wide viewport against 4.7fps with it off, and 9.4 against 15.7 at 1340px. The blur is nearly the whole cost and turning it down barely helps -- it is on or off; opacity, `will-change` and layer promotion changed nothing. So `@media (min-width: 1700px)` drops the filter from both ribbons and fades the layer to compensate, which keeps them reading as a soft glow instead of a hard-edged shape. Below that width nothing changes.
+
+Nothing re-renders during a zoom: a `MutationObserver` on the grid recorded zero child changes across repeated zoom and scroll. What looks like the page reloading is the responsive grid changing column count and the document height swinging with it (7127px to 11518px to 8158px across three zoom steps), landing visibly because the frame rate is low while it happens.
 
 The remaining ceiling is storage, not speed: the whole library is `JSON.stringify`'d into `sessionStorage` on every mutation -- about 1.5MB at 1,000 animations against a 5-10MB browser quota. A few thousand animations will need IndexedDB, or persisting only the records the user owns.
 

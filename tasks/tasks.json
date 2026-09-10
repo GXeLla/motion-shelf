@@ -2,6 +2,198 @@
   "version": 1,
   "tasks": [
     {
+      "id": "task-mtvp8oy1-hgn10s",
+      "title": "Documentation & Final Approval",
+      "description": "Document the basic usage flow, complete the final review with the team and developers, and confirm Motion Shelf is ready for team-wide use.\n\nImported from: Finalization & Release\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-4",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-inoyq5",
+      "title": "Website Integration",
+      "description": "Integrate Motion Shelf into the website and ensure the animation library is accessible and works correctly within the existing platform.\n\nImported from: Finalization & Release\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-4",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-46rccv",
+      "title": "Test Motion Shelf",
+      "description": "Validate animation previews, class usage, variables, responsiveness, duplicate handling, and synchronization.\n\nImported from: Finalization & Release\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-4",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-9htqvz",
+      "title": "Finalize Sync",
+      "description": "Ensure one Sync action can locate source folders, import new animations, update existing ones, and work reliably in future use.\n\nImported from: Finalization & Release\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-4",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-pqw55h",
+      "title": "Designer Review & Approval",
+      "description": "Review Motion Shelf with the designer, apply required visual changes, and receive final design approval before release.\n\nImported from: Motion Shelf UX & Design\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-3",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-7ufjzh",
+      "title": "Design Library Interface",
+      "description": "Finalize cards, previews, filters, search, categories, animation details, and interaction states.\n\nImported from: Motion Shelf UX & Design\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-3",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-sorhve",
+      "title": "Non-Destructive Animation Customization",
+      "description": "Allow developers to customize animation properties within their project code without modifying the original animation stored in Motion Shelf.\n\nImported from: Animation Analysis & Normalization\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-2",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-mnkkq7",
+      "title": "Class-Based Animation Integration",
+      "description": "Ensure each reusable animation can be applied through a consistent class name without manually adding keyframes or implementation code.\n\nImported from: Animation Analysis & Normalization\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-2",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-6jauoe",
+      "title": "Add Customizable Variables",
+      "description": "Expose reusable values such as duration, delay, easing, distance, scale, rotation, and other configurable properties instead of creating unnecessary animation variants.\n\nImported from: Animation Analysis & Normalization\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-2",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-9lz05b",
+      "title": "Detect Duplicates",
+      "description": "Identify duplicate and near-duplicate animations and keep one canonical reusable version.\n\nImported from: Animation Analysis & Normalization\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-2",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-crxu4u",
+      "title": "Normalize Animation Code",
+      "description": "Convert different implementations into a consistent reusable structure where possible.\n\nImported from: Animation Analysis & Normalization\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-2",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-yymn1s",
+      "title": "Auto-Classify Animations",
+      "description": "Detect targets, interaction type, image usage, containers, timing, easing, looping, transforms, and other relevant properties.\n\nImported from: Animation Analysis & Normalization\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-2",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-q7a6eg",
+      "title": "Import New Animations",
+      "description": "Support existing and newly added animations without requiring manual reconfiguration.\n\nImported from: Animation Discovery & Import\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-1",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-vr7s5a",
+      "title": "Scan Animation Sources",
+      "description": "Inspect HTML, CSS, SCSS, JavaScript, and GSAP implementations to identify reusable animations.\n\nImported from: Animation Discovery & Import\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-1",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-8ss6ok",
+      "title": "Define Library Architecture",
+      "description": "Define how animations are stored, loaded, exported, synchronized, and shared between local projects and the published library.\n\nImported from: Requirements & Architecture\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-0",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "task-mtvp8oy1-rn5vks",
+      "title": "Define Animation Data Structure",
+      "description": "Define standard metadata, CSS, keyframes, variables, interaction types, targets, categories, and source information.\n\nImported from: Requirements & Architecture\n\nBuild Motion Shelf into a centralized animation library where users can easily browse, preview, select, and use animations. The final integration should allow an animation to be applied with a simple class name, while Motion Shelf handles animation discovery, normalization, metadata, synchronization, and reusable code behind the scenes.\n\nUsers can easily find, preview, and apply animations using a simple class name without manually copying keyframes or implementation code. Animations are consistently structured, customizable, deduplicated, synchronized, and documented. The animation library is prepared for design-team review, allowing designers to evaluate, approve, reject, or request adjustments to animations before they are considered final.",
+      "assignee": null,
+      "favorite": false,
+      "important": false,
+      "completed": false,
+      "milestoneId": "milestone-mtvp8oy1-0",
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
       "id": "task-adapt-editor-showcase-imported-animations",
       "title": "Refine the editor and showcase interfaces for imported animations",
       "description": "Redesign and adapt the animation editor and showcase (View Details) modals to support upcoming animations imported from the campaigns and previews-only folders. Establish a consistent, responsive interface that accommodates varying animation structures, image dimensions, aspect ratios, and interaction patterns. Ensure previews accurately represent imported content and that editing controls apply only to the selected animation. Preserve existing functionality and verify both modal workflows against representative imported animations across desktop and mobile layouts.",
@@ -68,10 +260,10 @@
       "assignee": "Georgi",
       "favorite": false,
       "important": true,
-      "completed": false,
+      "completed": true,
       "milestoneId": null,
       "createdAt": "2026-09-09T16:15:35Z",
-      "updatedAt": "2026-09-09T20:37:09.924Z"
+      "updatedAt": "2026-09-10T14:27:47.113Z"
     },
     {
       "id": "task-mtu4sn0i-q793en",
@@ -158,5 +350,157 @@
       "updatedAt": "2026-09-09T14:00:00.000Z"
     }
   ],
-  "milestones": []
+  "milestones": [
+    {
+      "id": "milestone-mtvp8oy1-0",
+      "title": "Requirements & Architecture",
+      "description": "Define the complete Motion Shelf workflow, technical architecture, animation format, synchronization strategy, and expected user experience before final implementation.",
+      "assignee": null,
+      "importKey": "external-200-1485",
+      "miniTasks": [
+        {
+          "id": "external-1485-246afe46-382a-4905-b961-98ee455df18f",
+          "taskId": "task-mtvp8oy1-rn5vks",
+          "title": "Define Animation Data Structure",
+          "completed": false
+        },
+        {
+          "id": "external-1485-bea18210-7cae-47d2-984b-4057cfcbceac",
+          "taskId": "task-mtvp8oy1-8ss6ok",
+          "title": "Define Library Architecture",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "milestone-mtvp8oy1-1",
+      "title": "Animation Discovery & Import",
+      "description": "Automatically collect reusable animations from existing campaign and preview repositories.",
+      "assignee": null,
+      "importKey": "external-200-1486",
+      "miniTasks": [
+        {
+          "id": "external-1486-21ece2d6-e590-4b88-a899-c820a1f76b48",
+          "taskId": "task-mtvp8oy1-vr7s5a",
+          "title": "Scan Animation Sources",
+          "completed": false
+        },
+        {
+          "id": "external-1486-8aeeb578-b56d-4d12-bddd-f7775d573fd6",
+          "taskId": "task-mtvp8oy1-q7a6eg",
+          "title": "Import New Animations",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "milestone-mtvp8oy1-2",
+      "title": "Animation Analysis & Normalization",
+      "description": "Analyze imported animations and convert them into a consistent reusable Motion Shelf format.",
+      "assignee": null,
+      "importKey": "external-200-1487",
+      "miniTasks": [
+        {
+          "id": "external-1487-356ea934-3095-4f11-bdfa-f88098cace22",
+          "taskId": "task-mtvp8oy1-yymn1s",
+          "title": "Auto-Classify Animations",
+          "completed": false
+        },
+        {
+          "id": "external-1487-f977dcd7-88ad-4292-a0c1-c80f752cecfc",
+          "taskId": "task-mtvp8oy1-crxu4u",
+          "title": "Normalize Animation Code",
+          "completed": false
+        },
+        {
+          "id": "external-1487-c875505b-66b6-4ada-9c06-8ae3c629ad77",
+          "taskId": "task-mtvp8oy1-9lz05b",
+          "title": "Detect Duplicates",
+          "completed": false
+        },
+        {
+          "id": "external-1487-262d67bd-1aba-4a27-94c7-dd6333bec861",
+          "taskId": "task-mtvp8oy1-6jauoe",
+          "title": "Add Customizable Variables",
+          "completed": false
+        },
+        {
+          "id": "external-1487-755ffd87-c93c-4824-8b36-035c2de34969",
+          "taskId": "task-mtvp8oy1-mnkkq7",
+          "title": "Class-Based Animation Integration",
+          "completed": false
+        },
+        {
+          "id": "external-1487-5f6fd92f-80d2-44d2-87e8-5df10152796e",
+          "taskId": "task-mtvp8oy1-sorhve",
+          "title": "Non-Destructive Animation Customization",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "milestone-mtvp8oy1-3",
+      "title": "Motion Shelf UX & Design",
+      "description": "Create a simple visual experience for discovering, comparing, previewing, and selecting animations.",
+      "assignee": null,
+      "importKey": "external-200-1488",
+      "miniTasks": [
+        {
+          "id": "external-1488-79c7669d-3c3b-4855-9375-78a8e9d311d9",
+          "taskId": "task-mtvp8oy1-7ufjzh",
+          "title": "Design Library Interface",
+          "completed": false
+        },
+        {
+          "id": "external-1488-4bea1923-d176-4398-b0e5-e3c78dc51531",
+          "taskId": "task-mtvp8oy1-pqw55h",
+          "title": "Designer Review & Approval",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    },
+    {
+      "id": "milestone-mtvp8oy1-4",
+      "title": "Finalization & Release",
+      "description": "Finalize Motion Shelf for reliable team usage by completing synchronization, testing, documentation, and the final review process.",
+      "assignee": null,
+      "importKey": "external-200-1489",
+      "miniTasks": [
+        {
+          "id": "external-1489-f1ac53ff-a760-440c-8246-4a782f28bde0",
+          "taskId": "task-mtvp8oy1-9htqvz",
+          "title": "Finalize Sync",
+          "completed": false
+        },
+        {
+          "id": "external-1489-9e0c7fd8-e455-44e1-9661-7348c4621741",
+          "taskId": "task-mtvp8oy1-46rccv",
+          "title": "Test Motion Shelf",
+          "completed": false
+        },
+        {
+          "id": "external-1489-cf7d8637-185a-44bf-a076-86e1abce937e",
+          "taskId": "task-mtvp8oy1-inoyq5",
+          "title": "Website Integration",
+          "completed": false
+        },
+        {
+          "id": "external-1489-dd3d1f89-1e6c-4648-b958-4fb78e3c5b8c",
+          "taskId": "task-mtvp8oy1-hgn10s",
+          "title": "Documentation & Final Approval",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-09-10T15:45:45.288Z",
+      "updatedAt": "2026-09-10T15:45:45.288Z"
+    }
+  ]
 }

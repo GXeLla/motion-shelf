@@ -146,6 +146,83 @@ LEGEND HOVER
 }
 
 /* ==================================================
+PREVIEW NOTICE
+================================================== */
+
+/*
+ * A standing caveat rather than an announcement, so it lives in the header
+ * next to the legend and never gets dismissed: card previews always loop and
+ * always use a stand-in subject, so a fair number of them look wrong in ways
+ * the exported CSS is not. The explanation is in its data-tooltip.
+ */
+.preview-notice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+
+  border: 1px solid rgba(255, 199, 88, 0.32);
+  border-radius: 9px;
+
+  background: rgba(255, 199, 88, 0.09);
+  color: #ffc758;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: help;
+
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    transform var(--transition);
+}
+
+.preview-notice:hover,
+.preview-notice:focus-visible {
+  border-color: rgba(255, 199, 88, 0.6);
+  background: rgba(255, 199, 88, 0.16);
+  transform: translateY(-1px);
+}
+
+/*
+ * The wording lives in the tooltip and, for a screen reader, in the label
+ * below. It is not painted: the header row is width-capped by the shell and
+ * has under 100px of slack, so any visible label pushes the legend onto a
+ * second line at every viewport width -- 2200px included.
+ */
+.preview-notice-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.preview-notice-mark {
+  display: inline-grid;
+  place-items: center;
+
+  flex: 0 0 auto;
+
+  width: 18px;
+  height: 18px;
+
+  border: 1px solid currentColor;
+  border-radius: 50%;
+
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ==================================================
 LEGEND EXPLANATION
 ================================================== */
 

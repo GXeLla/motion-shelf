@@ -179,6 +179,29 @@
   9%, 100% { opacity: 0; transform: translate3d(-370px, 231px, 0) rotate(-32deg); }
 }
 
+/*
+ * The aurora is the most expensive thing on the page, and its cost scales with
+ * the area it covers -- which is exactly what zooming out enlarges. Measured
+ * over a 3s scroll: 2.5fps at a 2600px-wide viewport with the blur on, 4.7fps
+ * with it off; 9.4 against 15.7 at 1340px. The blur is nearly all of it, and
+ * turning it down barely helps -- it is on or off.
+ *
+ * So past the point where a viewport is clearly a zoomed-out or very large
+ * one, the ribbons are drawn without a filter and the layer is faded instead,
+ * which keeps them reading as a soft glow rather than a hard-edged shape. At
+ * ordinary sizes nothing changes.
+ */
+@media (min-width: 1700px) {
+  .library-atmosphere .atmosphere-aurora {
+    opacity: 0.5;
+  }
+
+  .library-atmosphere .aurora-ribbon--distant,
+  .library-atmosphere .aurora-ribbon--near {
+    filter: none;
+  }
+}
+
 @media (max-width: 700px) {
   .atmosphere-stars { opacity: 0.68; }
   .atmosphere-filaments { opacity: 0.24; }

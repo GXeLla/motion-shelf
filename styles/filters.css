@@ -109,14 +109,24 @@
   padding-top: 3px;
   padding-bottom: 6px;
 
-  /* This page's own emerald scrollbar, set directly here since
-     filters.css is only ever loaded by index.html. */
-  scrollbar-width: thin;
-  scrollbar-color: #30b883 rgba(7, 15, 13, 0.65);
+  /*
+   * Back to the initial values, against the global `*` rule in styles.css.
+   *
+   * Chromium ignores every ::-webkit-scrollbar rule on an element whose
+   * scrollbar-width or scrollbar-color is not initial, and `thin` is as narrow
+   * as the standard property goes -- so inheriting that rule would cap this
+   * strip at Chrome's thin width and make the height below do nothing.
+   * Firefox gets its own values back in the @supports block underneath.
+   */
+  scrollbar-width: auto;
+  scrollbar-color: auto;
 }
 
+/* This page's own emerald scrollbar, set directly here since filters.css is
+   only ever loaded by index.html. A hairline: the strip is one row of chips,
+   so the bar only has to say how far along it is, not be something to grab. */
 .filter-scroll::-webkit-scrollbar {
-  height: 8px;
+  height: 4px;
 }
 
 .filter-scroll::-webkit-scrollbar-track {
@@ -130,6 +140,15 @@
 
 .filter-scroll::-webkit-scrollbar-thumb:hover {
   background-color: #8befbc;
+}
+
+/* Firefox draws none of the ::-webkit rules above and needs the standard
+   properties instead. "thin" is the narrowest it offers. */
+@supports (-moz-appearance: none) {
+  .filter-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #30b883 rgba(7, 15, 13, 0.65);
+  }
 }
 
 .filter-button {

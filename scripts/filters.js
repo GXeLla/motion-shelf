@@ -114,12 +114,31 @@ function compareByName(a, b) {
   });
 }
 
-function compareForSort(a, b) {
+function compareByOrder(a, b) {
   if (state.sortMode === "uses") {
     return usageCount(b) - usageCount(a) || compareByName(a, b);
   }
 
   return compareByName(a, b);
+}
+
+/*
+ * Once you have narrowed to a section, your own picks come first inside it.
+ *
+ * This does not pull a favourite into a section it does not belong to -- the
+ * filter still decides what is on screen, and this only decides the order of
+ * what survived it. It is deliberately off in the All view, where the list is
+ * already grouped by variant and a starred card is kept for that reason
+ * instead.
+ */
+function compareForSort(a, b) {
+  if (!isAllView()) {
+    const lead = Number(isFavourite(b.id)) - Number(isFavourite(a.id));
+
+    if (lead) return lead;
+  }
+
+  return compareByOrder(a, b);
 }
 
 /* Which archive chip is up, if any -- the brand dropdown belongs to it. */

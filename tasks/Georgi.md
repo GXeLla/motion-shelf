@@ -11,15 +11,7 @@ Before making changes:
 
 ## Active Tasks
 
-### 1. Scan and integrate campaign animation styles
-
-**Priority:** Important  
-**Task ID:** task-scan-and-integrate-campaign-animations
-
-Description:
-Scan the campaigns and previews-only folders, collect all animation classes, keyframes, and related styles, then organize and integrate them into the Motion Shelf animation library.
-
-### 2. Refine the editor and showcase interfaces for imported animations
+### 1. Refine the editor and showcase interfaces for imported animations
 
 **Priority:** Standard  
 **Task ID:** task-adapt-editor-showcase-imported-animations
@@ -68,3 +60,11 @@ When animations are imported from the Campaigns/Preview-only folder, automatical
 
 Description:
 Replace collections of nearly identical animation files with reusable templates built on shared keyframe structures. Move adjustable values—such as duration, delay, distance, scale, rotation, easing, opacity, and transform origin—into documented CSS custom properties. Allow projects and individual elements to override those variables without copying or modifying the shared animation definition. Keep keyframes centralized, preserve current visual behavior where possible, define sensible defaults and fallbacks, and document how to apply and customize each template.
+
+### 6. Scan and integrate campaign animation styles
+
+**Priority:** Important  
+**Task ID:** task-scan-and-integrate-campaign-animations
+
+Description:
+Scan the campaigns and previews-only folders, collect all animation classes, keyframes, and related styles, then organize and integrate them into the Motion Shelf animation library.
