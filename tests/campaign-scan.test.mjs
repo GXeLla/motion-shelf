@@ -89,10 +89,19 @@ test("cached scans skip body reads and correctly invalidate changed, new and del
   const folders = Array.from({ length: 8 }, (_, folder) => dir(`variant${folder}`,
     Array.from({ length: 24 }, (_, index) => file(`style${index}.css`, css(index % 6)))));
   const adapter = createHandleAdapter(dir("campaigns", [dir("Brand", folders)]));
-  const cold = await scanSources({ adapter, roots });
+  const liveCandidates = [];
+  const cold = await scanSources({
+    adapter,
+    roots,
+    onCanonicalCandidate: (animation) => liveCandidates.push(animation),
+  });
   assert.equal(cold.stats.filesInspected, 192);
   assert.equal(metrics.reads, 192);
   assert.ok(metrics.maxReads > 1 && metrics.maxReads <= 72);
+  assert.deepEqual(
+    new Set(liveCandidates.map((animation) => animation.origin.familyFingerprint)),
+    new Set(cold.animations.map((animation) => animation.origin.familyFingerprint)),
+  );
 
   resetMetrics();
   settings.reverse = true;

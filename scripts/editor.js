@@ -31,6 +31,8 @@ import {
   resolveEasing,
 } from "./easing.js";
 import { labelForVariable, resolveParameters } from "./parameters.js";
+import { auditAnimationsAtRuntime, applyRuntimeAuditRecord } from "./runtime-audit.js";
+import { saveAnimations } from "./storage.js";
 
 const AVAILABLE_CATEGORIES = [
   "image", "photo", "text", "scale", "rotate", "slide", "fade", "3d",
@@ -443,7 +445,7 @@ export function initializeEditor({ modalController, render, showToast }) {
     state.editorDrafts.delete(state.editingId || "__new__");
   }
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
     const data = getFormData();
     const errors = validateAnimationDraft(data);
@@ -463,19 +465,40 @@ export function initializeEditor({ modalController, render, showToast }) {
     }
 
     data.animationName = sanitizeAnimationName(data.animationName);
+    let savedAnimation;
     if (state.editingId) {
-      updateAnimation(state.editingId, data);
+      savedAnimation = updateAnimation(state.editingId, data);
       clearDraft();
       showToast("Animation updated. Push again to update the local CSS file.", "fa-solid fa-check");
     } else {
-      createAnimation(data);
+      savedAnimation = createAnimation(data);
       clearDraft();
       showToast("Animation added. Click its card to copy CSS or push it to local.", "fa-solid fa-check");
+    }
+
+    /* An edit invalidates the previous rendered diagnosis. Keep custom
+       animations separate from Sync, then audit only this saved card. */
+    if (savedAnimation) {
+      applyRuntimeAuditRecord(savedAnimation, null, { quarantineBroken: false });
+      saveAnimations(state.animations);
     }
 
     modalController.closeAll();
     render();
     state.editingId = null;
+
+    if (!savedAnimation) return;
+
+    try {
+      const report = await auditAnimationsAtRuntime([savedAnimation]);
+      applyRuntimeAuditRecord(savedAnimation, report.records[0], { quarantineBroken: false });
+      saveAnimations(state.animations);
+      render();
+    } catch (error) {
+      /* Saving a custom animation must never fail because its informational
+         preview analysis could not run in the current browser. */
+      console.error("Could not analyze custom animation preview:", error);
+    }
   }
 
   function updateLivePreview() {

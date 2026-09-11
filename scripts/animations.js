@@ -221,6 +221,28 @@ export function normalizeKeyframes(animation) {
 let previewSheetElement = null;
 
 const insertedKeyframes = new Map();
+const PREVIEW_VIEWPORT_LIMIT = 140;
+
+/* A source animation may intentionally travel a whole browser viewport. That
+   distance is meaningful in its campaign but makes a thumbnail appear empty:
+   its subject starts hundreds of pixels outside a 16:9 card. Bound only the
+   preview copy; exported keyframes retain the source motion unchanged. */
+export function normalizePreviewViewportUnits(keyframes) {
+  const boundTransform = (value) => String(value)
+    .replace(/([+-]?\d*\.?\d+)(v(?:w|h|min|max))\b/gi, (whole, amount, unit) => {
+      const scale = /^v(?:h|min|max)$/i.test(unit) ? 0.9 : 1.2;
+      return `${Math.max(-PREVIEW_VIEWPORT_LIMIT, Math.min(PREVIEW_VIEWPORT_LIMIT, Number(amount) * scale))}px`;
+    })
+    .replace(/([+-]?\d*\.?\d+)px\b/gi, (whole, amount) =>
+      `${Math.max(-PREVIEW_VIEWPORT_LIMIT, Math.min(PREVIEW_VIEWPORT_LIMIT, Number(amount)))}px`)
+    .replace(/([+-]?\d*\.?\d+)%\b/g, (whole, amount) =>
+      `${Math.max(-140, Math.min(140, Number(amount)))}%`);
+
+  return String(keyframes || "").replace(
+    /\b(transform|translate)\s*:\s*([^;{}]+);/gi,
+    (whole, property, value) => `${property}: ${boundTransform(value)};`,
+  );
+}
 
 function previewStyleSheet() {
   if (!previewSheetElement || !previewSheetElement.isConnected) {
@@ -249,7 +271,7 @@ function dropKeyframesNamed(sheet, name) {
 }
 
 export function injectAnimationForPreview(animation) {
-  const text = normalizeKeyframes(animation);
+  const text = normalizePreviewViewportUnits(normalizeKeyframes(animation));
 
   if (insertedKeyframes.get(animation.id) === text) {
     return;
@@ -311,6 +333,7 @@ export function applyAnimation(element, animation, options = {}) {
    */
   if (options.forceInfinite) {
     element.style.animation = `${keyframe} ${duration} ${easing} ${delay} infinite`;
+    element.style.animationFillMode = "both";
 
     return;
   }
@@ -325,6 +348,7 @@ export function applyAnimation(element, animation, options = {}) {
   const playAnimation = () => {
     if (document.hidden || activeCardPreviews.has(stopAnimation)) return;
     element.style.animation = `${keyframe} ${duration} ${easing} ${delay} infinite`;
+    element.style.animationFillMode = "both";
     activeCardPreviews.add(stopAnimation);
 
     element.classList.add("is-animating");
@@ -339,6 +363,7 @@ export function applyAnimation(element, animation, options = {}) {
   const stopAnimation = () => {
     activeCardPreviews.delete(stopAnimation);
     element.style.animation = "none";
+    element.style.animationFillMode = "";
 
     element.classList.remove("is-animating");
 

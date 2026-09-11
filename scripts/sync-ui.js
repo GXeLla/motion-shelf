@@ -14,6 +14,12 @@ import { syncLibraryToProject } from "./code.js";
 import { mergeImportOrigins, mergeScannedAnimation } from "./sync-merge.js";
 import { familyFingerprint } from "./animation-family.js";
 import { parseDeclarations, parseKeyframes } from "./animation-extract.js";
+import {
+  applyRuntimeAuditRecord,
+  createRuntimeAuditQueue,
+  renderAuditSummary,
+} from "./runtime-audit.js";
+import { isQuarantinedAnimation } from "./filters.js";
 
 import {
   SOURCE_FOLDER_NAMES,
@@ -82,7 +88,9 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
   const button = document.getElementById("syncButton");
   const backdrop = document.getElementById("scanModalBackdrop");
   const statsList = document.getElementById("scanStats");
+  const brokenList = document.getElementById("scanBrokenList");
   const description = document.getElementById("scanModalDescription");
+  const title = document.getElementById("scanModalTitle");
   const closeButton = document.getElementById("scanCloseButton");
   const dismissButton = document.getElementById("scanDismissButton");
   const confirmButton = document.getElementById("scanImportButton");
@@ -91,6 +99,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
 
   const idleLabel = buttonLabel.textContent;
   let pending = [];
+  let pendingAudit = null;
   let busy = false;
 
   const setLabel = (text) => { buttonLabel.textContent = text; };
@@ -115,6 +124,18 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         + "</div>"
       ))
       .join("");
+  }
+
+  function renderFinalResults({ added, refreshed, unchanged, audit, usable }) {
+    statsList.innerHTML = [
+      ["New Animations Added", added],
+      ["Existing Animations Updated", refreshed],
+      ["Unchanged Animations", unchanged],
+      ["Usable Animations Kept", usable],
+    ].map(([label, value]) => (
+      `<div class="scan-stat"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`
+    )).join("");
+    renderAuditSummary(brokenList, audit);
   }
 
   /*
@@ -193,6 +214,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
 
     busy = true;
     button.disabled = true;
+    pendingAudit = null;
 
     try {
       const roots = await resolveArchives();
@@ -206,6 +228,14 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       }
 
       setLabel("Scanning...");
+      title.textContent = "Scanning animations";
+      description.textContent = "Discovering, normalizing and grouping source animations before runtime validation.";
+      statsList.innerHTML = "";
+      brokenList.hidden = true;
+      brokenList.innerHTML = "";
+      confirmButton.hidden = true;
+      dismissButton.textContent = "Close";
+      openModal();
 
       /*
        * What the last sync learned about each archive. A file whose size and
@@ -223,12 +253,43 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         entries.forEach((value, key) => cache.set(key, value));
       });
 
+      let latestScanStats = null;
+      let latestAuditProgress = null;
+      const seenCandidateFamilies = new Set();
+      const renderLiveDescription = () => {
+        const occurrences = latestScanStats
+          ? latestScanStats.cssAnimationsFound + latestScanStats.gsapAnimationsFound
+          : 0;
+        const auditText = latestAuditProgress
+          ? ` · ${latestAuditProgress.checked} of ${latestAuditProgress.total} canonical candidates audited`
+          : "";
+        description.textContent = `${occurrences} animation occurrences found${auditText}.`;
+      };
+      const auditQueue = createRuntimeAuditQueue({
+        onProgress: (progress) => {
+          latestAuditProgress = progress;
+          renderAuditSummary(brokenList, progress);
+          renderLiveDescription();
+        },
+      });
+
       const result = await scanSources({
         adapter: createCompositeAdapter(roots),
         roots: roots.map((root) => ({ repository: root.repository, path: root.repository })),
         cache,
+        onCanonicalCandidate: (candidate) => {
+          const family = candidate.origin?.familyFingerprint;
+          if (!family || seenCandidateFamilies.has(family)) return;
+          seenCandidateFamilies.add(family);
+          /* Enqueue only. The bounded runtime renderer advances on animation
+             frames while archive listing/reads continue independently. */
+          void auditQueue.enqueue(candidate).catch(() => {});
+        },
         onProgress: async (stats) => {
+          latestScanStats = stats;
           setLabel(stats.campaignFoldersInspected + " folders, " + stats.uniqueAnimations + " found");
+          renderStats(stats);
+          renderLiveDescription();
           await new Promise((resolve) => setTimeout(resolve, 0));
         },
       });
@@ -247,15 +308,37 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
 
       pending = result.animations;
 
+      title.textContent = "Sync results";
+      confirmButton.hidden = false;
+      dismissButton.textContent = "Close";
+
       renderStats(result.stats);
       description.textContent = roots.map((root) => root.repository).join(" and ")
         + " were read without being modified"
         + (roots.length < WANTED.length ? " (one archive was not found)." : ".");
 
-      confirmLabel.textContent = "Sync " + pending.length + " animation" + (pending.length === 1 ? "" : "s");
-      confirmButton.disabled = pending.length === 0;
+      confirmButton.disabled = true;
+      confirmButton.hidden = false;
+      confirmLabel.textContent = "Finishing runtime checks…";
+      description.textContent = "Scanning completed. Finishing only canonical previews not already checked during scanning.";
 
+      pendingAudit = await auditQueue.finish(pending);
+      renderAuditSummary(brokenList, pendingAudit);
+
+      pending = pending.map((animation, index) => {
+        const result = pendingAudit.records[index];
+        return applyRuntimeAuditRecord({ ...animation }, result);
+      });
+
+      /* The live progress modal may have been closed while work continued.
+         Always bring it back for the actionable final audit/import result. */
       openModal();
+      description.textContent = "Canonical animations were scanned and checked in safe runtime preview frames.";
+      const usablePending = pending.filter((animation) => animation.audit?.status !== "broken / quarantined").length;
+      confirmLabel.textContent = pending.length
+        ? "Sync " + usablePending + " usable animation" + (usablePending === 1 ? "" : "s")
+        : "Audit current library";
+      confirmButton.disabled = false;
     } catch (error) {
       if (error && error.name === "AbortError") return;
       console.error("Sync failed:", error);
@@ -273,7 +356,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
    * are ever replaced by a newer canonical version of themselves.
    */
   async function applyPending() {
-    if (busy || !pending.length) return;
+    if (busy) return;
 
     busy = true;
     button.disabled = true;
@@ -330,8 +413,19 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       saveAnimations(state.animations);
 
       pending = [];
-      closeModal();
       render();
+
+      title.textContent = "Sync complete";
+      description.textContent = "The library was updated and checked in isolated runtime preview frames.";
+      renderFinalResults({
+        added,
+        refreshed,
+        unchanged,
+        audit: pendingAudit || { total: 0, totals: { valid: 0, "auto-fixable": 0, "preview-only fix": 0, "no visible effect": 0, broken: 0, "manual review required": 0 }, records: [] },
+        usable: state.animations.filter((animation) => !isQuarantinedAnimation(animation)).length,
+      });
+      confirmButton.hidden = true;
+      dismissButton.textContent = "Done";
 
       showToast(
         added + " added, " + refreshed + " refreshed, " + unchanged + " unchanged. " + manual.length + " of your own kept.",

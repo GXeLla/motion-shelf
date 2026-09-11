@@ -25,6 +25,10 @@ import {
    callback the filter chips use. */
 let requestRender = () => {};
 
+export function isQuarantinedAnimation(animation) {
+  return animation?.audit?.status === "broken / quarantined";
+}
+
 export function initializeFilters({ filterList, searchInput, render }) {
   requestRender = render;
 
@@ -171,7 +175,7 @@ export function areVariantsCollapsed() {
 }
 
 export function getVisibleAnimations() {
-  const matches = state.animations.filter(
+  const matches = state.animations.filter((animation) => !isQuarantinedAnimation(animation)).filter(
     (animation) => matchesSearch(animation) && matchesFolder(animation),
   );
 
@@ -464,7 +468,7 @@ function renderFolderPicker(filterList) {
 export function getAllCategories() {
   const categories = new Set();
 
-  state.animations.forEach((animation) => {
+  state.animations.filter((animation) => !isQuarantinedAnimation(animation)).forEach((animation) => {
     normalizeCategories(animation.categories).forEach((category) =>
       categories.add(category),
     );

@@ -21,7 +21,8 @@ import {
   hashString,
 } from "./animation-extract.js";
 
-import { buildCanonicalLibrary, detectTarget } from "./animation-family.js";
+import { buildCanonicalLibrary, detectTarget, familyFingerprint } from "./animation-family.js";
+import { assessPreviewSafety } from "./preview-safety.js";
 
 export const SOURCE_FOLDER_NAMES = ["campaigns", "previews-only", "previous-only"];
 
@@ -120,8 +121,41 @@ function emptyStats() {
     parseErrors: 0,
     brands: 0,
     campaigns: 0,
+    previewChecked: 0,
+    previewRejected: 0,
     errorSamples: [],
   };
+}
+
+function addSafeRecord(context, record, origin) {
+  const {
+    library, stats, onCanonicalCandidate, minimumOccurrences, emittedCandidateFamilies,
+  } = context;
+  const safety = assessPreviewSafety(record);
+  stats.previewChecked += 1;
+  if (!safety.valid) {
+    stats.previewRejected += 1;
+    stats.unsupported += 1;
+    return;
+  }
+  const previousSize = library.size();
+  const entry = library.add(record, origin);
+  const becameEligible = (library.size() > previousSize && minimumOccurrences <= 1)
+    || entry.occurrences === minimumOccurrences;
+
+  if (becameEligible && onCanonicalCandidate) {
+    const family = familyFingerprint(entry.record.steps, {
+      iterationCount: entry.record.timing.iterationCount,
+      direction: entry.record.timing.direction,
+      interaction: entry.record.interaction,
+      target: entry.record.target,
+      support: entry.record.support,
+    });
+    if (emittedCandidateFamilies.has(family)) return;
+    emittedCandidateFamilies.add(family);
+    const candidate = buildCanonicalLibrary([entry], { minimumOccurrences })[0];
+    if (candidate) onCanonicalCandidate(candidate);
+  }
 }
 
 /* Sources are scanned below a brand folder. The first directory below it is
@@ -167,7 +201,7 @@ async function scanCampaignFolder(adapter, entryPath, repository, topFolder, con
 }
 
 async function drainDirectories(adapter, repository, topFolder, context, queue, walk) {
-  const { library, stats, cache, nextCache, contentSeen } = context;
+  const { stats, cache, nextCache, contentSeen } = context;
 
   for (;;) {
     const directory = queue.shift();
@@ -256,7 +290,7 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
               if (record.origin.type === "gsap") stats.gsapAnimationsFound += 1;
               else stats.cssAnimationsFound += 1;
 
-              library.add(record.record, record.origin);
+              addSafeRecord(context, record.record, record.origin);
             });
             if (nextCache) nextCache.set(cacheKey, entry.cached);
             continue;
@@ -297,7 +331,7 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
               if (record.origin.type === "gsap") stats.gsapAnimationsFound += 1;
               else stats.cssAnimationsFound += 1;
 
-              library.add(record.record, { ...origin, type: record.origin.type });
+              addSafeRecord(context, record.record, { ...origin, type: record.origin.type });
             });
             if (nextCache) {
               nextCache.set(cacheKey, {
@@ -389,7 +423,8 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
           });
 
           contentSeen.set(contentKey, produced);
-          produced.forEach(({ record, origin: recordOrigin }) => library.add(record, recordOrigin));
+          produced.forEach(({ record, origin: recordOrigin }) =>
+            addSafeRecord(context, record, recordOrigin));
 
           if (nextCache) {
             nextCache.set(cacheKey, {
@@ -413,11 +448,27 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
  * { repository, path } pairs. Paths are always relative to their own source
  * root, so nothing developer specific is ever recorded.
  */
-export async function scanSources({ adapter, roots, onProgress, minimumOccurrences = 1, cache = null }) {
+export async function scanSources({
+  adapter,
+  roots,
+  onProgress,
+  onCanonicalCandidate,
+  minimumOccurrences = 1,
+  cache = null,
+}) {
   const library = new AnimationLibrary();
   const stats = emptyStats();
   const nextCache = new Map();
-  const context = { library, stats, cache, nextCache, contentSeen: new Map() };
+  const context = {
+    library,
+    stats,
+    cache,
+    nextCache,
+    contentSeen: new Map(),
+    onCanonicalCandidate,
+    minimumOccurrences,
+    emittedCandidateFamilies: new Set(),
+  };
 
   stats.sourceFoldersFound = roots.length;
 

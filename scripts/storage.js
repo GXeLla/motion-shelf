@@ -98,6 +98,14 @@ export function normalizeAnimation(animation) {
 
     origin,
 
+    audit: normalizeAudit(animation.audit),
+
+    previewHint: String(animation.previewHint || ""),
+
+    previewAnalysis: animation.previewAnalysis && typeof animation.previewAnalysis === "object"
+      ? animation.previewAnalysis
+      : null,
+
     template: normalizeTemplate(animation.template),
 
     parameters: canonical ? normalizeCanonicalDelayParameters(parameters) : parameters,
@@ -109,6 +117,17 @@ export function normalizeAnimation(animation) {
     updatedAt: animation.updatedAt || Date.now(),
 
     lastCodePush: animation.lastCodePush || null,
+  };
+}
+
+function normalizeAudit(audit) {
+  if (!audit || typeof audit !== "object") return null;
+  const status = String(audit.status || "");
+  if (!status) return null;
+  return {
+    status,
+    reason: String(audit.reason || ""),
+    checkedAt: Number(audit.checkedAt) || Date.now(),
   };
 }
 

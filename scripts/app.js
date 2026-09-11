@@ -15,6 +15,7 @@ import {
   renderFilterButtons,
   areVariantsCollapsed,
   isAllView,
+  isQuarantinedAnimation,
 } from "./filters.js";
 
 import {
@@ -56,6 +57,7 @@ import {
 import { initializeAmbientBackground } from "./background.js";
 
 import { initializeSync } from "./sync-ui.js";
+import { auditAnimationsAtRuntime, applyRuntimeAuditRecord } from "./runtime-audit.js";
 
 /* ==================================================
 DOM
@@ -145,8 +147,14 @@ initializeSync({
   updateWorkspaceUI,
 });
 
-initializeRepositoryAnimations();
-initializeProjectWorkspace();
+
+const repositoryReady = initializeRepositoryAnimations();
+const projectReady = initializeProjectWorkspace();
+
+/* Custom/session animations never enter the source Sync pipeline. Analyze
+   them independently once their stored and project-backed records are loaded,
+   so their cards receive the same perceptual hints without inflating Sync. */
+Promise.allSettled([repositoryReady, projectReady]).then(auditCustomAnimations);
 
 /* ==================================================
 MAIN RENDER
@@ -160,7 +168,8 @@ function render() {
   resultCount.textContent = `${visible.length} ${
     visible.length === 1 ? "animation" : "animations"
   }`;
-  const grouped = areVariantsCollapsed() ? state.animations.length - visible.length : 0;
+  const usableCount = state.animations.filter((animation) => !isQuarantinedAnimation(animation)).length;
+  const grouped = areVariantsCollapsed() ? usableCount - visible.length : 0;
   if (grouped) resultCount.textContent += ` · ${grouped} variants grouped`;
   variantsButton.hidden = !isAllView() || state.selectionMode || (!grouped && !state.showAllVariants);
   variantsButton.textContent = state.showAllVariants ? "Group variants" : "Show all variants";
@@ -184,6 +193,34 @@ function render() {
   renderFilterButtons(filterList);
 
   updateWorkspaceUI();
+}
+
+async function auditCustomAnimations() {
+  const candidates = state.animations
+    .filter((animation) => !animation.origin)
+    .map((animation) => ({ animation, updatedAt: animation.updatedAt }));
+
+  if (!candidates.length) return;
+
+  try {
+    const report = await auditAnimationsAtRuntime(candidates.map(({ animation }) => animation));
+    let changed = false;
+
+    candidates.forEach(({ animation, updatedAt }, index) => {
+      /* Do not overwrite a newer editor audit if this background pass began
+         before the user saved changes to the same animation. */
+      if (!state.animations.includes(animation) || animation.updatedAt !== updatedAt) return;
+      applyRuntimeAuditRecord(animation, report.records[index], { quarantineBroken: false });
+      changed = true;
+    });
+
+    if (changed) {
+      saveAnimations(state.animations);
+      render();
+    }
+  } catch (error) {
+    console.error("Could not analyze stored custom animation previews:", error);
+  }
 }
 
 /* ==================================================

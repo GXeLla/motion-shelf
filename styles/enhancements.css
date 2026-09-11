@@ -1255,6 +1255,36 @@ label:has(> textarea[name="parent"]) {
   font-variant-numeric: tabular-nums;
 }
 
+.scan-broken-list {
+  margin: 12px 30px 0;
+}
+
+.runtime-audit-summary {
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.runtime-audit-summary-heading h3 { margin: 4px 0; font-size: 18px; }
+.runtime-audit-summary-heading p { margin: 0; color: var(--text-muted); font-size: 12px; }
+.runtime-audit-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
+.runtime-audit-counts div { padding: 9px; border: 1px solid var(--border); border-radius: 9px; }
+.runtime-audit-counts dt { color: var(--text-muted); font-size: 11px; }
+.runtime-audit-counts dd { margin: 4px 0 0; font-size: 19px; font-weight: 800; }
+.runtime-audit-counts .is-valid { border-color: rgba(99, 230, 190, 0.32); }
+.runtime-audit-counts .is-fixed { border-color: rgba(84, 169, 234, 0.32); }
+.runtime-audit-counts .is-broken { border-color: rgba(255, 176, 92, 0.45); background: rgba(255, 176, 92, 0.08); }
+.runtime-audit-broken { margin-top: 12px; border: 1px solid rgba(255, 176, 92, 0.35); border-radius: 9px; overflow: hidden; }
+.runtime-audit-broken summary { display: flex; align-items: center; gap: 8px; padding: 10px; cursor: pointer; font-size: 12px; font-weight: 800; list-style: none; }
+.runtime-audit-broken summary b { margin-left: auto; }
+.runtime-audit-broken summary i { transition: transform var(--transition); }
+.runtime-audit-broken[open] summary i { transform: rotate(180deg); }
+.runtime-audit-broken > div { max-height: 220px; overflow: auto; padding: 0 10px 8px; }
+.runtime-audit-broken p { margin: 0; padding: 8px 0; border-top: 1px solid var(--border); }
+.runtime-audit-broken b, .runtime-audit-broken span { display: block; }
+.runtime-audit-broken span { margin-top: 2px; color: var(--text-muted); font-size: 12px; }
+
 .scan-actions {
   display: flex;
   justify-content: flex-end;
@@ -1272,6 +1302,9 @@ label:has(> textarea[name="parent"]) {
   .scan-actions {
     padding: 20px;
   }
+
+  .scan-broken-list { margin: 12px 20px 0; }
+  .runtime-audit-counts { grid-template-columns: 1fr; }
 }
 
 /* ==================================================

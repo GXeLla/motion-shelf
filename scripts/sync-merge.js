@@ -53,7 +53,8 @@ export function mergeScannedAnimation(record, existing) {
     origin: mergeImportOrigins(existing.origin, record.origin),
   });
 
-  if (buildExportCSS(candidate) === buildExportCSS(existing)) return existing;
+  const auditChanged = JSON.stringify(candidate.audit || null) !== JSON.stringify(existing.audit || null);
+  if (buildExportCSS(candidate) === buildExportCSS(existing) && !auditChanged) return existing;
 
   candidate.updatedAt = Date.now();
   candidate.codeSynced = false;

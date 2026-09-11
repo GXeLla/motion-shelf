@@ -19,6 +19,7 @@ import { getCategoryIcon, animationMatchesFilter } from "./filters.js";
 import { isFavourite } from "./favourites.js";
 
 import { describeOrigin } from "./origin.js";
+import { getPreviewHint } from "./preview-hint.js";
 
 /*
  * WINDOWED RENDERING
@@ -68,6 +69,7 @@ function cardSignature(animation) {
     animation.delayUnit,
     animation.easing,
     animation.iterationCount,
+    animation.previewHint || "",
     animation.localPresent ? 1 : 0,
     animation.repositoryPresent ? 1 : 0,
     animation.localPath,
@@ -334,6 +336,16 @@ export function createCard(animation) {
           : "MOTION";
 
   preview.appendChild(previewType);
+
+  const previewHint = getPreviewHint(animation);
+  if (previewHint) {
+    const hint = document.createElement("span");
+    hint.className = "card-preview-hint";
+    hint.dataset.tooltip = previewHint;
+    hint.setAttribute("aria-label", previewHint);
+    hint.innerHTML = '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>';
+    preview.appendChild(hint);
+  }
 
   /*
    * FAVOURITE
