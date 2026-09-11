@@ -162,7 +162,9 @@
 .card-preview-hint {
   position: absolute;
   z-index: 6;
-  top: 10px;
+  /* The established live-status dot owns the top-right corner. Keep this
+     hoverable explanation directly below it, never on top of it. */
+  top: 34px;
   right: 10px;
   display: grid;
   width: 20px;
