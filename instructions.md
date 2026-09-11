@@ -182,7 +182,7 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | `styles/toast.css` | Success/error notifications. |
 | `styles/keyframes.css` | Motion Shelf interface animations only. User-created keyframes are injected dynamically or saved in `animations/`. |
 
-Each page also carries its own scrollbar and scroll-progress color theme, layered on top of the shared geometry in `styles/styles.css`: the animation library re-colors them emerald in `styles/library-atmosphere.css`, and the task board re-colors them jade/copper in `styles/task-sky.css`.
+The animation library carries its emerald scrollbar and scroll-progress theme in `styles/library-atmosphere.css`, layered on top of the shared geometry in `styles/styles.css`.
 
 ## Syncing the campaign archives
 
@@ -380,7 +380,7 @@ Card loading pauses while the document is hidden, cancels stale callbacks when a
 
 Run regression checks with `node --test tests/*.test.mjs`. File-access tests use isolated fake handles; they do not modify the real animation catalog or source archives.
 
-The backgrounds are decorative and never capture clicks. The animation library uses an emerald aurora in `styles/library-atmosphere.css`: slow light ribbons, curved contour lines, green haze and the shared spark field. `scripts/library-atmosphere.js` builds a stable SVG field of 540 stars/dust points and 12 twinkling highlights, and adds smooth, bounded pointer and scroll parallax to separate depth layers. Thin light tracers and three occasional meteors add movement; mobile shows only one meteor. Pointer parallax is limited to fine mouse pointers; animation pauses in hidden tabs, and reduced-motion preferences disable movement and hide meteors/tracers. The task page retains its independent observatory styling.
+The backgrounds are decorative and never capture clicks. The animation library uses an emerald aurora in `styles/library-atmosphere.css`: slow light ribbons, curved contour lines, green haze and the shared spark field. `scripts/library-atmosphere.js` builds a stable SVG field of 540 stars/dust points and 12 twinkling highlights, and adds smooth, bounded pointer and scroll parallax to separate depth layers. Thin light tracers and three occasional meteors add movement; mobile shows only one meteor. Pointer parallax is limited to fine mouse pointers; animation pauses in hidden tabs, and reduced-motion preferences disable movement and hide meteors/tracers.
 
 To adjust the library effect, change the following values in `styles/library-atmosphere.css`:
 

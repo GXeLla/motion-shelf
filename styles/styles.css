@@ -92,9 +92,9 @@ img {
    The page-level (html/body) scrollbar is hidden outright -- the
    scroll-progress bar below is the page's scroll indicator instead, so
    there is no need for a right-edge bar too. Every OTHER scrollable
-   area (filters row, modals, task lanes, etc.) keeps a slim, solid
-   colored scrollbar; each page (library-atmosphere.css, task-sky.css)
-   recolors those to match its own theme. No gradients/animation here:
+   area (filters row, modals, etc.) keeps a slim, solid colored scrollbar;
+   library-atmosphere.css recolors those to match the library theme. No
+   gradients/animation here:
    a lot of real browser/OS combinations (notably macOS overlay
    scrollbars) ignore anything on this pseudo-element beyond a flat
    background-color, so that is all this relies on.
@@ -173,4 +173,3 @@ body::-webkit-scrollbar {
 
   transition: width 80ms linear;
 }
-
