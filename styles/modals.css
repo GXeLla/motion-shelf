@@ -494,6 +494,29 @@ MODAL BACKDROP
   font-size: 15px;
 }
 
+/* One copy button per block, sitting on the block's own heading so it is
+   unambiguous which code it takes. */
+.code-section-copy {
+  padding: 5px 11px;
+
+  font-size: 12px;
+}
+
+.code-section-copy i {
+  font-size: 11px;
+}
+
+.code-section-copy.copied {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* The heading row already spaces them apart, so consecutive sections only
+   need air between them. */
+.code-section + .code-section {
+  margin-top: 22px;
+}
+
 .code-block {
   margin: 10px 0 0;
 

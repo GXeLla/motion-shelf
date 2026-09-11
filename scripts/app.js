@@ -3,8 +3,15 @@ import { state } from "./state.js";
 import { loadAnimations, saveAnimations } from "./storage.js";
 
 import {
+  buildAnimationClass,
+  buildAnimationSections,
+  buildKeyframes,
+  buildParentClass,
+  buildWholeAnimation,
+} from "./animation-code.js";
+
+import {
   findAnimation,
-  buildCopyCSS,
   applyPreviewBackdrop,
   createPreviewImage,
 } from "./animations.js";
@@ -174,6 +181,9 @@ function render() {
   variantsButton.hidden = !isAllView() || state.selectionMode || (!grouped && !state.showAllVariants);
   variantsButton.textContent = state.showAllVariants ? "Group variants" : "Show all variants";
   variantsButton.setAttribute("aria-pressed", String(state.showAllVariants));
+  variantsButton.dataset.tooltip = state.showAllVariants
+    ? "Show the most-used variant in each group."
+    : "Show every related animation variant.";
 
   emptyState.hidden = visible.length !== 0;
 
@@ -407,10 +417,12 @@ animationGrid.addEventListener("click", async (event) => {
 
     const animation = findAnimation(id);
     if (!animation) return;
-    await copyText(buildCopyCSS(animation));
+    /* The same builder the details modal's "Copy whole animation" uses, so a
+       card click and that button can never hand out different code. */
+    await copyText(buildWholeAnimation(animation));
     target.classList.add("copied");
     setTimeout(() => target.classList.remove("copied"), 500);
-    showToast(`${animation.name} CSS copied.`, "fa-solid fa-copy");
+    showToast(`${animation.name} copied.`, "fa-solid fa-copy");
     return;
   }
 
@@ -663,20 +675,30 @@ function openDetails(id) {
     </div>
 
 
+    ${buildAnimationSections(animation).map((section) => `
     <div class="code-section">
 
       <div class="code-section-heading">
 
         <h3>
           <i class="fa-brands fa-css3-alt"></i>
-          CSS
+          ${escapeHtml(section.label)}
         </h3>
+
+        <button
+          class="button secondary code-section-copy"
+          type="button"
+          data-copy-section="${escapeAttribute(section.key)}"
+        >
+          <i class="fa-solid fa-copy"></i>
+          Copy
+        </button>
 
       </div>
 
-      <pre class="code-block">${escapeHtml(buildCopyCSS(animation))}</pre>
+      <pre class="code-block">${escapeHtml(section.code)}</pre>
 
-    </div>
+    </div>`).join("")}
 
 
     <div class="detail-actions">
@@ -687,7 +709,7 @@ function openDetails(id) {
         data-detail-action="copy"
       >
         <i class="fa-solid fa-copy"></i>
-        Copy CSS
+        Copy whole animation
       </button>
 
 
@@ -739,6 +761,31 @@ function openDetails(id) {
     });
   }
 
+  /* Each section copies only itself, from the same builder that rendered it --
+     so what lands on the clipboard is character for character what is on the
+     screen above the button. */
+  const SECTION_COPY = {
+    animation: { build: buildAnimationClass, label: "Animation class copied." },
+    parent: { build: buildParentClass, label: "Parent class copied." },
+    keyframes: { build: buildKeyframes, label: "Keyframes copied." },
+  };
+
+  detailModalContent
+    .querySelectorAll("[data-copy-section]")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const section = SECTION_COPY[button.dataset.copySection];
+        if (!section) return;
+
+        await copyText(section.build(animation));
+
+        button.classList.add("copied");
+        setTimeout(() => button.classList.remove("copied"), 600);
+
+        showToast(section.label, "fa-solid fa-copy");
+      });
+    });
+
   detailModalContent
     .querySelectorAll("[data-detail-action]")
     .forEach((button) => {
@@ -746,9 +793,9 @@ function openDetails(id) {
         const action = button.dataset.detailAction;
 
         if (action === "copy") {
-          await copyText(buildCopyCSS(animation));
+          await copyText(buildWholeAnimation(animation));
 
-          showToast("CSS copied.", "fa-solid fa-copy");
+          showToast("Whole animation copied.", "fa-solid fa-copy");
 
           return;
         }

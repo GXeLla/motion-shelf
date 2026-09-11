@@ -75,9 +75,9 @@ PREVIEW NOTICE
 
 /*
  * A standing caveat rather than an announcement, so it lives in the header
- * in the header and never gets dismissed: card previews always loop and
- * always use a stand-in subject, so a fair number of them look wrong in ways
- * the exported CSS is not. The explanation is in its data-tooltip.
+ * in the header and never gets dismissed: card previews replay on hover with
+ * a stand-in subject in a preview-safe frame. The explanation is in its
+ * data-tooltip.
  */
 .preview-notice {
   display: inline-flex;

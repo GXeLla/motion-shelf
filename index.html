@@ -193,13 +193,12 @@
             id="previewNotice"
             type="button"
             data-tooltip-place="below"
-            data-tooltip="Card previews are a guide, not the finished animation.
-Every preview loops, whatever the animation's real iteration count -- so a one-shot motion restarts over and over and can look broken, a long delay leaves the card still for a moment, and a very short duration reads as flicker.
-The subject is a stand-in, not the artwork the animation was written for, and the parent perspective and clipping differ too.
-The CSS you copy, export or push runs with the real iteration count and parent styles."
+            data-tooltip="Card previews replay on hover with a generated stand-in subject.
+They use a card-safe frame so viewport-scale travel stays understandable in the library.
+Copied, exported and pushed CSS keeps the animation's real settings and parent requirements."
           >
             <span class="preview-notice-mark" aria-hidden="true">!</span>
-            <span class="preview-notice-label">Previews are approximate</span>
+            <span class="preview-notice-label">About card previews</span>
           </button>
 
         </div>
@@ -272,7 +271,7 @@ The CSS you copy, export or push runs with the real iteration count and parent s
 
           <div class="results-controls">
             <span class="result-count" id="resultCount"> 0 animations </span>
-            <button class="button secondary variants-button" id="variantsButton" type="button" aria-pressed="false" hidden>Show all variants</button>
+            <button class="button secondary variants-button" id="variantsButton" type="button" aria-pressed="false" data-tooltip="Show every related animation variant." hidden>Show all variants</button>
           </div>
         </div>
 
