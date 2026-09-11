@@ -15,8 +15,10 @@ import {
   ARCHIVES,
   animationArchives,
   animationFolders,
+  animationCampaigns,
   archiveLabel,
   collectFolders,
+  collectCampaigns,
 } from "./origin.js";
 
 /* The picker is a live component; renderFolderPicker needs the same render
@@ -52,6 +54,7 @@ export function initializeFilters({ filterList, searchInput, render }) {
     if (filter === "all") {
       state.selectedFilters = [];
       state.sourceFolder = "";
+      state.sourceCampaign = "";
       state.showAllVariants = false;
       render();
       return;
@@ -73,6 +76,7 @@ export function initializeFilters({ filterList, searchInput, render }) {
        while switching archives would silently empty the grid. */
     if (!activeArchive()) {
       state.sourceFolder = "";
+      state.sourceCampaign = "";
     }
 
     render();
@@ -153,15 +157,13 @@ export function activeArchive() {
  * two filter slots that the archive chip already occupies.
  */
 function matchesFolder(animation) {
-  if (!state.sourceFolder) {
-    return true;
-  }
-
-  return animationFolders(animation, activeArchive()).has(state.sourceFolder);
+  if (state.sourceFolder && !animationFolders(animation, activeArchive()).has(state.sourceFolder)) return false;
+  if (state.sourceCampaign && !animationCampaigns(animation, state.sourceFolder).has(state.sourceCampaign)) return false;
+  return true;
 }
 
 export function isAllView() {
-  return state.selectedFilters.length === 0 && !state.searchTerm && !state.sourceFolder;
+  return state.selectedFilters.length === 0 && !state.searchTerm && !state.sourceFolder && !state.sourceCampaign;
 }
 
 export function areVariantsCollapsed() {
@@ -269,41 +271,58 @@ function matchesSearch(animation) {
   return haystack.includes(state.searchTerm);
 }
 
-/*
- * The chips that stay put and the chips that scroll.
- *
- * All, Desktop, Mobile, Favourite and Most used are the ones reached
- * constantly, so they are never pushed off the side by however many
- * categories a sync brings in; everything else lives in the strip that
- * scrolls sideways next to them.
- */
-const PINNED_FILTERS = [
-  { value: "desktop", label: "Desktop", icon: "fa-solid fa-desktop" },
-  { value: "mobile", label: "Mobile", icon: "fa-solid fa-mobile-screen" },
-  { value: "favourite", label: "Favourite", icon: "fa-solid fa-star" },
+/* All chips belong to the same wrapping list, so no filter is hidden behind
+   a horizontal strip. Explanations are deliberately short: they supplement
+   the visible label without making the tooltip a second interface. */
+const FILTERS = [
+  {
+    value: "desktop", label: "Desktop", icon: "fa-solid fa-desktop", tooltip: "Designed for desktop screens",
+  },
+  {
+    value: "mobile", label: "Mobile", icon: "fa-solid fa-mobile-screen", tooltip: "Designed for mobile screens",
+  },
+  {
+    value: "favourite", label: "Favourite", icon: "fa-solid fa-star", tooltip: "Your saved effects",
+  },
+  {
+    value: "local", label: "Local", icon: "fa-solid fa-hard-drive", tooltip: "Available on this computer",
+  },
+  {
+    value: "custom", label: "Custom", icon: "fa-solid fa-pen-ruler", tooltip: "Created in Motion Shelf",
+  },
+  {
+    value: "hover", label: "Hover", icon: "fa-solid fa-hand-pointer", tooltip: "Triggered on hover",
+  },
+  {
+    value: "infinite", label: "Infinite", icon: "fa-solid fa-infinity", tooltip: "Loops continuously",
+  },
+  {
+    value: "appear", label: "Appear", icon: "fa-solid fa-eye", tooltip: "Entrance animations",
+  },
+  {
+    value: "disappear", label: "Disappear", icon: "fa-solid fa-eye-slash", tooltip: "Exit animations",
+  },
+  {
+    value: "3d", label: "3D", icon: "fa-solid fa-cube", tooltip: "Perspective effects",
+  },
 ];
 
-const SCROLLING_FILTERS = [
-  { value: "local", label: "Local", icon: "fa-solid fa-hard-drive" },
-  { value: "custom", label: "Custom", icon: "fa-solid fa-pen-ruler" },
-  ...ARCHIVES,
-  { value: "hover", label: "Hover", icon: "fa-solid fa-hand-pointer" },
-  { value: "infinite", label: "Infinite", icon: "fa-solid fa-infinity" },
-  { value: "appear", label: "Appear", icon: "fa-solid fa-eye" },
-  { value: "disappear", label: "Disappear", icon: "fa-solid fa-eye-slash" },
-  { value: "static", label: "Static", icon: "fa-solid fa-pause" },
-  { value: "3d", label: "3D", icon: "fa-solid fa-cube" },
-];
+const SOURCE_FILTERS = ARCHIVES.map((archive) => ({
+  ...archive,
+  tooltip: archive.value === "campaigns"
+    ? "Filter by brand and campaign"
+    : "Imported historical preview effects",
+}));
+
+const HIDDEN_FILTERS = new Set(["static", "image", "photo"]);
 
 export function renderFilterButtons(filterList) {
-  const filters = [...SCROLLING_FILTERS];
+  const filters = [...FILTERS];
 
-  const taken = new Set(
-    [...PINNED_FILTERS, ...SCROLLING_FILTERS].map((filter) => filter.value),
-  );
+  const taken = new Set([...FILTERS, ...SOURCE_FILTERS].map((filter) => filter.value));
 
   getAllCategories().forEach((category) => {
-    if (taken.has(category)) {
+    if (taken.has(category) || HIDDEN_FILTERS.has(category)) {
       return;
     }
 
@@ -313,79 +332,84 @@ export function renderFilterButtons(filterList) {
       value: category,
       label: formatCategoryLabel(category),
       icon: getCategoryIcon(category),
+      tooltip: categoryExplanation(category),
     });
   });
 
-  /*
-   * Rebuilding the row throws away how far it was scrolled, which sends you
-   * back to the start of the strip every time you pick a category from the
-   * far end of it. Remember the offset and put it back.
-   */
-  const previousScroll = filterList.querySelector(".filter-scroll")?.scrollLeft || 0;
-
   filterList.innerHTML = "";
 
-  const pinned = document.createElement("div");
+  const primaryRow = document.createElement("div");
+  primaryRow.className = "filter-row filter-row-primary";
 
-  pinned.className = "filter-pinned";
-
-  const scrolling = document.createElement("div");
-
-  scrolling.className = "filter-scroll";
+  const categoryRow = document.createElement("div");
+  categoryRow.className = "filter-row filter-row-categories";
 
   const allButton = createFilterButton(
     "all", "All", "fa-solid fa-layer-group", state.selectedFilters.length === 0,
   );
-  const info = document.createElement("span");
-  info.className = "filter-info-mark";
-  info.textContent = "!";
-  info.setAttribute("aria-hidden", "true");
-  allButton.appendChild(info);
-  allButton.dataset.tooltip =
-    "All groups numbered variants such as Blink, Blink 2 and Blink 7. "
-    + "It shows the most-used variant plus every favourited variant. "
-    + "Nothing is deleted. Show all variants, search, filters or selection mode reveal the full set.";
-  allButton.dataset.tooltipPlace = "below";
-  pinned.appendChild(allButton);
+  primaryRow.appendChild(allButton);
 
-  PINNED_FILTERS.forEach((filter) => {
-    pinned.appendChild(
+  /* Source controls always finish the first row. Animation categories begin
+     their own row, even when the desktop has room for more chips. */
+  const primaryFilters = filters.slice(0, 3);
+  const libraryFilters = filters.slice(3, 5);
+  const remainingFilters = filters.slice(5);
+
+  primaryFilters.forEach((filter) => {
+    primaryRow.appendChild(
       createFilterButton(
         filter.value,
         filter.label,
         filter.icon,
         state.selectedFilters.includes(filter.value),
+        filter.tooltip,
       ),
     );
   });
 
-  pinned.appendChild(
+  primaryRow.appendChild(
     createSortButton(
-      "uses",
-      "Most used",
-      "fa-solid fa-fire",
-      state.sortMode === "uses",
+      "uses", "Most used", "fa-solid fa-fire", state.sortMode === "uses",
     ),
   );
 
-  filters.forEach((filter) => {
-    scrolling.appendChild(
+  libraryFilters.forEach((filter) => {
+    primaryRow.appendChild(
       createFilterButton(
         filter.value,
         filter.label,
         filter.icon,
         state.selectedFilters.includes(filter.value),
+        filter.tooltip,
       ),
     );
   });
 
-  filterList.appendChild(pinned);
+  SOURCE_FILTERS.forEach((filter) => {
+    primaryRow.appendChild(
+      createFilterButton(
+        filter.value,
+        filter.label,
+        filter.icon,
+        state.selectedFilters.includes(filter.value),
+        filter.tooltip,
+      ),
+    );
+  });
 
-  filterList.appendChild(scrolling);
+  remainingFilters.forEach((filter) => {
+    categoryRow.appendChild(
+      createFilterButton(
+        filter.value,
+        filter.label,
+        filter.icon,
+        state.selectedFilters.includes(filter.value),
+        filter.tooltip,
+      ),
+    );
+  });
 
-  /* Set directly rather than through scrollTo: this runs inside a render, and
-     a smooth scroll would animate the strip on every filter click. */
-  scrolling.scrollLeft = previousScroll;
+  filterList.append(primaryRow, categoryRow);
 
   renderFolderPicker(filterList);
 }
@@ -396,79 +420,43 @@ export function renderFilterButtons(filterList) {
  * dropdown of the folders actually present in the library, with how many
  * animations came out of each.
  */
-let picker = null;
-let pickerArchive = "";
-let pickerSignature = "";
+let brandPicker = null;
+let campaignPicker = null;
 
 function renderFolderPicker(filterList) {
   const archive = activeArchive();
-
-  if (!archive) {
-    /* Nothing is holding it open; drop it so a stale panel cannot reappear
-       the next time an archive chip is picked. */
-    picker = null;
-    pickerArchive = "";
-    pickerSignature = "";
-    return;
-  }
-
+  if (archive !== "campaigns") return;
   const folders = collectFolders(state.animations, archive);
+  const campaigns = collectCampaigns(state.animations, state.sourceFolder);
+  if (!folders.length && !campaigns.length) return;
 
   const extras = document.createElement("div");
 
   extras.className = "filter-extras";
 
-  if (!folders.length) {
-    picker = null;
-    pickerSignature = "";
-
-    extras.innerHTML = `
-      <span class="filter-extras-empty">
-        <i class="fa-solid fa-circle-info"></i>
-        No ${escapeHtml(archiveLabel(archive).toLowerCase())} folders in the library yet -- run a Sync first.
-      </span>
-    `;
-
-    filterList.appendChild(extras);
-
-    return;
-  }
-
-  /* A brand that is no longer in the library (a filter changed under it)
-     would otherwise leave the picker showing a value it cannot honour. */
-  const current = folders.some((entry) => entry.folder === state.sourceFolder)
-    ? state.sourceFolder
-    : "";
-
-  if (current !== state.sourceFolder) {
-    state.sourceFolder = current;
-  }
-
-  const signature = archive + "\u0001" + folders.map((entry) => entry.folder + ":" + entry.count).join(",");
-
-  /*
-   * Reuse the element whenever it would be rebuilt identically. A render can
-   * happen for reasons that have nothing to do with this picker, and building
-   * a new one would close the panel and throw away whatever was typed in it.
-   */
-  if (picker && pickerArchive === archive && pickerSignature === signature) {
-    picker.update({ value: current });
-  } else {
-    picker = createFolderPicker({
-      label: archiveLabel(archive),
+  if (archive && folders.length) {
+    const current = folders.some((entry) => entry.folder === state.sourceFolder) ? state.sourceFolder : "";
+    if (current !== state.sourceFolder) state.sourceFolder = current;
+    brandPicker = createFolderPicker({
+      label: archive === "campaigns" ? "Brand" : archiveLabel(archive),
       options: folders,
       value: current,
-      onSelect: (folder) => {
-        state.sourceFolder = folder;
-        requestRender();
-      },
+      onSelect: (folder) => { state.sourceFolder = folder; state.sourceCampaign = ""; requestRender(); },
     });
-
-    pickerArchive = archive;
-    pickerSignature = signature;
+    extras.appendChild(brandPicker);
   }
 
-  extras.appendChild(picker);
+  if (campaigns.length) {
+    const current = campaigns.some((entry) => entry.folder === state.sourceCampaign) ? state.sourceCampaign : "";
+    if (current !== state.sourceCampaign) state.sourceCampaign = current;
+    campaignPicker = createFolderPicker({
+      label: "Campaign",
+      options: campaigns,
+      value: current,
+      onSelect: (campaign) => { state.sourceCampaign = campaign; requestRender(); },
+    });
+    extras.appendChild(campaignPicker);
+  }
 
   filterList.appendChild(extras);
 }
@@ -487,8 +475,6 @@ export function getAllCategories() {
 
 export function getCategoryIcon(category) {
   const icons = {
-    image: "fa-solid fa-image",
-    photo: "fa-solid fa-image",
     text: "fa-solid fa-font",
     scale: "fa-solid fa-expand",
     rotate: "fa-solid fa-rotate",
@@ -508,8 +494,35 @@ export function getCategoryIcon(category) {
   return icons[category] || "fa-solid fa-tag";
 }
 
+function categoryExplanation(category) {
+  const explanations = {
+    hover: "Runs when hovered",
+    infinite: "Repeats continuously",
+    appear: "Enters into view",
+    disappear: "Exits from view",
+    "3d": "Uses depth and perspective",
+    spring: "Overshoots then settles",
+    magnetic: "Pulls toward a target",
+    elastic: "Stretches then rebounds",
+    timeline: "Plays staged motion sequence",
+    scroll: "Responds to page scrolling",
+    parallax: "Moves with depth scrolling",
+    shake: "Rapid side movement",
+    bounce: "Repeated impact motion",
+    pulse: "Repeated scale or opacity beat",
+    blink: "Repeated visibility change",
+    fade: "Gradually changes opacity",
+    scale: "Grows or shrinks",
+    rotate: "Turns around an axis",
+    slide: "Moves across the frame",
+    text: "Animates text elements",
+  };
+
+  return explanations[category] || "Changes visual motion behavior";
+}
+
 function createSortButton(value, label, icon, active) {
-  const button = createFilterButton(value, label, icon, active);
+  const button = createFilterButton(value, label, icon, active, "Sort by usage");
 
   delete button.dataset.filter;
 
@@ -517,16 +530,12 @@ function createSortButton(value, label, icon, active) {
 
   button.classList.add("filter-sort");
 
-  button.title = active
-    ? "Sorted by how often it is used -- click to go back to A to Z"
-    : "Sort by how often the animation is used";
-
   button.setAttribute("aria-pressed", active ? "true" : "false");
 
   return button;
 }
 
-function createFilterButton(value, label, icon, active) {
+function createFilterButton(value, label, icon, active, tooltip = "") {
   const button = document.createElement("button");
 
   button.type = "button";
@@ -536,6 +545,11 @@ function createFilterButton(value, label, icon, active) {
   button.dataset.filter = value;
 
   button.classList.toggle("active", active);
+
+  if (tooltip) {
+    button.dataset.tooltip = tooltip;
+    button.setAttribute("aria-label", `${label}: ${tooltip}`);
+  }
 
   button.innerHTML = `
       <i class="${icon}"></i>

@@ -14,6 +14,8 @@ export const state = {
      every folder in that archive. */
   sourceFolder: "",
 
+  sourceCampaign: "",
+
   searchTerm: "",
 
   selectionMode: false,

@@ -69,86 +69,19 @@
 
 .filter-list {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-
-  /* The row splits in two: chips that always stay reachable, and the strip
-     that scrolls. When the strip has less than ~320px to work with it wraps
-     onto its own line rather than squeezing the pinned chips. */
-  flex-wrap: wrap;
+  gap: 12px;
 
   margin-top: 12px;
 }
 
-.filter-pinned {
+.filter-row {
   display: flex;
-  max-width: 100%;
-  min-width: 0;
-  align-items: center;
+  width: 100%;
+  align-items: flex-start;
   gap: 8px;
-
-  /* Never scrollable. On a narrow screen these wrap instead. */
-  flex: 0 0 auto;
   flex-wrap: wrap;
-
-  padding-top: 3px;
-  padding-bottom: 6px;
-}
-
-.filter-scroll {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  flex: 1 1 320px;
-  min-width: 0;
-
-  overflow-x: auto;
-  overflow-y: hidden;
-
-  padding-top: 3px;
-  padding-bottom: 6px;
-
-  /*
-   * Back to the initial values, against the global `*` rule in styles.css.
-   *
-   * Chromium ignores every ::-webkit-scrollbar rule on an element whose
-   * scrollbar-width or scrollbar-color is not initial, and `thin` is as narrow
-   * as the standard property goes -- so inheriting that rule would cap this
-   * strip at Chrome's thin width and make the height below do nothing.
-   * Firefox gets its own values back in the @supports block underneath.
-   */
-  scrollbar-width: auto;
-  scrollbar-color: auto;
-}
-
-/* This page's own emerald scrollbar, set directly here since filters.css is
-   only ever loaded by index.html. A hairline: the strip is one row of chips,
-   so the bar only has to say how far along it is, not be something to grab. */
-.filter-scroll::-webkit-scrollbar {
-  height: 4px;
-}
-
-.filter-scroll::-webkit-scrollbar-track {
-  background: rgba(7, 15, 13, 0.65);
-}
-
-.filter-scroll::-webkit-scrollbar-thumb {
-  background-color: #30b883;
-  border-radius: 999px;
-}
-
-.filter-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #8befbc;
-}
-
-/* Firefox draws none of the ::-webkit rules above and needs the standard
-   properties instead. "thin" is the narrowest it offers. */
-@supports (-moz-appearance: none) {
-  .filter-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: #30b883 rgba(7, 15, 13, 0.65);
-  }
 }
 
 .filter-button {
@@ -183,19 +116,6 @@
   transform: translateY(-1px);
 }
 
-.filter-info-mark {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}
-
 .filter-button.active {
   border-color: rgba(84, 169, 234, 0.45);
   background: rgba(84, 169, 234, 0.1);
@@ -216,20 +136,6 @@
   color: #ff8a5c;
 }
 
-/* A divider, so the pinned group reads as its own set. */
-.filter-scroll::before {
-  content: "";
-
-  flex: 0 0 auto;
-
-  align-self: stretch;
-
-  width: 1px;
-  margin: 4px 4px 4px 0;
-
-  background: var(--border);
-}
-
 /* ==================================================
   ARCHIVE FOLDER PICKER
   ================================================== */
@@ -237,7 +143,7 @@
 /* Its own line under the chips: it belongs to whichever archive chip is up,
    and it should not be something you have to scroll sideways to find. */
 .filter-extras {
-  flex: 1 0 100%;
+  width: 100%;
 
   display: flex;
   align-items: center;

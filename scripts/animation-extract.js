@@ -1736,7 +1736,7 @@ export class AnimationLibrary {
       const device = deviceFromPath(origin.file);
       if (device) existing.deviceVotes.set(device, (existing.deviceVotes.get(device) || 0) + 1);
 
-      addSourceSample(existing.sources, origin, 5);
+      addSourceSample(existing.sources, origin, Infinity);
       return existing;
     }
 

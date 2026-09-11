@@ -86,15 +86,19 @@ export function createFolderPicker({ label, options, value, onSelect }) {
 
   function renderTrigger() {
     const chosen = current.options.find((option) => option.folder === current.value);
+    const value = chosen ? chosen.folder : "All " + current.label + "s";
 
     trigger.classList.toggle("is-chosen", Boolean(chosen));
+    trigger.title = value;
+    if (chosen) trigger.dataset.tooltip = value;
+    else delete trigger.dataset.tooltip;
 
     trigger.innerHTML = `
       <i class="fa-solid fa-folder-tree"></i>
 
       <span class="folder-picker-label">${escapeHtml(current.label)}</span>
 
-      <span class="folder-picker-value">${escapeHtml(chosen ? chosen.folder : "All folders")}</span>
+      <span class="folder-picker-value">${escapeHtml(chosen ? chosen.folder : "All " + current.label + "s")}</span>
 
       <span class="folder-picker-count">${chosen ? chosen.count : current.options.length}</span>
 
@@ -123,6 +127,7 @@ export function createFolderPicker({ label, options, value, onSelect }) {
           role="option"
           class="folder-picker-option${entry.folder === current.value ? " is-selected" : ""}${index === highlighted ? " is-highlighted" : ""}"
           data-folder="${escapeHtml(entry.folder)}"
+          title="${escapeHtml(entry.name)}"
           aria-selected="${entry.folder === current.value ? "true" : "false"}"
         >
           <i class="fa-solid fa-check folder-picker-tick"></i>

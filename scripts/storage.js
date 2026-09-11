@@ -40,6 +40,11 @@ export function saveAnimations(animations) {
 }
 
 export function normalizeAnimation(animation) {
+  const origin = normalizeOrigin(animation.origin);
+  const canonical = Boolean(origin);
+  const css = String(animation.css || "").trim();
+  const parameters = normalizeParameters(animation.parameters);
+
   return {
     id: animation.id || createId(),
 
@@ -63,9 +68,9 @@ export function normalizeAnimation(animation) {
 
     durationUnit: animation.durationUnit === "ms" ? "ms" : "s",
 
-    delay: normalizeNumber(animation.delay, 0),
+    delay: canonical ? 0.25 : normalizeNumber(animation.delay, 0),
 
-    delayUnit: animation.delayUnit === "ms" ? "ms" : "s",
+    delayUnit: canonical ? "s" : animation.delayUnit === "ms" ? "ms" : "s",
 
     easing: String(animation.easing || "ease-in-out"),
 
@@ -73,7 +78,7 @@ export function normalizeAnimation(animation) {
 
     iterationCount: normalizeIteration(animation.iterationCount, animation.interaction),
 
-    css: String(animation.css || "").trim(),
+    css: canonical ? normalizeCanonicalDelayCss(css) : css,
 
     keyframes: String(animation.keyframes || "").trim(),
 
@@ -91,11 +96,11 @@ export function normalizeAnimation(animation) {
 
     source: ["local", "repository"].includes(animation.source) ? animation.source : "session",
 
-    origin: normalizeOrigin(animation.origin),
+    origin,
 
     template: normalizeTemplate(animation.template),
 
-    parameters: normalizeParameters(animation.parameters),
+    parameters: canonical ? normalizeCanonicalDelayParameters(parameters) : parameters,
 
     rawCss: String(animation.rawCss || ""),
 
@@ -105,6 +110,20 @@ export function normalizeAnimation(animation) {
 
     lastCodePush: animation.lastCodePush || null,
   };
+}
+
+function normalizeCanonicalDelayCss(css) {
+  const declaration = "--ms-delay: 0.25s;";
+  return /--ms-delay\s*:[^;]+;/i.test(css)
+    ? css.replace(/--ms-delay\s*:[^;]+;/i, declaration)
+    : `${declaration}\n${css}`.trim();
+}
+
+function normalizeCanonicalDelayParameters(parameters) {
+  if (!parameters) return parameters;
+  const normalize = (entries) => entries.map((entry) =>
+    entry.name === "--ms-delay" ? { ...entry, value: "0.25s" } : entry);
+  return { ...parameters, target: normalize(parameters.target), parent: normalize(parameters.parent) };
 }
 
 /*
@@ -136,9 +155,11 @@ function normalizeOrigin(origin) {
         occurrences: Number(variant.occurrences) || 1,
       }))
       : [],
-    sources: sources.slice(0, 5).map((source) => ({
+    sources: sources.map((source) => ({
       repository: String(source.repository || ""),
       folder: String(source.folder || ""),
+      brand: String(source.brand || ""),
+      campaign: String(source.campaign || ""),
       file: String(source.file || "").replace(/^([A-Za-z]:)?[\\/].*?([^\\/]+[\\/](?:campaigns|previews-only|previous-only)[\\/])/, "$2"),
       type: String(source.type || ""),
     })),

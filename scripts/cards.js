@@ -442,7 +442,6 @@ export function createCard(animation) {
   originBadge.innerHTML = `
     <i class="${escapeAttribute(origin.icon)}"></i>
     <span>${escapeHtml(origin.label)}</span>
-    ${origin.brand ? `<b>${escapeHtml(origin.brand)}</b>` : ""}
   `;
 
   titleRow.appendChild(originBadge);

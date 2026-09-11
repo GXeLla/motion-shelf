@@ -41,6 +41,7 @@ which is what lets a 10px float and a 20px float land in one family.
 ================================================== */
 
 const NUMBER_PATTERN = /^([+-]?\d*\.?\d+)([a-z%]*)$/i;
+const CANONICAL_DELAY = 0.25;
 
 /*
  * Motion is written three ways in this archive: the transform shorthand, the
@@ -210,16 +211,92 @@ export function analyzeSteps(steps) {
 /*
  * The family fingerprint. Two animations share it when they move the same way
  * and differ only in how far, how big or how fast -- which is exactly the
- * difference between float-small and float-large. Offsets and directions stay
- * part of the identity, so a three step float never merges with a five step
- * bounce, and sliding left never merges with sliding right.
+ * difference between float-small and float-large. Timing offsets are not
+ * identity: a state held to 24% behaves like that same state held to 75%.
+ * Directions, interaction, target and required supporting context stay in,
+ * so a three step float never merges with a five step bounce, and sliding
+ * left never merges with sliding right.
  */
+function semanticState(step) {
+  const parts = [];
+
+  Object.keys(step.declarations).sort().forEach((rawProperty) => {
+    const property = unprefixProperty(rawProperty);
+    const value = step.declarations[rawProperty];
+    const components = componentsFor(property, value);
+
+    if (components) {
+      const rendered = components.map((component) => {
+        const args = component.args.map((argument, argumentIndex) => {
+          const parsed = readNumber(argument);
+          if (!parsed) return argument.toLowerCase();
+
+          const kind = resolveKind(component.name, argumentIndex, component.args.length);
+          return magnitudeToken(kind, parsed.number);
+        });
+
+        return property === "transform"
+          ? component.name + "(" + args.join(",") + ")"
+          : args.join(" ");
+      });
+
+      parts.push(property + ":" + rendered.join(" "));
+      return;
+    }
+
+    if (property === "opacity") {
+      const parsed = readNumber(value);
+      parts.push("opacity:" + opacityToken(parsed ? parsed.number : 1));
+      return;
+    }
+
+    const abstracted = String(value)
+      .replace(/([+-]?\d*\.?\d+)([a-z%]*)/gi, (whole, number) => (Number(number) === 0 ? "0" : "n"))
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    parts.push(property + ":" + abstracted);
+  });
+
+  return parts.join(";");
+}
+
+/* Remove only consecutive equal states. This preserves a genuine return to a
+   previous state (A → B → A), while dropping timing-only holds (A → A → B). */
+function behaviourShape(steps) {
+  const states = [];
+
+  steps.forEach((step) => {
+    const state = semanticState(step);
+    if (state && state !== states[states.length - 1]) states.push(state);
+  });
+
+  return states.join("→");
+}
+
+function requirementShape(support = {}) {
+  const properties = (group) => Object.keys(group || {})
+    .map(unprefixProperty)
+    .filter((property) => !property.startsWith("--"))
+    .sort()
+    .join(",");
+
+  return "element:" + properties(support.element)
+    + "|parent:" + properties(support.parent);
+}
+
 export function familyFingerprint(steps, options = {}) {
-  const { shape } = analyzeSteps(steps);
+  const shape = behaviourShape(steps);
   const loops = options.iterationCount === "infinite" ? "loop" : "once";
   const direction = options.direction && options.direction !== "normal" ? options.direction : "normal";
+  const interaction = options.interaction || "";
+  const target = options.target || "div";
+  const requirements = requirementShape(options.support);
 
-  return hashString(shape + "#" + loops + "#" + direction);
+  return hashString(
+    shape + "#" + loops + "#" + direction + "#" + interaction + "#" + target + "#" + requirements,
+  );
 }
 
 /* ==================================================
@@ -281,6 +358,19 @@ export function detectContainerNeeds(steps, support = {}, gsapConfig = null) {
   const target = { ...split.target };
 
   const { is3d } = detectThreeD({ steps, target, parent, gsapConfig });
+
+  /* Viewport-relative motion is written against the browser window, not the
+     card or exported component. Keep it inside the supplied parent so a
+     `translateX(100vw)` entrance cannot spill across the page or disappear
+     beyond an unrelated viewport. Existing source clipping always wins. */
+  const usesViewportUnits = [
+    ...steps.map((step) => Object.values(step.declarations || {}).join(" ")),
+    JSON.stringify(gsapConfig || {}),
+  ].some((value) => /(?:^|[^\w.-])-?\d*\.?\d+v[wh]\b/i.test(value));
+
+  if (usesViewportUnits && !parent.overflow && !parent["overflow-x"] && !parent["overflow-y"]) {
+    parent.overflow = "hidden";
+  }
 
   if (is3d) {
     /* Perspective is the one thing a 3D animation cannot supply for itself:
@@ -359,6 +449,14 @@ function returnsToStart(values) {
 export function describeFamily(steps, timing = {}) {
   const summary = transformSummary(steps);
   const looping = timing.iterationCount === "infinite";
+
+  const visibility = steps
+    .map((step) => String(step.declarations.visibility || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  if (visibility.includes("visible") && visibility.includes("hidden")) {
+    return "Blink";
+  }
 
   const movesY = summary.translateY.some((value) => Math.abs(value) > 0.001);
   const movesX = summary.translateX.some((value) => Math.abs(value) > 0.001);
@@ -797,7 +895,7 @@ function declarationsToText(declarations) {
 }
 
 /*
- * Groups the exact-duplicate entries into families and returns one canonical
+ * Groups exact records into semantic visual families and returns one canonical
  * Motion Shelf animation per family.
  */
 export function buildCanonicalLibrary(entries, options = {}) {
@@ -809,6 +907,9 @@ export function buildCanonicalLibrary(entries, options = {}) {
     const fingerprint = familyFingerprint(record.steps, {
       iterationCount: record.timing.iterationCount,
       direction: record.timing.direction,
+      interaction: record.interaction,
+      target: record.target,
+      support: record.support,
     });
 
     if (!families.has(fingerprint)) {
@@ -820,7 +921,7 @@ export function buildCanonicalLibrary(entries, options = {}) {
     family.occurrences += entry.occurrences;
 
     entry.sources.forEach((source) => {
-      addSourceSample(family.sources, source, 6);
+      addSourceSample(family.sources, source, Infinity);
     });
 
     entry.nameVotes.forEach((count, name) => {
@@ -859,9 +960,10 @@ export function buildCanonicalLibrary(entries, options = {}) {
       const template = buildTemplate(ordered.map((entry) => entry.record));
 
       const timingVote = commonest(family.timingVotes);
-      const [duration, easing, delay] = timingVote
+      const [duration, easing] = timingVote
         ? timingVote[0].split("|")
-        : [canonical.timing.duration, canonical.timing.easing, canonical.timing.delay];
+        : [canonical.timing.duration, canonical.timing.easing];
+      const delay = CANONICAL_DELAY;
 
       const nameVote = commonest(family.nameVotes);
       const behaviourName = describeFamily(canonical.steps, canonical.timing);
@@ -899,7 +1001,9 @@ export function buildCanonicalLibrary(entries, options = {}) {
       const targetVote = commonest(family.targetVotes);
 
       const engine = canonical.kind.startsWith("gsap") ? "gsap" : "css";
-      const gsapConfig = engine === "gsap" ? canonical.gsapConfig || null : null;
+      const gsapConfig = engine === "gsap"
+        ? { ...(canonical.gsapConfig || {}), delay: CANONICAL_DELAY }
+        : null;
 
       const scoped = detectContainerNeeds(canonical.steps, canonical.support, gsapConfig);
 

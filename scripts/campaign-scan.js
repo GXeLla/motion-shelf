@@ -118,8 +118,26 @@ function emptyStats() {
     uniqueAnimations: 0,
     unsupported: 0,
     parseErrors: 0,
+    brands: 0,
+    campaigns: 0,
     errorSamples: [],
   };
+}
+
+/* Sources are scanned below a brand folder. The first directory below it is
+   the campaign identifier; files directly in the brand folder have no honest
+   campaign value and stay blank rather than calling the brand a campaign. */
+export function campaignFromSourcePath(brand, file) {
+  const parts = String(file || "").replace(/\\/g, "/").split("/").filter(Boolean);
+  const index = parts.indexOf(String(brand || ""));
+  return index >= 0 && index + 2 < parts.length ? parts[index + 1] : "";
+}
+
+export function brandFromSource(folder, campaign) {
+  const topLevel = String(folder || "").trim();
+  if (!/^\d+(?:[_-]\d+)*$/.test(topLevel)) return topLevel;
+  const part = String(campaign || "").split(/[_-]+/).find((entry) => entry && !/^\d+$/.test(entry));
+  return part || topLevel;
 }
 
 /*
@@ -252,7 +270,15 @@ async function drainDirectories(adapter, repository, topFolder, context, queue, 
           else if (STYLE_EXTENSIONS.has(extension)) stats.cssInspected += 1;
           else stats.jsInspected += 1;
 
-          const origin = { repository, folder: topFolder, file: relative, type: "" };
+          const campaign = campaignFromSourcePath(topFolder, relative);
+          const origin = {
+            repository,
+            folder: topFolder,
+            brand: brandFromSource(topFolder, campaign),
+            campaign,
+            file: relative,
+            type: "",
+          };
 
           /*
            * Campaign archives copy the same stylesheet into every banner size,
@@ -441,8 +467,23 @@ export async function scanSources({ adapter, roots, onProgress, minimumOccurrenc
      what is left into families and produces one canonical animation each. */
   const animations = buildCanonicalLibrary(library.allEntries(), { minimumOccurrences });
 
+  const brands = new Set();
+  const campaigns = new Set();
+  animations.forEach((animation) => (animation.origin?.sources || []).forEach((source) => {
+    const campaign = source.campaign || campaignFromSourcePath(source.folder, source.file);
+    const brand = source.brand || brandFromSource(source.folder, campaign);
+    if (brand) brands.add(brand);
+    if (campaign) campaigns.add(campaign);
+  }));
+  stats.brands = brands.size;
+  stats.campaigns = campaigns.size;
+
   stats.animationFamilies = animations.length;
   stats.nearDuplicatesGrouped = Math.max(0, stats.uniqueAnimations - animations.length);
+  stats.animationsFound = stats.cssAnimationsFound + stats.gsapAnimationsFound;
+  stats.uniqueAnimations = animations.length;
+  stats.duplicates = stats.duplicatesCollapsed + stats.nearDuplicatesGrouped;
+  stats.skippedItems = stats.filesSkipped + stats.unsupported;
 
   return {
     stats,

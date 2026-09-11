@@ -11,7 +11,9 @@ import { state } from "./state.js";
 import { saveAnimations } from "./storage.js";
 import { escapeHtml } from "./utils.js";
 import { syncLibraryToProject } from "./code.js";
-import { mergeScannedAnimation } from "./sync-merge.js";
+import { mergeImportOrigins, mergeScannedAnimation } from "./sync-merge.js";
+import { familyFingerprint } from "./animation-family.js";
+import { parseDeclarations, parseKeyframes } from "./animation-extract.js";
 
 import {
   SOURCE_FOLDER_NAMES,
@@ -31,18 +33,49 @@ import {
 /* Both spellings of the second archive refer to the same source. */
 const WANTED = ["campaigns", "previews-only"];
 
+function resolveStoredKeyframes(animation) {
+  const declarations = parseDeclarations(animation.css);
+  const source = String(animation.keyframes || "");
+
+  /* Canonical cards parameterise their keyframes with custom properties. For
+     comparison, put their saved defaults back before parsing so a historic
+     `var(--ms-distance)` has the same behavioural shape as a newly scanned
+     `translateY(-10px)`. */
+  return source
+    .replace(/var\((--ms-[\w-]+)(?:\s*,\s*([^)]*))?\)/g, (whole, name, fallback) =>
+      declarations[name] || fallback || whole)
+    .replace(/calc\(\s*([+-]?\d*\.?\d+)([a-z%]*)\s*\*\s*([+-]?\d*\.?\d+)\s*\)/gi,
+      (whole, value, unit, multiplier) => `${Number(value) * Number(multiplier)}${unit}`);
+}
+
+/* Older imported cards carry the former offset-sensitive family key. Rebuild
+   the current semantic key from their saved keyframes during Sync, so timing
+   variants already in the library can collapse with the newly scanned family. */
+function semanticFamilyKey(animation) {
+  const keyframes = parseKeyframes(resolveStoredKeyframes(animation));
+  const steps = keyframes.values().next().value;
+
+  if (!steps?.length) return animation.origin?.familyFingerprint || "";
+
+  return familyFingerprint(steps, {
+    iterationCount: animation.iterationCount,
+    interaction: animation.interaction,
+    target: animation.target,
+    support: {
+      element: parseDeclarations(animation.css),
+      parent: parseDeclarations(animation.parent),
+    },
+  });
+}
+
 const STAT_LABELS = [
-  ["campaignFoldersInspected", "Campaign folders inspected"],
-  ["filesInspected", "Source files inspected"],
-  ["filesFromCache", "Unchanged files reused"],
-  ["filesParsed", "Files parsed"],
-  ["cssAnimationsFound", "CSS animations found"],
-  ["gsapAnimationsFound", "GSAP animations found"],
-  ["duplicatesCollapsed", "Exact duplicates collapsed"],
-  ["nearDuplicatesGrouped", "Near-duplicates grouped"],
-  ["animationFamilies", "Animation families"],
-  ["unsupported", "Skipped as not reusable"],
-  ["parseErrors", "Parsing errors"],
+  ["filesInspected", "Files Scanned", "Source files checked for animations"],
+  ["campaignFoldersInspected", "Campaign Folders Scanned", "Source campaign folders inspected"],
+  ["animationsFound", "Animations Found", "Total animation occurrences detected"],
+  ["uniqueAnimations", "Unique Animations", "Canonical animations kept after deduplication"],
+  ["duplicates", "Duplicates Merged", "Repeated or similar animations grouped"],
+  ["skippedItems", "Skipped Items", "Files or animations ignored during Sync"],
+  ["parseErrors", "Sync Errors", "Source files that could not be processed"],
 ];
 
 export function initializeSync({ render, showToast, updateWorkspaceUI = () => {} }) {
@@ -75,8 +108,8 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
   function renderStats(stats) {
     statsList.innerHTML = STAT_LABELS
       .filter(([key]) => stats[key] !== undefined)
-      .map(([key, label]) => (
-        '<div class="scan-stat">'
+      .map(([key, label, tooltip]) => (
+        '<div class="scan-stat" data-tooltip="' + escapeHtml(tooltip) + '">'
         + "<dt>" + escapeHtml(label) + "</dt>"
         + "<dd>" + escapeHtml(String(stats[key])) + "</dd>"
         + "</div>"
@@ -252,8 +285,16 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
 
       const byFamily = new Map();
       imported.forEach((animation) => {
-        const key = animation.origin && animation.origin.familyFingerprint;
-        if (key) byFamily.set(key, animation);
+        const key = semanticFamilyKey(animation);
+        if (!key) return;
+
+        const existing = byFamily.get(key);
+        /* Several legacy cards can now resolve to one semantic family. Keep
+           one stable card while carrying every source forward into the scan
+           merge that follows. */
+        byFamily.set(key, existing
+          ? { ...existing, origin: mergeImportOrigins(existing.origin, animation.origin) }
+          : animation);
       });
 
       const manualClasses = new Set(manual.map((animation) => animation.className));

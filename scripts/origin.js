@@ -13,7 +13,7 @@
  */
 
 export const ARCHIVES = [
-  { value: "campaigns", label: "Campaigns", icon: "fa-solid fa-bullhorn" },
+  { value: "campaigns", label: "Campaigns", icon: "fa-solid fa-building" },
   { value: "previews-only", label: "Previews only", icon: "fa-solid fa-clock-rotate-left" },
 ];
 
@@ -40,6 +40,34 @@ function sourcesOf(animation) {
   return Array.isArray(sources) ? sources : [];
 }
 
+export function sourceCampaign(source) {
+  if (source?.campaign) return String(source.campaign).trim();
+  const parts = String(source?.file || "").replace(/\\/g, "/").split("/").filter(Boolean);
+  const index = parts.indexOf(String(source?.folder || ""));
+  return index >= 0 && index + 2 < parts.length ? parts[index + 1] : "";
+}
+
+export function sourceBrand(source) {
+  if (source?.brand) return String(source.brand).trim();
+  const folder = String(source?.folder || "").trim();
+  if (!/^\d+(?:[_-]\d+)*$/.test(folder)) return folder;
+  return sourceCampaign(source).split(/[_-]+/).find((entry) => entry && !/^\d+$/.test(entry)) || folder;
+}
+
+export function animationBrands(animation) {
+  return new Set(sourcesOf(animation).map(sourceBrand).filter(Boolean));
+}
+
+export function animationCampaigns(animation, brand = "") {
+  const campaigns = new Set();
+  sourcesOf(animation).forEach((source) => {
+    if (brand && sourceBrand(source) !== brand) return;
+    const campaign = sourceCampaign(source);
+    if (campaign) campaigns.add(campaign);
+  });
+  return campaigns;
+}
+
 /* Every archive this animation was found in -- usually one, occasionally
    both, when the same technique survived into a later campaign. */
 export function animationArchives(animation) {
@@ -61,7 +89,7 @@ export function animationFolders(animation, archive = "") {
   const folders = new Set();
 
   sourcesOf(animation).forEach((source) => {
-    const folder = String(source.folder || "").trim();
+    const folder = sourceBrand(source);
 
     if (!folder) return;
     if (wanted && normalizeArchive(source.repository) !== wanted) return;
@@ -88,6 +116,18 @@ export function collectFolders(animations, archive) {
     .map(([folder, count]) => ({ folder, count }));
 }
 
+export function collectCampaigns(animations, brand = "") {
+  const counts = new Map();
+  animations.forEach((animation) => {
+    animationCampaigns(animation, brand).forEach((campaign) => {
+      counts.set(campaign, (counts.get(campaign) || 0) + 1);
+    });
+  });
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: "base" }))
+    .map(([folder, count]) => ({ folder, count }));
+}
+
 /*
  * What the card badge says. One line, because a card has room for one line:
  * the archive, and the brand when the animation came from a single one.
@@ -104,11 +144,8 @@ export function describeOrigin(animation) {
 
   const archives = [...animationArchives(animation)];
   const archive = archives[0] || "";
-  const folders = [...animationFolders(animation, archive)];
-
-  const label = archives.length > 1
-    ? "Archives"
-    : archiveLabel(archive) || "Imported";
+  const folders = [...animationBrands(animation)];
+  const campaigns = [...animationCampaigns(animation)];
 
   const brand = folders.length === 1 ? folders[0] : "";
 
@@ -121,15 +158,16 @@ export function describeOrigin(animation) {
 
   return {
     kind: archive || "imported",
-    label,
-    brand,
+    label: archive === "previews-only"
+      ? "Previous only"
+      : archive === "campaigns" && brand ? brand : archiveLabel(archive) || "Imported",
     icon: archive === "previews-only"
       ? "fa-solid fa-clock-rotate-left"
       : "fa-solid fa-bullhorn",
     tooltip: [
-      `Found in ${occurrences} ${occurrences === 1 ? "place" : "places"}`
-        + (folders.length ? ` across ${folders.length} ${folders.length === 1 ? "folder" : "folders"}` : "")
-        + ".",
+      `Found in ${occurrences} ${occurrences === 1 ? "place" : "places"}.`,
+      ...folders.map((entry) => `Brand: ${entry}`),
+      ...(campaigns.length > 1 ? [`Campaigns: ${campaigns.length}`] : campaigns.map((entry) => `Campaign: ${entry}`)),
       ...files,
     ].join("\n"),
   };
