@@ -63,16 +63,17 @@ function snapshot(node, frame, progress) {
   };
 }
 
-function samplePositions(batch) {
+/* Every candidate gets its own timeline. Batches still share paint frames,
+   but a complex candidate can no longer force unrelated animations to sample
+   its keyframe offsets. */
+export function samplePositionsForAnimation(animation) {
   const positions = new Set(Array.from({ length: 21 }, (_, index) => index / 20));
-  batch.forEach(({ animation }) => {
-    const steps = parseKeyframes(normalizeKeyframes(animation)).values().next().value || [];
-    steps.forEach((step) => {
-      const point = step.offset / 100;
-      positions.add(point);
-      positions.add(Math.max(0, point - 0.01));
-      positions.add(Math.min(1, point + 0.01));
-    });
+  const steps = parseKeyframes(normalizeKeyframes(animation)).values().next().value || [];
+  steps.forEach((step) => {
+    const point = step.offset / 100;
+    positions.add(point);
+    positions.add(Math.max(0, point - 0.01));
+    positions.add(Math.min(1, point + 0.01));
   });
   return [...positions].sort((a, b) => a - b);
 }
@@ -169,22 +170,40 @@ export async function auditAnimationsAtRuntime(animations, { onProgress } = {}) 
     const batch = source.slice(offset, offset + BATCH).map((animation, index) => ({ animation, ...mount(animation, offset + index) }));
     await nextFrame();
     const samples = batch.map(() => []);
-    for (const progress of samplePositions(batch)) {
-      batch.forEach((entry) => {
+    const positions = batch.map((entry) => samplePositionsForAnimation(entry.animation));
+    const rounds = Math.max(0, ...positions.map((schedule) => schedule.length));
+
+    /* One animation frame can sample every mounted target at a different
+       timeline position. This keeps batching efficient without unioning
+       their schedules. */
+    for (let round = 0; round < rounds; round += 1) {
+      batch.forEach((entry, index) => {
+        const progress = positions[index][round];
+        if (progress === undefined) return;
         const player = entry.target.getAnimations()[0];
         if (player) { player.pause(); player.currentTime = progress * 1000; }
       });
       await nextFrame();
-      batch.forEach((entry, index) => samples[index].push(
-        snapshot(entry.target, entry.frame.getBoundingClientRect(), progress),
-      ));
+      batch.forEach((entry, index) => {
+        const progress = positions[index][round];
+        if (progress === undefined) return;
+        samples[index].push(snapshot(entry.target, entry.frame.getBoundingClientRect(), progress));
+      });
     }
     batch.forEach((entry, index) => {
       const safety = assessPreviewSafety(entry.animation);
       const result = classify(entry.animation, safety, samples[index]);
       const duration = Number(entry.animation.duration) * (entry.animation.durationUnit === "ms" ? 0.001 : 1);
       const perception = analyzeRenderedTimeline(samples[index], duration, entry.animation.interaction);
-      records.push({ index: offset + index, id: entry.animation.id, name: entry.animation.name, ...result, previewHint: perception.hint, perception });
+      records.push({
+        index: offset + index,
+        id: entry.animation.id,
+        name: entry.animation.name,
+        signature: runtimeAuditSignature(entry.animation),
+        ...result,
+        previewHint: perception.hint,
+        perception,
+      });
       entry.frame.remove();
     });
     onProgress?.({ total: source.length, checked: records.length, totals: totalsFor(records), records: [...records] });
@@ -266,6 +285,16 @@ export function createRuntimeAuditQueue({ batchSize = BATCH, onProgress } = {}) 
     return promise;
   }
 
+  function prime(animation, record) {
+    if (!record) return;
+    const signature = runtimeAuditSignature(animation);
+    if (recordsBySignature.has(signature) || pendingBySignature.has(signature)) return;
+    const cached = { ...record, signature };
+    recordsBySignature.set(signature, cached);
+    liveRecords.push(cached);
+    onProgress?.(progress());
+  }
+
   async function finish(animations) {
     const source = Array.isArray(animations) ? animations : [];
     const records = await Promise.all(source.map(async (animation, index) => {
@@ -275,7 +304,7 @@ export function createRuntimeAuditQueue({ batchSize = BATCH, onProgress } = {}) 
     return { total: records.length, checked: records.length, totals: totalsFor(records), records };
   }
 
-  return { enqueue, finish, progress };
+  return { enqueue, finish, prime, progress };
 }
 
 /* Apply one shared audit record to either an imported candidate or a manual
@@ -286,6 +315,7 @@ export function applyRuntimeAuditRecord(animation, record, { quarantineBroken = 
 
   animation.previewHint = record?.previewHint || "";
   animation.previewAnalysis = record?.perception || null;
+  animation.auditSignature = record?.signature || "";
 
   if (!record) {
     animation.audit = null;

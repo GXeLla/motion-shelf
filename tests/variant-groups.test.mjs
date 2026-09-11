@@ -48,6 +48,21 @@ test("search, filters, selection and Show all variants reveal the full set", asy
     state.selectedFilters = ["campaigns"];
     state.animations = blinks.map(a => ({ ...a, origin: { ...a.origin, sources: [{ repository: "campaigns" }] } }));
     assert.equal(getVisibleAnimations().length, 7);
+
+    state.selectedFilters = [];
+    state.showAllVariants = true;
+    state.animations = [{
+      ...blinks[0],
+      name: "Visible Name",
+      animationName: "visibleKeyframe",
+      className: "ms-visible-name",
+      description: "Search-only-old-description",
+      categories: ["scale"],
+    }];
+    state.searchTerm = "search-only-old-description";
+    assert.equal(getVisibleAnimations().length, 0, "description no longer participates in names-only search");
+    state.searchTerm = "visiblekeyframe";
+    assert.equal(getVisibleAnimations().length, 1);
   } finally {
     Object.assign(state, previous);
     globalThis.localStorage = previousStorage;

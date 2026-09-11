@@ -58,9 +58,11 @@ export function animationBrands(animation) {
   return new Set(sourcesOf(animation).map(sourceBrand).filter(Boolean));
 }
 
-export function animationCampaigns(animation, brand = "") {
+export function animationCampaigns(animation, brand = "", archive = "") {
+  const wanted = normalizeArchive(archive);
   const campaigns = new Set();
   sourcesOf(animation).forEach((source) => {
+    if (wanted && normalizeArchive(source.repository) !== wanted) return;
     if (brand && sourceBrand(source) !== brand) return;
     const campaign = sourceCampaign(source);
     if (campaign) campaigns.add(campaign);
@@ -116,10 +118,10 @@ export function collectFolders(animations, archive) {
     .map(([folder, count]) => ({ folder, count }));
 }
 
-export function collectCampaigns(animations, brand = "") {
+export function collectCampaigns(animations, brand = "", archive = "") {
   const counts = new Map();
   animations.forEach((animation) => {
-    animationCampaigns(animation, brand).forEach((campaign) => {
+    animationCampaigns(animation, brand, archive).forEach((campaign) => {
       counts.set(campaign, (counts.get(campaign) || 0) + 1);
     });
   });
@@ -128,11 +130,35 @@ export function collectCampaigns(animations, brand = "") {
     .map(([folder, count]) => ({ folder, count }));
 }
 
+const TOOLTIP_BRAND_LIMIT = 10;
+const TOOLTIP_PATH_LIMIT = 2;
+
+function matchingSources(animation, { archive = "", archives = [], brand = "", campaign = "" } = {}) {
+  const wantedArchives = (archives.length ? archives : [archive])
+    .map(normalizeArchive)
+    .filter(Boolean);
+  return sourcesOf(animation).filter((source) => {
+    if (wantedArchives.length && !wantedArchives.includes(normalizeArchive(source.repository))) return false;
+    if (brand && sourceBrand(source) !== brand) return false;
+    if (campaign && sourceCampaign(source) !== campaign) return false;
+    return true;
+  });
+}
+
+function preferredEntries(entries, preferred, limit) {
+  const unique = [...new Set(entries.filter(Boolean))];
+  if (preferred && unique.includes(preferred)) {
+    unique.splice(unique.indexOf(preferred), 1);
+    unique.unshift(preferred);
+  }
+  return { shown: unique.slice(0, limit), remaining: Math.max(0, unique.length - limit) };
+}
+
 /*
  * What the card badge says. One line, because a card has room for one line:
  * the archive, and the brand when the animation came from a single one.
  */
-export function describeOrigin(animation) {
+export function describeOrigin(animation, filter = {}) {
   if (!animation?.origin) {
     return {
       kind: "custom",
@@ -144,29 +170,54 @@ export function describeOrigin(animation) {
 
   const archives = [...animationArchives(animation)];
   const archive = archives[0] || "";
-  const folders = [...animationBrands(animation)];
-  const campaigns = [...animationCampaigns(animation)];
+  const hasBothSources = archives.includes("campaigns") && archives.includes("previews-only");
+  const scopedSources = matchingSources(animation, filter);
+  const sources = scopedSources.length ? scopedSources : sourcesOf(animation);
+  const folders = [...new Set(sources.map(sourceBrand).filter(Boolean))];
+  const campaigns = [...new Set(sources.map(sourceCampaign).filter(Boolean))];
 
   const brand = folders.length === 1 ? folders[0] : "";
 
-  const files = sourcesOf(animation)
+  const files = sources
     .map((source) => source.file)
     .filter(Boolean)
-    .slice(0, 4);
+    .slice(0, TOOLTIP_PATH_LIMIT);
 
   const occurrences = Number(animation.origin.occurrences) || 1;
 
+  const brands = preferredEntries(folders, filter.brand, TOOLTIP_BRAND_LIMIT);
+  const selectedArchives = (filter.archives?.length ? filter.archives : [filter.archive])
+    .map(normalizeArchive)
+    .filter(Boolean);
+  const filterLines = [
+    selectedArchives.length > 1
+      ? `Filtered sources: ${selectedArchives.map(archiveLabel).join(" + ")}`
+      : selectedArchives[0] ? `Filtered source: ${archiveLabel(selectedArchives[0])}` : "",
+    filter.brand ? `Filtered Brand: ${filter.brand}` : "",
+    filter.campaign ? `Filtered Campaign: ${filter.campaign}` : "",
+  ].filter(Boolean);
+
   return {
-    kind: archive || "imported",
-    label: archive === "previews-only"
+    kind: hasBothSources ? "combined" : archive || "imported",
+    label: hasBothSources
+      ? "Both sources"
+      : archive === "previews-only"
       ? "Previous only"
       : archive === "campaigns" && brand ? brand : archiveLabel(archive) || "Imported",
-    icon: archive === "previews-only"
+    icon: hasBothSources
+      ? "fa-solid fa-code-branch"
+      : archive === "previews-only"
       ? "fa-solid fa-clock-rotate-left"
       : "fa-solid fa-bullhorn",
     tooltip: [
-      `Found in ${occurrences} ${occurrences === 1 ? "place" : "places"}.`,
-      ...folders.map((entry) => `Brand: ${entry}`),
+      hasBothSources
+        ? "Found in Previous only and Campaigns."
+        : `Found in ${occurrences} ${occurrences === 1 ? "place" : "places"}.`,
+      hasBothSources ? `Found in ${occurrences} ${occurrences === 1 ? "place" : "places"}.` : "",
+      ...filterLines,
+      ...(folders.length > 1 ? [`Brands: ${folders.length}`] : []),
+      ...brands.shown.map((entry) => `Brand: ${entry}`),
+      ...(brands.remaining ? [`… ${brands.remaining} more brands.`] : []),
       ...(campaigns.length > 1 ? [`Campaigns: ${campaigns.length}`] : campaigns.map((entry) => `Campaign: ${entry}`)),
       ...files,
     ].join("\n"),

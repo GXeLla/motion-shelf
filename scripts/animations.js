@@ -9,7 +9,7 @@ import {
   indentCSS,
 } from "./utils.js";
 
-import { saveAnimations } from "./storage.js";
+import { removeAnimationRecords, saveAnimation } from "./storage.js";
 
 import { normalizeBezier, resolveEasing } from "./easing.js";
 
@@ -20,7 +20,7 @@ export function findAnimation(id) {
   return state.animations.find((animation) => animation.id === id);
 }
 
-export function createAnimation(data) {
+export async function createAnimation(data) {
   const animation = {
     id: createId(),
 
@@ -84,12 +84,12 @@ export function createAnimation(data) {
 
   state.animations.unshift(animation);
 
-  saveAnimations(state.animations);
+  await saveAnimation(animation);
 
   return animation;
 }
 
-export function updateAnimation(id, data) {
+export async function updateAnimation(id, data) {
   const animation = findAnimation(id);
 
   if (!animation) {
@@ -145,19 +145,19 @@ export function updateAnimation(id, data) {
     animation.codeSynced = false;
   }
 
-  saveAnimations(state.animations);
+  await saveAnimation(animation);
 
   return animation;
 }
 
-export function deleteAnimations(ids) {
+export async function deleteAnimations(ids) {
   const idSet = new Set(ids);
 
   state.animations = state.animations.filter(
     (animation) => !idSet.has(animation.id),
   );
 
-  saveAnimations(state.animations);
+  await removeAnimationRecords([...idSet]);
 }
 
 export function getPreviewDuration(animation) {
@@ -219,6 +219,10 @@ export function normalizeKeyframes(animation) {
  */
 let previewSheetElement = null;
 
+/* A scrolling session can visit thousands of cards while only a small
+   screenful exists at once. Keep generated card rules bounded, not canonical
+   keyframes or exported animation data. */
+export const PREVIEW_RULE_LIMIT = 240;
 const insertedKeyframes = new Map();
 const PREVIEW_VIEWPORT_LIMIT = 140;
 
@@ -269,10 +273,38 @@ function dropKeyframesNamed(sheet, name) {
   }
 }
 
+function touchPreviewRule(id) {
+  const entry = insertedKeyframes.get(id);
+  if (!entry) return;
+  insertedKeyframes.delete(id);
+  insertedKeyframes.set(id, entry);
+}
+
+function evictPreviewRules(sheet) {
+  while (insertedKeyframes.size > PREVIEW_RULE_LIMIT) {
+    const oldest = [...insertedKeyframes.entries()].find(([, entry]) => entry.active === 0);
+    if (!oldest) return;
+    const [id, entry] = oldest;
+    if (sheet) dropKeyframesNamed(sheet, entry.name);
+    insertedKeyframes.delete(id);
+  }
+}
+
+function setPreviewRuleActive(animation, active) {
+  const entry = insertedKeyframes.get(animation.id);
+  if (!entry) return;
+  entry.active = Math.max(0, entry.active + (active ? 1 : -1));
+  touchPreviewRule(animation.id);
+  if (!active) evictPreviewRules(previewStyleSheet().sheet);
+}
+
 export function injectAnimationForPreview(animation) {
   const text = normalizePreviewViewportUnits(normalizeKeyframes(animation));
+  const keyframeName = sanitizeAnimationName(animation.animationName);
+  const previous = insertedKeyframes.get(animation.id);
 
-  if (insertedKeyframes.get(animation.id) === text) {
+  if (previous?.text === text) {
+    touchPreviewRule(animation.id);
     return;
   }
 
@@ -284,14 +316,14 @@ export function injectAnimationForPreview(animation) {
   if (!sheet) {
     element.textContent += text;
 
-    insertedKeyframes.set(animation.id, text);
+    insertedKeyframes.set(animation.id, { text, name: keyframeName, active: previous?.active || 0 });
 
     return;
   }
 
   try {
-    if (insertedKeyframes.has(animation.id)) {
-      dropKeyframesNamed(sheet, sanitizeAnimationName(animation.animationName));
+    if (previous) {
+      dropKeyframesNamed(sheet, previous.name);
     }
 
     sheet.insertRule(text, sheet.cssRules.length);
@@ -301,10 +333,12 @@ export function injectAnimationForPreview(animation) {
     console.error("Could not register preview keyframes:", error);
   }
 
-  insertedKeyframes.set(animation.id, text);
+  insertedKeyframes.set(animation.id, { text, name: keyframeName, active: previous?.active || 0 });
+  evictPreviewRules(sheet);
 }
 
 const activeCardPreviews = new Set();
+const previewStops = new WeakMap();
 let previewLifecycleBound = false;
 
 function bindPreviewLifecycle() {
@@ -346,9 +380,13 @@ export function applyAnimation(element, animation, options = {}) {
 
   const playAnimation = () => {
     if (document.hidden || activeCardPreviews.has(stopAnimation)) return;
+    /* A card can remain in the scroll history after its inactive rule was
+       evicted. Re-register it at the moment it is actually needed. */
+    injectAnimationForPreview(animation);
     element.style.animation = `${keyframe} ${duration} ${easing} ${delay} infinite`;
     element.style.animationFillMode = "both";
     activeCardPreviews.add(stopAnimation);
+    setPreviewRuleActive(animation, true);
 
     element.classList.add("is-animating");
 
@@ -360,7 +398,9 @@ export function applyAnimation(element, animation, options = {}) {
   };
 
   const stopAnimation = () => {
+    const wasActive = activeCardPreviews.has(stopAnimation);
     activeCardPreviews.delete(stopAnimation);
+    if (wasActive) setPreviewRuleActive(animation, false);
     element.style.animation = "none";
     element.style.animationFillMode = "";
 
@@ -375,6 +415,8 @@ export function applyAnimation(element, animation, options = {}) {
 
   const hoverTarget = element.closest(".animation-card") || element;
 
+  previewStops.set(element, stopAnimation);
+
   hoverTarget.addEventListener("mouseenter", playAnimation);
 
   hoverTarget.addEventListener("mouseleave", stopAnimation);
@@ -382,6 +424,12 @@ export function applyAnimation(element, animation, options = {}) {
   element.addEventListener("focus", playAnimation);
 
   element.addEventListener("blur", stopAnimation);
+}
+
+/* Card windowing can remove a hovered card before mouseleave fires. Release
+   both its running animation and its protected preview-rule lease. */
+export function stopPreviewAnimation(element) {
+  previewStops.get(element)?.();
 }
 
 /*

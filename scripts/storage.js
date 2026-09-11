@@ -9,33 +9,249 @@ import {
 
 import { normalizeBezier } from "./easing.js";
 
-export function loadAnimations() {
+const LIBRARY_DB = "motion-shelf.animations.v1";
+const ANIMATION_STORE = "animations";
+const META_STORE = "meta";
+const RECORD_SCHEMA = 1;
+const MIGRATION_KEY = "session-v4-migrated";
+
+let databasePromise = null;
+let persistedFingerprints = new Map();
+let onPersistenceError = (error) => console.error("Could not persist animations:", error);
+let writeQueue = Promise.resolve();
+
+export function setStorageErrorHandler(handler) {
+  onPersistenceError = typeof handler === "function" ? handler : onPersistenceError;
+}
+
+function reportPersistenceError(error) {
+  console.error("Could not persist animations:", error);
+  onPersistenceError(error);
+}
+
+function supportsAnimationDatabase() {
+  return typeof indexedDB !== "undefined";
+}
+
+function openAnimationDatabase() {
+  if (!supportsAnimationDatabase()) return Promise.reject(new Error("IndexedDB is unavailable"));
+  if (databasePromise) return databasePromise;
+
+  databasePromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(LIBRARY_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(ANIMATION_STORE)) {
+        db.createObjectStore(ANIMATION_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(META_STORE)) {
+        db.createObjectStore(META_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not open the animation database"));
+  });
+
+  return databasePromise;
+}
+
+function requestResult(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("IndexedDB request failed"));
+  });
+}
+
+function transactionDone(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted"));
+    transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed"));
+  });
+}
+
+function queueWrite(write) {
+  const result = writeQueue.then(write);
+  /* Later writes still run after a failed transaction. */
+  writeQueue = result.catch(() => {});
+  return result;
+}
+
+function fingerprint(animation) {
+  return JSON.stringify(animation);
+}
+
+function storedRecord(animation) {
+  return { ...animation, __motionShelfSchema: RECORD_SCHEMA };
+}
+
+function loadedRecord(record) {
+  if (record?.__motionShelfSchema === RECORD_SCHEMA) {
+    delete record.__motionShelfSchema;
+    return record;
+  }
+  return normalizeAnimation(record || {});
+}
+
+function readLegacyAnimations() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.map(normalizeAnimation);
+    return Array.isArray(parsed) ? parsed.map(normalizeAnimation) : [];
   } catch (error) {
     console.error("Could not load animations:", error);
-
     return [];
   }
 }
 
-export function saveAnimations(animations) {
+function saveLegacyAnimations(animations) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(animations));
+    return true;
   } catch (error) {
-    console.error("Could not save animations:", error);
+    reportPersistenceError(error);
+    return false;
+  }
+}
+
+function saveLegacyRecord(animation) {
+  const records = readLegacyAnimations();
+  const index = records.findIndex((record) => record.id === animation.id);
+  if (index === -1) records.push(animation);
+  else records[index] = animation;
+  return saveLegacyAnimations(records);
+}
+
+function removeLegacyRecords(ids) {
+  const removed = new Set(ids);
+  return saveLegacyAnimations(readLegacyAnimations().filter((animation) => !removed.has(animation.id)));
+}
+
+async function loadDatabaseAnimations() {
+  const db = await openAnimationDatabase();
+  const transaction = db.transaction([ANIMATION_STORE, META_STORE], "readonly");
+  const animations = await requestResult(transaction.objectStore(ANIMATION_STORE).getAll());
+  const migrated = await requestResult(transaction.objectStore(META_STORE).get(MIGRATION_KEY));
+  await transactionDone(transaction);
+  return { animations, migrated: Boolean(migrated) };
+}
+
+async function migrateLegacyAnimations(animations) {
+  const db = await openAnimationDatabase();
+  const transaction = db.transaction([ANIMATION_STORE, META_STORE], "readwrite");
+  const store = transaction.objectStore(ANIMATION_STORE);
+  animations.forEach((animation) => store.put(storedRecord(animation)));
+  transaction.objectStore(META_STORE).put({ schema: RECORD_SCHEMA, completedAt: Date.now() }, MIGRATION_KEY);
+  await transactionDone(transaction);
+  persistedFingerprints = new Map(animations.map((animation) => [animation.id, fingerprint(animation)]));
+  /* Retire the legacy value only after IndexedDB has committed every record. */
+  sessionStorage.removeItem(STORAGE_KEY);
+}
+
+/* Loads complete records. Current-schema records are already normalized and
+   are used directly; legacy records are upgraded once and saved back. */
+export async function loadAnimations() {
+  if (!supportsAnimationDatabase()) return readLegacyAnimations();
+
+  try {
+    const { animations: stored, migrated } = await loadDatabaseAnimations();
+    if (stored.length) {
+      const animations = stored.map(loadedRecord);
+      persistedFingerprints = new Map(animations.map((animation) => [animation.id, fingerprint(animation)]));
+
+      const needsUpgrade = stored.some((record) => record.__motionShelfSchema !== RECORD_SCHEMA);
+      if (needsUpgrade) await saveAnimations(animations, { replace: true });
+      return animations;
+    }
+
+    const legacy = readLegacyAnimations();
+    if (legacy.length && !migrated) {
+      await migrateLegacyAnimations(legacy);
+      return legacy;
+    }
+    return [];
+  } catch (error) {
+    reportPersistenceError(error);
+    /* Legacy storage remains the recovery path whenever IndexedDB is down. */
+    return readLegacyAnimations();
+  }
+}
+
+async function writeRecords(records, { removeIds = [] } = {}) {
+  const db = await openAnimationDatabase();
+  const transaction = db.transaction(ANIMATION_STORE, "readwrite");
+  const store = transaction.objectStore(ANIMATION_STORE);
+  records.forEach((animation) => store.put(storedRecord(animation)));
+  removeIds.forEach((id) => store.delete(id));
+  await transactionDone(transaction);
+  records.forEach((animation) => persistedFingerprints.set(animation.id, fingerprint(animation)));
+  removeIds.forEach((id) => persistedFingerprints.delete(id));
+}
+
+export async function saveAnimation(animation) {
+  if (!animation) return false;
+  if (!supportsAnimationDatabase()) return saveLegacyRecord(animation);
+  try {
+    await queueWrite(() => writeRecords([animation]));
+    return true;
+  } catch (error) {
+    reportPersistenceError(error);
+    return false;
+  }
+}
+
+export async function saveAnimationBatch(animations) {
+  const records = Array.isArray(animations) ? animations.filter(Boolean) : [];
+  if (!records.length) return true;
+  if (!supportsAnimationDatabase()) {
+    const merged = readLegacyAnimations();
+    const byId = new Map(merged.map((animation) => [animation.id, animation]));
+    records.forEach((animation) => byId.set(animation.id, animation));
+    return saveLegacyAnimations([...byId.values()]);
+  }
+  try {
+    await queueWrite(() => writeRecords(records));
+    return true;
+  } catch (error) {
+    reportPersistenceError(error);
+    return false;
+  }
+}
+
+export async function removeAnimationRecords(ids) {
+  const removeIds = [...new Set(Array.isArray(ids) ? ids : [ids])].filter(Boolean);
+  if (!removeIds.length) return true;
+  if (!supportsAnimationDatabase()) return removeLegacyRecords(removeIds);
+  try {
+    await queueWrite(() => writeRecords([], { removeIds }));
+    return true;
+  } catch (error) {
+    reportPersistenceError(error);
+    return false;
+  }
+}
+
+/* Full library replacement is reserved for Sync/project merges. It writes
+   only changed records and removes records that no longer exist. */
+export async function saveAnimations(animations, { replace = true } = {}) {
+  const records = Array.isArray(animations) ? animations : [];
+  if (!supportsAnimationDatabase()) return saveLegacyAnimations(records);
+
+  try {
+    await queueWrite(async () => {
+      const nextIds = new Set(records.map((animation) => animation.id));
+      const changed = records.filter((animation) => persistedFingerprints.get(animation.id) !== fingerprint(animation));
+      const removed = replace
+        ? [...persistedFingerprints.keys()].filter((id) => !nextIds.has(id))
+        : [];
+      if (!changed.length && !removed.length) return;
+      await writeRecords(changed, { removeIds: removed });
+    });
+    return true;
+  } catch (error) {
+    reportPersistenceError(error);
+    return false;
   }
 }
 
@@ -99,6 +315,8 @@ export function normalizeAnimation(animation) {
     origin,
 
     audit: normalizeAudit(animation.audit),
+
+    auditSignature: String(animation.auditSignature || ""),
 
     previewHint: String(animation.previewHint || ""),
 

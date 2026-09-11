@@ -12,9 +12,10 @@ import {
   applyAnimation,
   applyPreviewBackdrop,
   createPreviewImage,
+  stopPreviewAnimation,
 } from "./animations.js";
 
-import { getCategoryIcon, animationMatchesFilter } from "./filters.js";
+import { activeArchive, getCategoryIcon, animationMatchesFilter } from "./filters.js";
 
 import { isFavourite } from "./favourites.js";
 
@@ -144,7 +145,10 @@ export function renderCards(animationGrid, animations) {
         /* The card it replaces has to go now; leaving it for the sweep below
            would leave two cards for one animation, because the sweep only
            knows which nodes this render placed. */
-        if (previous) previous.remove();
+        if (previous) {
+          stopPreviewAnimation(previous.querySelector(".preview-image"));
+          previous.remove();
+        }
       }
 
       animationGrid.insertBefore(card, sentinel);
@@ -161,7 +165,10 @@ export function renderCards(animationGrid, animations) {
 
   /* Whatever is left belonged to the previous list. */
   existing.forEach((card) => {
-    if (!placed.has(card)) card.remove();
+    if (!placed.has(card)) {
+      stopPreviewAnimation(card.querySelector(".preview-image"));
+      card.remove();
+    }
   });
 
   if (!more) {
@@ -443,7 +450,12 @@ export function createCard(animation) {
    * Custom for anything written here by hand. The LOCAL badge is a different
    * question (is the file in the linked folder) and keeps its own place.
    */
-  const origin = describeOrigin(animation);
+  const origin = describeOrigin(animation, {
+    archive: activeArchive(),
+    archives: state.selectedFilters.filter((filter) => filter === "campaigns" || filter === "previews-only"),
+    brand: state.sourceFolder,
+    campaign: state.sourceCampaign,
+  });
 
   const originBadge = document.createElement("span");
 

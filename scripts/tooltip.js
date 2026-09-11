@@ -93,6 +93,7 @@ function show(next) {
   const node = element();
 
   node.textContent = text;
+  node.classList.toggle("is-source-tooltip", next.classList.contains("source-badge"));
   node.hidden = false;
   node.showPopover?.();
   const describedBy = new Set((next.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean));

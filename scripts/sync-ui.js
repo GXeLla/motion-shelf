@@ -18,6 +18,7 @@ import {
   applyRuntimeAuditRecord,
   createRuntimeAuditQueue,
   renderAuditSummary,
+  runtimeAuditSignature,
 } from "./runtime-audit.js";
 import { isQuarantinedAnimation } from "./filters.js";
 
@@ -256,6 +257,12 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       let latestScanStats = null;
       let latestAuditProgress = null;
       const seenCandidateFamilies = new Set();
+      const existingAudits = new Map();
+      state.animations.forEach((animation) => {
+        const family = animation.origin?.familyFingerprint;
+        if (!family || !animation.audit || !animation.auditSignature) return;
+        if (!existingAudits.has(family)) existingAudits.set(family, animation);
+      });
       const renderLiveDescription = () => {
         const occurrences = latestScanStats
           ? latestScanStats.cssAnimationsFound + latestScanStats.gsapAnimationsFound
@@ -281,6 +288,16 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
           const family = candidate.origin?.familyFingerprint;
           if (!family || seenCandidateFamilies.has(family)) return;
           seenCandidateFamilies.add(family);
+          const existing = existingAudits.get(family);
+          if (existing && existing.auditSignature === runtimeAuditSignature(candidate)) {
+            auditQueue.prime(candidate, {
+              kind: existing.audit.status === "broken / quarantined" ? "broken" : existing.audit.status,
+              reason: existing.audit.reason,
+              previewHint: existing.previewHint,
+              perception: existing.previewAnalysis,
+            });
+            return;
+          }
           /* Enqueue only. The bounded runtime renderer advances on animation
              frames while archive listing/reads continue independently. */
           void auditQueue.enqueue(candidate).catch(() => {});
@@ -385,6 +402,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       let added = 0;
       let refreshed = 0;
       let unchanged = 0;
+      let quarantined = 0;
       const next = [];
 
       pending.forEach((animation) => {
@@ -405,12 +423,15 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
           return;
         }
 
-        added += 1;
+        /* Keep rejected candidates for future recovery and provenance, but
+           never describe them as normal animations added to the library. */
+        if (isQuarantinedAnimation(record)) quarantined += 1;
+        else added += 1;
         next.push(mergeScannedAnimation(record));
       });
 
       state.animations = [...next, ...byFamily.values(), ...manual];
-      saveAnimations(state.animations);
+      await saveAnimations(state.animations);
 
       pending = [];
       render();
@@ -428,7 +449,9 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       dismissButton.textContent = "Done";
 
       showToast(
-        added + " added, " + refreshed + " refreshed, " + unchanged + " unchanged. " + manual.length + " of your own kept.",
+        added + " usable added, " + refreshed + " refreshed, " + unchanged + " unchanged"
+        + (quarantined ? ", " + quarantined + " quarantined" : "")
+        + ". " + manual.length + " of your own kept.",
         "fa-solid fa-check",
       );
 

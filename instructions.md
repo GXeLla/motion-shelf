@@ -91,7 +91,7 @@ Tooltips are one element on `<body>`, drawn by `scripts/tooltip.js` from any `[d
 
 Every card says where it came from, next to its title: **Custom** for anything written here by hand, or the archive and -- when the animation came out of a single folder -- the brand: `Campaigns | Aldi`. The tooltip gives the occurrence count and the first few relative source paths. That badge answers "where is this from"; the separate **LOCAL** badge answers the different question of whether the CSS file is in the linked project folder, and both can appear at once. `scripts/origin.js` holds the reading of `origin.sources` -- archive-name normalisation included, since the second archive has been spelled `previews-only` and `previous-only` over the years.
 
-Favourites are stored in `localStorage` under `motion-shelf.favourites.v1`, as a list of animation ids. Not on the animation record, for two reasons: the library itself lives in `sessionStorage` and is rebuilt from `animations/*.css` on every visit, so a star kept there would not survive a reload; and a star written into the animation file would travel to the whole team through git, turning one person's shortlist into everybody's. Ids are safe to key on because each animation file carries its own id in its metadata block.
+Favourites are stored in `localStorage` under `motion-shelf.favourites.v1`, as a list of animation ids. They are deliberately not part of the shared animation record: a star written into an animation file would travel to the whole team through git, turning one person's shortlist into everybody's. Ids are safe to key on because each animation file carries its own id in its metadata block.
 
 A favourited card keeps an amber rim and a soft glow so a shortlist is findable by eye in a large grid, and its star stays visible while every other card only shows one on hover.
 
@@ -150,7 +150,7 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | `scripts/validation.js` | Validates CSS declarations, animation fields and keyframe syntax; safely applies declarations to the live preview. |
 | `scripts/easing.js` | CSS/GSAP easing preset map, cubic-bezier normalization and CSS easing output. |
 | `scripts/animations.js` | Animation data creation/update, the shared preview keyframes stylesheet, metadata and final CSS export. |
-| `scripts/storage.js` | Normalizes animation records and keeps unfinished/session-only animations in `sessionStorage`. |
+| `scripts/storage.js` | Loads complete animation records from IndexedDB, safely migrates legacy session data, and persists individual or batched record changes. |
 | `scripts/state.js` | Shared runtime state, selection, filters, sort order, drafts and linked-project status. |
 | `scripts/cards.js` | Builds cards in batches as the grid is scrolled, safe-frame preview, local badges, tags and card buttons, and the in-place card patches for starring and selecting. |
 | `scripts/filters.js` | Search, dynamic categories, maximum-two-filter behavior, the pinned/scrolling chip split and the display order. |
@@ -354,7 +354,7 @@ It is also the most expensive thing on the page, and its cost scales with the ar
 
 Nothing re-renders during a zoom: a `MutationObserver` on the grid recorded zero child changes across repeated zoom and scroll. What looks like the page reloading is the responsive grid changing column count and the document height swinging with it (7127px to 11518px to 8158px across three zoom steps), landing visibly because the frame rate is low while it happens.
 
-The remaining ceiling is storage, not speed: the whole library is `JSON.stringify`'d into `sessionStorage` on every mutation -- about 1.5MB at 1,000 animations against a 5-10MB browser quota. A few thousand animations will need IndexedDB, or persisting only the records the user owns.
+The animation library now uses IndexedDB with complete records stored individually. Legacy session data is migrated only after the database transaction succeeds, and later edits write only the affected animation where possible.
 
 ## Sharing the library
 

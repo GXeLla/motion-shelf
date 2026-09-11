@@ -1,6 +1,12 @@
 import { state } from "./state.js";
 
-import { loadAnimations, saveAnimations } from "./storage.js";
+import {
+  loadAnimations,
+  saveAnimationBatch,
+  saveAnimations,
+  setStorageErrorHandler,
+  removeAnimationRecords,
+} from "./storage.js";
 
 import {
   buildAnimationClass,
@@ -64,7 +70,11 @@ import {
 import { initializeAmbientBackground } from "./background.js";
 
 import { initializeSync } from "./sync-ui.js";
-import { auditAnimationsAtRuntime, applyRuntimeAuditRecord } from "./runtime-audit.js";
+import {
+  auditAnimationsAtRuntime,
+  applyRuntimeAuditRecord,
+  runtimeAuditSignature,
+} from "./runtime-audit.js";
 
 /* ==================================================
 DOM
@@ -130,9 +140,11 @@ initializeAmbientBackground();
 /* One tooltip element for the page; the cards only carry data-tooltip. */
 initializeTooltips();
 
-state.animations = loadAnimations().filter(
-  (animation) => !animation.localPresent && animation.source !== "local",
-).map((animation) => ({ ...animation, codeSynced: false }));
+setStorageErrorHandler(() => {
+  showToast("Animation changes could not be saved. Your current session is still open.", "fa-solid fa-triangle-exclamation");
+});
+
+state.animations = [];
 
 const modalController = createModalController();
 
@@ -155,8 +167,9 @@ initializeSync({
 });
 
 
-const repositoryReady = initializeRepositoryAnimations();
-const projectReady = initializeProjectWorkspace();
+const storedAnimationsReady = initializeStoredAnimations();
+const repositoryReady = storedAnimationsReady.then(initializeRepositoryAnimations);
+const projectReady = storedAnimationsReady.then(initializeProjectWorkspace);
 
 /* Custom/session animations never enter the source Sync pipeline. Analyze
    them independently once their stored and project-backed records are loaded,
@@ -208,6 +221,8 @@ function render() {
 async function auditCustomAnimations() {
   const candidates = state.animations
     .filter((animation) => !animation.origin)
+    .filter((animation) => !animation.auditSignature
+      || animation.auditSignature !== runtimeAuditSignature(animation))
     .map((animation) => ({ animation, updatedAt: animation.updatedAt }));
 
   if (!candidates.length) return;
@@ -225,12 +240,19 @@ async function auditCustomAnimations() {
     });
 
     if (changed) {
-      saveAnimations(state.animations);
+      await saveAnimationBatch(candidates.map(({ animation }) => animation));
       render();
     }
   } catch (error) {
     console.error("Could not analyze stored custom animation previews:", error);
   }
+}
+
+async function initializeStoredAnimations() {
+  state.animations = (await loadAnimations()).filter(
+    (animation) => !animation.localPresent && animation.source !== "local",
+  ).map((animation) => ({ ...animation, codeSynced: false }));
+  render();
 }
 
 /* ==================================================
@@ -537,14 +559,14 @@ deleteSelectedButton.addEventListener("click", () => {
   modalController.openDelete();
 });
 
-document.getElementById("deleteLocalButton").addEventListener("click", () => {
+document.getElementById("deleteLocalButton").addEventListener("click", async () => {
   const ids = [...state.selectedIds];
 
   state.animations = state.animations.filter(
     (animation) => !ids.includes(animation.id),
   );
 
-  saveAnimations(state.animations);
+  const persisted = await removeAnimationRecords(ids);
 
   state.selectedIds.clear();
 
@@ -554,12 +576,14 @@ document.getElementById("deleteLocalButton").addEventListener("click", () => {
 
   render();
 
-  showToast(
-    `${ids.length} ${
-      ids.length === 1 ? "animation" : "animations"
-    } deleted locally.`,
-    "fa-solid fa-trash",
-  );
+  if (persisted) {
+    showToast(
+      `${ids.length} ${
+        ids.length === 1 ? "animation" : "animations"
+      } deleted locally.`,
+      "fa-solid fa-trash",
+    );
+  }
 });
 
 document

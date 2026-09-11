@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { analyzeRenderedTimeline, getPreviewHint } from "../scripts/preview-hint.js";
-import { applyRuntimeAuditRecord, runtimeAuditSignature } from "../scripts/runtime-audit.js";
+import {
+  applyRuntimeAuditRecord,
+  runtimeAuditSignature,
+  samplePositionsForAnimation,
+} from "../scripts/runtime-audit.js";
 
 function state(progress, options = {}) {
   const x = options.x || 0;
@@ -116,4 +120,21 @@ test("live audit reuse follows rendered behavior rather than names or provenance
 
   assert.equal(runtimeAuditSignature(base), runtimeAuditSignature(renamed));
   assert.notEqual(runtimeAuditSignature(base), runtimeAuditSignature({ ...base, duration: 4 }));
+});
+
+test("runtime audit schedules keyframe samples per animation", () => {
+  const simple = samplePositionsForAnimation({
+    animationName: "simple",
+    keyframes: "0% { opacity: 0; } 100% { opacity: 1; }",
+  });
+  const detailed = samplePositionsForAnimation({
+    animationName: "detailed",
+    keyframes: "0% { opacity: 0; } 23% { opacity: .2; } 77% { opacity: .8; } 100% { opacity: 1; }",
+  });
+
+  assert.equal(simple.includes(.23), false);
+  assert.equal(detailed.includes(.23), true);
+  assert.equal(detailed.includes(.77), true);
+  assert.equal(detailed.includes(.22), true);
+  assert.equal(detailed.includes(.78), true);
 });

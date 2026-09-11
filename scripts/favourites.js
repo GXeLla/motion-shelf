@@ -3,10 +3,7 @@
  *
  * Kept in localStorage on purpose, not on the animation record:
  *
- *   - the library itself lives in sessionStorage and is rebuilt from
- *     animations/*.css on every visit, so a star stored there would be gone
- *     after a reload,
- *   - and a star written into the animation file would travel to the whole
+ *   - a star written into the animation file would travel to the whole
  *     team through git, turning one person's shortlist into everybody's.
  *
  * Ids are safe to key on because each animation file carries its own id in

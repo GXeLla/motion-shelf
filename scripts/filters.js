@@ -25,6 +25,11 @@ import {
    callback the filter chips use. */
 let requestRender = () => {};
 
+/* Search is intentionally limited to useful animation identifiers. The
+   derived value stays outside persisted records and refreshes automatically
+   when a name or preserved alias changes. */
+const searchNames = new WeakMap();
+
 export function isQuarantinedAnimation(animation) {
   return animation?.audit?.status === "broken / quarantined";
 }
@@ -104,6 +109,12 @@ export function initializeFilters({ filterList, searchInput, render }) {
 
 export const DEFAULT_SORT = "name";
 
+/* Creating the locale options inside Array#sort's comparator is costly at
+   scale. One collator preserves the same case-insensitive ordering. */
+const animationNameCollator = new Intl.Collator(undefined, {
+  sensitivity: "base",
+});
+
 /*
  * How often an animation is actually used out in the campaigns. Sync records
  * it while it collapses duplicates; anything hand-made was written once and
@@ -117,9 +128,7 @@ export function usageCount(animation) {
 }
 
 function compareByName(a, b) {
-  return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
-    sensitivity: "base",
-  });
+  return animationNameCollator.compare(String(a.name || ""), String(b.name || ""));
 }
 
 function compareByOrder(a, b) {
@@ -162,7 +171,7 @@ export function activeArchive() {
  */
 function matchesFolder(animation) {
   if (state.sourceFolder && !animationFolders(animation, activeArchive()).has(state.sourceFolder)) return false;
-  if (state.sourceCampaign && !animationCampaigns(animation, state.sourceFolder).has(state.sourceCampaign)) return false;
+  if (state.sourceCampaign && !animationCampaigns(animation, state.sourceFolder, activeArchive()).has(state.sourceCampaign)) return false;
   return true;
 }
 
@@ -258,19 +267,25 @@ function matchesSearch(animation) {
     return true;
   }
 
-  const haystack = [
+  const aliases = [
+    animation.origin?.originalName,
+    ...(animation.origin?.variantNames || []).map((variant) => variant.name),
+  ].filter(Boolean);
+  const source = [
     animation.name,
-    animation.description,
-    animation.target,
-    animation.device,
-    animation.interaction,
     animation.animationName,
-    ...normalizeCategories(animation.categories),
-    animation.localPath,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+    animation.className,
+    ...aliases,
+  ].filter(Boolean);
+  const fingerprint = source.join("\u0001");
+  const cached = searchNames.get(animation);
+  const haystack = cached?.fingerprint === fingerprint
+    ? cached.value
+    : source.join(" ").toLowerCase();
+
+  if (!cached || cached.fingerprint !== fingerprint) {
+    searchNames.set(animation, { fingerprint, value: haystack });
+  }
 
   return haystack.includes(state.searchTerm);
 }
@@ -431,7 +446,7 @@ function renderFolderPicker(filterList) {
   const archive = activeArchive();
   if (archive !== "campaigns") return;
   const folders = collectFolders(state.animations, archive);
-  const campaigns = collectCampaigns(state.animations, state.sourceFolder);
+  const campaigns = collectCampaigns(state.animations, state.sourceFolder, archive);
   if (!folders.length && !campaigns.length) return;
 
   const extras = document.createElement("div");

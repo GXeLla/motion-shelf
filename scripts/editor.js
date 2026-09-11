@@ -32,7 +32,7 @@ import {
 } from "./easing.js";
 import { labelForVariable, resolveParameters } from "./parameters.js";
 import { auditAnimationsAtRuntime, applyRuntimeAuditRecord } from "./runtime-audit.js";
-import { saveAnimations } from "./storage.js";
+import { saveAnimation } from "./storage.js";
 
 const AVAILABLE_CATEGORIES = [
   "image", "photo", "text", "scale", "rotate", "slide", "fade", "3d",
@@ -467,11 +467,11 @@ export function initializeEditor({ modalController, render, showToast }) {
     data.animationName = sanitizeAnimationName(data.animationName);
     let savedAnimation;
     if (state.editingId) {
-      savedAnimation = updateAnimation(state.editingId, data);
+      savedAnimation = await updateAnimation(state.editingId, data);
       clearDraft();
       showToast("Animation updated. Push again to update the local CSS file.", "fa-solid fa-check");
     } else {
-      savedAnimation = createAnimation(data);
+      savedAnimation = await createAnimation(data);
       clearDraft();
       showToast("Animation added. Click its card to copy CSS or push it to local.", "fa-solid fa-check");
     }
@@ -480,7 +480,7 @@ export function initializeEditor({ modalController, render, showToast }) {
        animations separate from Sync, then audit only this saved card. */
     if (savedAnimation) {
       applyRuntimeAuditRecord(savedAnimation, null, { quarantineBroken: false });
-      saveAnimations(state.animations);
+      await saveAnimation(savedAnimation);
     }
 
     modalController.closeAll();
@@ -492,7 +492,7 @@ export function initializeEditor({ modalController, render, showToast }) {
     try {
       const report = await auditAnimationsAtRuntime([savedAnimation]);
       applyRuntimeAuditRecord(savedAnimation, report.records[0], { quarantineBroken: false });
-      saveAnimations(state.animations);
+      await saveAnimation(savedAnimation);
       render();
     } catch (error) {
       /* Saving a custom animation must never fail because its informational

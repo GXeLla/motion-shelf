@@ -5,6 +5,7 @@ import { createId, slugify } from "./utils.js";
 const DB_NAME = "motion-shelf.workspace.v1";
 const STORE_NAME = "handles";
 const ROOT_KEY = "project-root";
+const REPOSITORY_LOAD_CONCURRENCY = 8;
 
 export function supportsProjectFolders() {
   return "showDirectoryPicker" in window && "indexedDB" in window;
@@ -131,7 +132,7 @@ export async function loadAnimationsFromProject() {
   });
 
   mergeLocalAnimations(localAnimations);
-  saveAnimations(state.animations);
+  await saveAnimations(state.animations);
 
   return { animations: localAnimations, errors, loaded: true };
 }
@@ -141,14 +142,29 @@ export async function loadAnimationsFromRepository() {
   if (!manifestResponse.ok) throw new Error("Could not load the committed animation catalog.");
   const manifest = await manifestResponse.json();
   if (!Array.isArray(manifest.files)) throw new Error("The animation catalog is invalid.");
-  const animations = await Promise.all(manifest.files.map(async (fileName) => {
+  const animations = await mapWithConcurrency(manifest.files, REPOSITORY_LOAD_CONCURRENCY, async (fileName) => {
     const response = await fetch(`./animations/${encodeURIComponent(fileName)}`, { cache: "no-store" });
     if (!response.ok) throw new Error(`Could not load animations/${fileName}.`);
     return parseAnimationFile(await response.text(), fileName, Date.now(), { source: "repository", localPresent: false, repositoryPresent: true, localPath: `animations/${fileName}` });
-  }));
+  });
   mergeRepositoryAnimations(animations);
-  saveAnimations(state.animations);
+  await saveAnimations(state.animations);
   return animations;
+}
+
+/* Preserve manifest order while keeping a 10k-file catalog from opening
+   thousands of fetches and response bodies at once. */
+async function mapWithConcurrency(items, limit, map) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await map(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 export function getProjectDisplayPath(fileName = "") {

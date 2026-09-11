@@ -6,7 +6,7 @@ import {
   getCodeFileName,
 } from "./animations.js";
 
-import { saveAnimations } from "./storage.js";
+import { removeAnimationRecords, saveAnimation, saveAnimations } from "./storage.js";
 
 import {
   ensureProjectHandle,
@@ -171,7 +171,7 @@ export async function pushAnimationToCode(
       return writeAnimation(directory, createWritePlans([animation])[0]);
     }, updateWorkspaceUI);
 
-    saveAnimations(state.animations);
+    await saveAnimation(animation);
 
     render();
 
@@ -294,7 +294,7 @@ export async function syncLibraryToProject(
         manifestError = error;
         console.error("Could not update the animation catalog:", error);
       }
-      saveAnimations(state.animations);
+      await saveAnimations(state.animations);
       return { written, unchanged, processed, failures, manifest, manifestError };
     }, updateWorkspaceUI);
 
@@ -388,7 +388,7 @@ export async function deleteAnimationsFromCode(
       (animation) => !ids.includes(animation.id),
     );
 
-    saveAnimations(state.animations);
+    await removeAnimationRecords(ids);
 
     closeAll();
 
