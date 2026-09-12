@@ -282,7 +282,17 @@ function touchPreviewRule(id) {
 
 function evictPreviewRules(sheet) {
   while (insertedKeyframes.size > PREVIEW_RULE_LIMIT) {
-    const oldest = [...insertedKeyframes.entries()].find(([, entry]) => entry.active === 0);
+    /* The map already iterates least-recently-touched first, because
+       touchPreviewRule re-inserts. Walking it stops at the first candidate;
+       copying it into an array to call find() built a fresh array of every
+       entry on every eviction, and evictions run whenever a card scrolls out. */
+    let oldest = null;
+    for (const candidate of insertedKeyframes) {
+      if (candidate[1].active === 0) {
+        oldest = candidate;
+        break;
+      }
+    }
     if (!oldest) return;
     const [id, entry] = oldest;
     if (sheet) dropKeyframesNamed(sheet, entry.name);

@@ -38,3 +38,28 @@ export const state = {
 
   projectBusy: false,
 };
+
+/*
+ * WHO IS CURRENTLY OCCUPYING THE PROJECT FOLDER
+ *
+ * Restoring the link at startup, linking a new folder and every queued write
+ * all make the workspace busy, and they overlap. A single boolean could not
+ * express two holders at once: a write saved the flag as it found it and put
+ * that value back when it finished, so a push begun during startup restored
+ * "busy" after startup had already cleared it, leaving the header reporting a
+ * read that was over and both buttons disabled until something else ran.
+ *
+ * Counting holders answers it without anyone having to remember a value: the
+ * workspace is busy while at least one holder has it.
+ */
+let projectBusyHolders = 0;
+
+export function beginProjectBusy() {
+  projectBusyHolders += 1;
+  state.projectBusy = true;
+}
+
+export function endProjectBusy() {
+  projectBusyHolders = Math.max(0, projectBusyHolders - 1);
+  state.projectBusy = projectBusyHolders > 0;
+}

@@ -1,10 +1,30 @@
 import { getResolvedEasing, normalizeKeyframes, normalizePreviewViewportUnits } from "./animations.js";
-import { escapeHtml, sanitizeAnimationName } from "./utils.js";
+import { sanitizeAnimationName } from "./utils.js";
 import { assessPreviewSafety } from "./preview-safety.js";
 import { parseKeyframes } from "./animation-extract.js";
 import { analyzeRenderedTimeline } from "./preview-hint.js";
 
-const BATCH = 20;
+/*
+ * HOW MANY ANIMATIONS SHARE ONE SET OF FRAMES
+ *
+ * Auditing is almost entirely waiting. Each animation is scrubbed to its own
+ * sample positions and read back once per frame, and 94% of a batch is the
+ * frames themselves -- the reads that happen inside them cost 13 ms out of
+ * 4.4 seconds.
+ *
+ * The number of frames a batch needs is the LONGEST schedule in it, not the
+ * sum: every mounted animation is moved to its own position in the same frame.
+ * So putting more animations in a batch spends the same frames on more work.
+ * Measured over batches of 20, 60, 120 and 240, the round count stayed at 37
+ * throughout, while the cost per animation fell:
+ *
+ *     20 -> 195 ms      60 -> 62 ms      120 -> 40 ms      240 -> 49 ms
+ *
+ * It turns back upward after that, because a frame holding 240 mounted
+ * animations takes longer than one holding 120 by more than the extra
+ * throughput is worth. 120 is the bottom of that curve.
+ */
+const BATCH = 120;
 const FRAME_WIDTH = 320;
 const FRAME_HEIGHT = 180;
 
@@ -78,18 +98,39 @@ export function samplePositionsForAnimation(animation) {
   return [...positions].sort((a, b) => a - b);
 }
 
-function changed(first, last) {
-  return first.box.join("|") !== last.box.join("|")
-    || first.transform !== last.transform
-    || first.opacity !== last.opacity
-    || first.filter !== last.filter;
+/*
+ * DID ANYTHING VISIBLE MOVE BETWEEN TWO SAMPLES?
+ *
+ * snapshot() has always recorded colour, shadow, clip-path, mask,
+ * background-position and border alongside the geometry. This comparison used
+ * to read only four of them -- box, transform, opacity and filter -- so an
+ * animation that only changed one of the others was reported as "No visible
+ * property change", and Sync quarantines that as broken. A colour fade, a
+ * clip-path wipe, a background-position slide and a box-shadow lift are all
+ * animations; every property the snapshot captures counts as one.
+ *
+ * Widening this can only rescue verdicts. Nothing that passed before can fail
+ * now, because every property compared before is still compared.
+ */
+const CHANGED_TEXT_KEYS = [
+  "transform", "filter", "backgroundPosition", "boxShadow", "textShadow",
+  "clipPath", "mask", "objectPosition", "display", "visibility",
+];
+
+const CHANGED_LIST_KEYS = ["box", "color", "backgroundColor", "borderColor"];
+
+export function snapshotsDiffer(first, last) {
+  if (first.opacity !== last.opacity || first.borderWidth !== last.borderWidth) return true;
+  if (CHANGED_TEXT_KEYS.some((key) => first[key] !== last[key])) return true;
+  return CHANGED_LIST_KEYS.some((key) =>
+    (first[key] || []).join("|") !== (last[key] || []).join("|"));
 }
 
 function classify(animation, safety, samples) {
   if (!String(animation.keyframes || "").trim()) return { kind: "broken", reason: "Missing keyframes" };
   if (!safety.valid) return { kind: "broken", reason: safety.reasons.join(", ") };
   if (!samples.some((sample) => sample.visible)) return { kind: "broken", reason: "Element never enters safe frame" };
-  if (!samples.slice(1).some((sample) => changed(samples[0], sample))) {
+  if (!samples.slice(1).some((sample) => snapshotsDiffer(samples[0], sample))) {
     return { kind: "no visible effect", reason: "No visible property change" };
   }
   if (safety.previewNormalize) return { kind: "preview-only fix", reason: "Preview-bounded extreme motion" };
@@ -167,45 +208,56 @@ export async function auditAnimationsAtRuntime(animations, { onProgress } = {}) 
   const records = [];
   const source = Array.isArray(animations) ? animations : [];
   for (let offset = 0; offset < source.length; offset += BATCH) {
-    const batch = source.slice(offset, offset + BATCH).map((animation, index) => ({ animation, ...mount(animation, offset + index) }));
-    await nextFrame();
-    const samples = batch.map(() => []);
-    const positions = batch.map((entry) => samplePositionsForAnimation(entry.animation));
-    const rounds = Math.max(0, ...positions.map((schedule) => schedule.length));
-
-    /* One animation frame can sample every mounted target at a different
-       timeline position. This keeps batching efficient without unioning
-       their schedules. */
-    for (let round = 0; round < rounds; round += 1) {
-      batch.forEach((entry, index) => {
-        const progress = positions[index][round];
-        if (progress === undefined) return;
-        const player = entry.target.getAnimations()[0];
-        if (player) { player.pause(); player.currentTime = progress * 1000; }
+    /* Mounted frames are fixed-position and each carries its own stylesheet.
+       A batch that throws part-way through -- one malformed record is enough,
+       and createRuntimeAuditQueue swallows the error and keeps draining --
+       used to leave every frame it had already mounted in the document.
+       Unmounting belongs in a finally, not at the end of the happy path. */
+    const batch = [];
+    try {
+      source.slice(offset, offset + BATCH).forEach((animation, index) => {
+        batch.push({ animation, ...mount(animation, offset + index) });
       });
       await nextFrame();
+      const samples = batch.map(() => []);
+      const positions = batch.map((entry) => samplePositionsForAnimation(entry.animation));
+      const rounds = Math.max(0, ...positions.map((schedule) => schedule.length));
+
+      /* One animation frame can sample every mounted target at a different
+         timeline position. This keeps batching efficient without unioning
+         their schedules. */
+      for (let round = 0; round < rounds; round += 1) {
+        batch.forEach((entry, index) => {
+          const progress = positions[index][round];
+          if (progress === undefined) return;
+          const player = entry.target.getAnimations()[0];
+          if (player) { player.pause(); player.currentTime = progress * 1000; }
+        });
+        await nextFrame();
+        batch.forEach((entry, index) => {
+          const progress = positions[index][round];
+          if (progress === undefined) return;
+          samples[index].push(snapshot(entry.target, entry.frame.getBoundingClientRect(), progress));
+        });
+      }
       batch.forEach((entry, index) => {
-        const progress = positions[index][round];
-        if (progress === undefined) return;
-        samples[index].push(snapshot(entry.target, entry.frame.getBoundingClientRect(), progress));
+        const safety = assessPreviewSafety(entry.animation);
+        const result = classify(entry.animation, safety, samples[index]);
+        const duration = Number(entry.animation.duration) * (entry.animation.durationUnit === "ms" ? 0.001 : 1);
+        const perception = analyzeRenderedTimeline(samples[index], duration, entry.animation.interaction);
+        records.push({
+          index: offset + index,
+          id: entry.animation.id,
+          name: entry.animation.name,
+          signature: runtimeAuditSignature(entry.animation),
+          ...result,
+          previewHint: perception.hint,
+          perception,
+        });
       });
+    } finally {
+      batch.forEach((entry) => entry.frame.remove());
     }
-    batch.forEach((entry, index) => {
-      const safety = assessPreviewSafety(entry.animation);
-      const result = classify(entry.animation, safety, samples[index]);
-      const duration = Number(entry.animation.duration) * (entry.animation.durationUnit === "ms" ? 0.001 : 1);
-      const perception = analyzeRenderedTimeline(samples[index], duration, entry.animation.interaction);
-      records.push({
-        index: offset + index,
-        id: entry.animation.id,
-        name: entry.animation.name,
-        signature: runtimeAuditSignature(entry.animation),
-        ...result,
-        previewHint: perception.hint,
-        perception,
-      });
-      entry.frame.remove();
-    });
     onProgress?.({ total: source.length, checked: records.length, totals: totalsFor(records), records: [...records] });
   }
   return { total: records.length, totals: totalsFor(records), records };
@@ -332,22 +384,132 @@ export function applyRuntimeAuditRecord(animation, record, { quarantineBroken = 
   return animation;
 }
 
-/* Shared presentation for Sync completion. The manual trigger is gone, but
-   this keeps the audit's own cards, status counts and failure detail together
-   rather than recreating a smaller Sync-only version. */
+/*
+ * Shared presentation for Sync completion. The manual trigger is gone, but
+ * this keeps the audit's own cards, status counts and failure detail together
+ * rather than recreating a smaller Sync-only version.
+ *
+ * WHY THIS UPDATES INSTEAD OF REDRAWING
+ *
+ * Sync calls this on every audit batch, and an audit of a whole archive is
+ * many batches. Rewriting the container's innerHTML each time destroyed the
+ * <details> element and built a new one, so the list of failures closed itself
+ * the moment the user opened it -- and a list they had scrolled through jumped
+ * back to the top with it.
+ *
+ * So the frame is built once and then kept: the counts are text updates, and
+ * new failures are appended to the list that is already on screen. The
+ * <details> element is never replaced, which is what lets it stay open. The
+ * records arrive append-only while a scan runs, so the common case really is
+ * an append; when a later report disagrees about earlier entries -- the final
+ * reconciliation reports one row per animation rather than one per distinct
+ * preview -- the rows are rebuilt, but the element around them still survives.
+ */
+const auditSummaryViews = new WeakMap();
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function countCard(className, label) {
+  const card = element("div", className);
+  const value = element("dd", "", "0");
+  card.append(element("dt", "", label), value);
+  return { card, value };
+}
+
+function buildAuditSummary(container) {
+  const progress = element("p");
+  const heading = element("div", "runtime-audit-summary-heading");
+  const title = element("h3", "", "Audit Results");
+  title.id = "syncAuditTitle";
+  heading.append(element("span", "eyebrow", "RUNTIME AUDIT"), title, progress);
+
+  const valid = countCard("is-valid", "Valid Animations");
+  const fixed = countCard("is-fixed", "Auto / Preview Fixed");
+  const broken = countCard("is-broken", "Broken Animations");
+  const counts = element("dl", "runtime-audit-counts");
+  counts.append(valid.card, fixed.card, broken.card);
+
+  const brokenCount = element("b", "", "0");
+  const summary = element("summary");
+  summary.append("Broken Animations ", brokenCount, element("i", "fa-solid fa-chevron-down"));
+
+  const brokenList = element("div");
+  const details = element("details", "runtime-audit-broken");
+  details.hidden = true;
+  details.append(summary, brokenList);
+
+  const section = element("section", "runtime-audit-summary");
+  section.setAttribute("aria-labelledby", "syncAuditTitle");
+  section.append(heading, counts, details);
+
+  container.replaceChildren(section);
+
+  const view = {
+    keys: [],
+    progress,
+    valid: valid.value,
+    fixed: fixed.value,
+    broken: broken.value,
+    brokenCount,
+    brokenList,
+    details,
+  };
+  auditSummaryViews.set(container, view);
+  return view;
+}
+
+function brokenRow(record) {
+  const row = document.createElement("p");
+  row.title = record.kind || "";
+  const name = document.createElement("b");
+  name.textContent = record.name || "";
+  const reason = document.createElement("span");
+  reason.textContent = record.reason || "";
+  row.append(name, reason);
+  return row;
+}
+
 export function renderAuditSummary(container, report) {
   const broken = report.records.filter((record) =>
     record.kind === "broken" || record.kind === "no visible effect");
   const fixed = report.totals["auto-fixable"] + report.totals["preview-only fix"];
+
   container.hidden = false;
-  container.innerHTML = `
-    <section class="runtime-audit-summary" aria-labelledby="syncAuditTitle">
-      <div class="runtime-audit-summary-heading"><span class="eyebrow">RUNTIME AUDIT</span><h3 id="syncAuditTitle">Audit Results</h3><p>${report.checked ?? report.total} of ${report.total} canonical animations checked in isolated safe preview frames.</p></div>
-      <dl class="runtime-audit-counts">
-        <div class="is-valid"><dt>Valid Animations</dt><dd>${report.totals.valid}</dd></div>
-        <div class="is-fixed"><dt>Auto / Preview Fixed</dt><dd>${fixed}</dd></div>
-        <div class="is-broken"><dt>Broken Animations</dt><dd>${broken.length}</dd></div>
-      </dl>
-      ${broken.length ? `<details class="runtime-audit-broken"><summary>Broken Animations <b>${broken.length}</b><i class="fa-solid fa-chevron-down"></i></summary><div>${broken.map((record) => `<p title="${escapeHtml(record.kind)}"><b>${escapeHtml(record.name)}</b><span>${escapeHtml(record.reason)}</span></p>`).join("")}</div></details>` : ""}
-    </section>`;
+
+  /* Sync empties this container before each run, so a view whose nodes are no
+     longer inside it belongs to a previous sync and is rebuilt. */
+  let view = auditSummaryViews.get(container);
+  if (!view || !container.contains(view.brokenList)) view = buildAuditSummary(container);
+
+  view.progress.textContent =
+    `${report.checked ?? report.total} of ${report.total} canonical animations checked in isolated safe preview frames.`;
+  view.valid.textContent = String(report.totals.valid);
+  view.fixed.textContent = String(fixed);
+  view.broken.textContent = String(broken.length);
+  view.brokenCount.textContent = String(broken.length);
+
+  const keys = broken.map((record) =>
+    [record.id, record.name, record.kind, record.reason].join("\u0001"));
+
+  let shared = 0;
+  while (shared < keys.length && shared < view.keys.length && keys[shared] === view.keys[shared]) {
+    shared += 1;
+  }
+
+  if (shared < view.keys.length) {
+    view.brokenList.replaceChildren();
+    shared = 0;
+  }
+
+  for (let index = shared; index < broken.length; index += 1) {
+    view.brokenList.append(brokenRow(broken[index]));
+  }
+
+  view.keys = keys;
+  view.details.hidden = broken.length === 0;
 }

@@ -132,7 +132,11 @@ export async function loadAnimationsFromProject() {
   });
 
   mergeLocalAnimations(localAnimations);
-  await saveAnimations(state.animations);
+  /* Records the session deliberately left out of state -- project-backed ones
+     dropped at startup so the folder can supply them again -- must not be
+     deleted from storage just because a load ran. Removal belongs to Sync and
+     to explicit deletes. */
+  await saveAnimations(state.animations, { replace: false });
 
   return { animations: localAnimations, errors, loaded: true };
 }
@@ -142,13 +146,28 @@ export async function loadAnimationsFromRepository() {
   if (!manifestResponse.ok) throw new Error("Could not load the committed animation catalog.");
   const manifest = await manifestResponse.json();
   if (!Array.isArray(manifest.files)) throw new Error("The animation catalog is invalid.");
-  const animations = await mapWithConcurrency(manifest.files, REPOSITORY_LOAD_CONCURRENCY, async (fileName) => {
-    const response = await fetch(`./animations/${encodeURIComponent(fileName)}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(`Could not load animations/${fileName}.`);
-    return parseAnimationFile(await response.text(), fileName, Date.now(), { source: "repository", localPresent: false, repositoryPresent: true, localPath: `animations/${fileName}` });
+
+  /* A manifest entry can outlive its file: someone deletes an animation and
+     commits before the catalog is rebuilt. One missing file is one missing
+     animation, not an empty library, so a failed entry is skipped and
+     reported rather than taking every other animation down with it. */
+  const skipped = [];
+  const loaded = await mapWithConcurrency(manifest.files, REPOSITORY_LOAD_CONCURRENCY, async (fileName) => {
+    try {
+      const response = await fetch(`./animations/${encodeURIComponent(fileName)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return parseAnimationFile(await response.text(), fileName, Date.now(), { source: "repository", localPresent: false, repositoryPresent: true, localPath: `animations/${fileName}` });
+    } catch (error) {
+      console.warn(`Could not load animations/${fileName}:`, error);
+      skipped.push(fileName);
+      return null;
+    }
   });
+
+  const animations = loaded.filter(Boolean);
   mergeRepositoryAnimations(animations);
-  await saveAnimations(state.animations);
+  await saveAnimations(state.animations, { replace: false });
+  animations.skipped = skipped;
   return animations;
 }
 

@@ -1,4 +1,4 @@
-import { state } from "./state.js";
+import { state, beginProjectBusy, endProjectBusy } from "./state.js";
 
 import {
   loadAnimations,
@@ -229,18 +229,26 @@ async function auditCustomAnimations() {
 
   try {
     const report = await auditAnimationsAtRuntime(candidates.map(({ animation }) => animation));
-    let changed = false;
+
+    /* Asked once instead of once per candidate: includes() walks the whole
+       library each time, which at ten thousand animations is a scan per
+       candidate rather than a lookup. */
+    const stillInLibrary = new Set(state.animations);
+    const applied = [];
 
     candidates.forEach(({ animation, updatedAt }, index) => {
       /* Do not overwrite a newer editor audit if this background pass began
          before the user saved changes to the same animation. */
-      if (!state.animations.includes(animation) || animation.updatedAt !== updatedAt) return;
+      if (!stillInLibrary.has(animation) || animation.updatedAt !== updatedAt) return;
       applyRuntimeAuditRecord(animation, report.records[index], { quarantineBroken: false });
-      changed = true;
+      applied.push(animation);
     });
 
-    if (changed) {
-      await saveAnimationBatch(candidates.map(({ animation }) => animation));
+    if (applied.length) {
+      /* Only the records that actually took a verdict. saveAnimationBatch
+         writes everything it is handed, with no change check of its own, so
+         passing every candidate would rewrite the ones just skipped. */
+      await saveAnimationBatch(applied);
       render();
     }
   } catch (error) {
@@ -277,7 +285,17 @@ projectChangeButton.addEventListener("click", () => {
 
 async function initializeRepositoryAnimations() {
   try {
-    await loadAnimationsFromRepository();
+    const animations = await loadAnimationsFromRepository();
+
+    /* A skipped entry means the catalog lists a file the folder no longer
+       has. The library still loads, but silence would let that rot. */
+    if (animations.skipped?.length) {
+      showToast(
+        `${animations.skipped.length} animation${animations.skipped.length === 1 ? "" : "s"} listed in the catalog could not be loaded. Run Sync to rebuild it.`,
+        "fa-solid fa-triangle-exclamation",
+      );
+    }
+
     render();
   } catch (error) {
     console.error("Could not load committed animations:", error);
@@ -293,7 +311,7 @@ async function initializeProjectWorkspace() {
     return;
   }
 
-  state.projectBusy = true;
+  beginProjectBusy();
   updateWorkspaceUI();
 
   try {
@@ -311,7 +329,7 @@ async function initializeProjectWorkspace() {
       }
     }
   } finally {
-    state.projectBusy = false;
+    endProjectBusy();
     updateWorkspaceUI();
     render();
   }
@@ -319,7 +337,7 @@ async function initializeProjectWorkspace() {
 
 async function runProjectLinkAction(changeFolder) {
   if (state.projectBusy) return;
-  state.projectBusy = true;
+  beginProjectBusy();
   updateWorkspaceUI();
 
   try {
@@ -346,7 +364,7 @@ async function runProjectLinkAction(changeFolder) {
     console.error("Project link failed:", error);
     showToast(error?.message || "Could not link the project folder.", "fa-solid fa-triangle-exclamation");
   } finally {
-    state.projectBusy = false;
+    endProjectBusy();
     updateWorkspaceUI();
   }
 }

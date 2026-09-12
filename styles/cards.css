@@ -97,6 +97,16 @@
 
   overflow: hidden;
 
+  /*
+   * The card is rounded and lets its children overflow, so that the LOCAL
+   * badge tooltip can escape the top edge. The preview is the first thing in
+   * it, and with square corners of its own it painted its own filled corners
+   * straight over the card's rounded ones. It has to carry the same curve on
+   * the two corners it occupies -- inset by the card's one-pixel border, so
+   * the two arcs sit concentric rather than crossing.
+   */
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+
   border-bottom: 1px solid var(--border);
 
   /*

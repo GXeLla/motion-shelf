@@ -1,4 +1,4 @@
-import { state } from "./state.js";
+import { state, beginProjectBusy, endProjectBusy } from "./state.js";
 
 import {
   findAnimation,
@@ -17,17 +17,14 @@ import {
 
 const WRITE_CONCURRENCY = 4;
 let projectWriteQueue = Promise.resolve();
-let queuedWrites = 0;
-let previousProjectBusy = false;
 
 function queueProjectWrite(write, updateWorkspaceUI) {
-  if (queuedWrites++ === 0) previousProjectBusy = state.projectBusy;
-  state.projectBusy = true;
+  beginProjectBusy();
   updateWorkspaceUI();
   const result = projectWriteQueue.then(write);
   projectWriteQueue = result.catch(() => {});
   return result.finally(() => {
-    if (--queuedWrites === 0) state.projectBusy = previousProjectBusy;
+    endProjectBusy();
     updateWorkspaceUI();
   });
 }
@@ -353,27 +350,46 @@ export async function deleteAnimationsFromCode(
     await ensureProjectHandle();
     updateWorkspaceUI();
 
-    const animationsHandle = await getAnimationsDirectory({ create: false });
+    /* Deletion takes its turn in the same queue as Push and Sync, so it can
+       never interleave with a write that is still streaming into the folder
+       it is removing files from. */
+    const { failures, manifestError } = await queueProjectWrite(async () => {
+      const animationsHandle = await getAnimationsDirectory({ create: false });
+      const removalFailures = [];
 
-    const failures = [];
+      for (const id of ids) {
+        const animation = findAnimation(id);
 
-    for (const id of ids) {
-      const animation = findAnimation(id);
+        if (!animation) {
+          continue;
+        }
 
-      if (!animation) {
-        continue;
-      }
+        const fileName = animation.codeFileName || getCodeFileName(animation);
 
-      const fileName = animation.codeFileName || getCodeFileName(animation);
-
-      try {
-        await animationsHandle.removeEntry(fileName);
-      } catch (error) {
-        if (error?.name !== "NotFoundError") {
-          failures.push(animation.name);
+        try {
+          await animationsHandle.removeEntry(fileName);
+        } catch (error) {
+          if (error?.name !== "NotFoundError") {
+            removalFailures.push(animation.name);
+          }
         }
       }
-    }
+
+      /* manifest.json is what every visitor loads. A deleted file left listed
+         there is not a stale entry but a catalog that no longer describes the
+         folder, so it is rebuilt in the same turn as the deletion. */
+      let catalogError = null;
+      if (!removalFailures.length) {
+        try {
+          await writeAnimationsManifest(animationsHandle);
+        } catch (error) {
+          catalogError = error;
+          console.error("Could not update the animation catalog:", error);
+        }
+      }
+
+      return { failures: removalFailures, manifestError: catalogError };
+    }, updateWorkspaceUI);
 
     if (failures.length) {
       showToast(
@@ -384,8 +400,9 @@ export async function deleteAnimationsFromCode(
       return;
     }
 
+    const removedIds = new Set(ids);
     state.animations = state.animations.filter(
-      (animation) => !ids.includes(animation.id),
+      (animation) => !removedIds.has(animation.id),
     );
 
     await removeAnimationRecords(ids);
@@ -396,7 +413,12 @@ export async function deleteAnimationsFromCode(
 
     updateWorkspaceUI();
 
-    showToast("Animations deleted locally and from code.", "fa-solid fa-trash");
+    showToast(
+      manifestError
+        ? "Animations deleted, but the shared catalog could not be updated. Run Sync."
+        : "Animations deleted locally and from code.",
+      manifestError ? "fa-solid fa-triangle-exclamation" : "fa-solid fa-trash",
+    );
   } catch (error) {
     if (error?.name === "AbortError") {
       return;

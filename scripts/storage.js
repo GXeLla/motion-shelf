@@ -77,8 +77,54 @@ function queueWrite(write) {
   return result;
 }
 
+/*
+ * IS THIS RECORD DIFFERENT FROM THE ONE ON DISK?
+ *
+ * This used to be `JSON.stringify(animation)`, which answered correctly and
+ * charged for it twice: every save serialised the whole library to find out
+ * what had changed -- 119 ms at ten thousand animations even when the answer
+ * was "nothing" -- and the map of previous answers held a 4.6 KB string per
+ * record, a second copy of the library kept only to compare against.
+ *
+ * A change key does not have to contain the record. It has to differ whenever
+ * the record differs, and these dozen small values do.
+ *
+ * `updatedAt` covers everything the editor touches, because `updateAnimation`
+ * stamps it. It is not enough on its own: pushing to a project and auditing an
+ * animation both write to the record deliberately WITHOUT stamping it, since
+ * neither is an edit and neither should make a card read as freshly changed.
+ * Those fields are therefore named here explicitly.
+ *
+ * ONE THING TO KNOW BEFORE ADDING A FIELD: if a new value can change without
+ * `updatedAt` changing, it has to be added to this list, or the change will be
+ * kept in memory and never written. tests/change-key.test.mjs walks
+ * the real mutation paths and fails if one of them stops being noticed.
+ */
 function fingerprint(animation) {
-  return JSON.stringify(animation);
+  const audit = animation.audit;
+
+  return [
+    animation.updatedAt,
+
+    /* Written by Push to Code (scripts/code.js), which does not stamp
+       updatedAt. */
+    animation.codeFileName,
+    animation.codeSynced ? 1 : 0,
+    animation.localPresent ? 1 : 0,
+    animation.localPath,
+    animation.repositoryPresent ? 1 : 0,
+    animation.source,
+    animation.lastCodePush,
+
+    /* Written by applyRuntimeAuditRecord (scripts/runtime-audit.js), which
+       also does not stamp updatedAt. `auditSignature` and `checkedAt` move
+       together with previewHint and previewAnalysis, so naming them covers
+       the whole applier. */
+    animation.auditSignature,
+    audit ? audit.status : "",
+    audit ? audit.checkedAt : "",
+    animation.previewHint,
+  ].join("\u0001");
 }
 
 function storedRecord(animation) {
@@ -157,11 +203,25 @@ export async function loadAnimations() {
   try {
     const { animations: stored, migrated } = await loadDatabaseAnimations();
     if (stored.length) {
+      /* Asked before the mapping, not after: loadedRecord strips the schema
+         marker from the very object this reads, so afterwards every record
+         looks unmarked and the answer is always yes. */
+      const needsUpgrade = stored.some((record) => record.__motionShelfSchema !== RECORD_SCHEMA);
+
       const animations = stored.map(loadedRecord);
       persistedFingerprints = new Map(animations.map((animation) => [animation.id, fingerprint(animation)]));
 
-      const needsUpgrade = stored.some((record) => record.__motionShelfSchema !== RECORD_SCHEMA);
-      if (needsUpgrade) await saveAnimations(animations, { replace: true });
+      /* Deliberately not saveAnimations. Its change check compares against the
+         map filled one line above, from these same records, so it would find
+         nothing changed and write nothing -- which is how an upgraded record
+         could stay in its old shape forever, re-normalized on every load and,
+         lacking a stored updatedAt, re-stamped with the current time each
+         session so it kept surfacing as the most recently changed animation.
+         An upgrade writes unconditionally, and a failure to write must not
+         cost the caller the library it has already loaded. */
+      if (needsUpgrade) {
+        await queueWrite(() => writeRecords(animations)).catch(reportPersistenceError);
+      }
       return animations;
     }
 
