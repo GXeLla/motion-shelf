@@ -1431,3 +1431,45 @@ label:has(> textarea[name="parent"]) {
   border-color: var(--primary);
   outline: none;
 }
+
+/* Temporary adjustments in the details/copy dialog. */
+.detail-modal {
+  background: radial-gradient(ellipse at 10% 0%, #29243c80, transparent 55%), #141a29;
+}
+.detail-adjustments {
+  margin: 24px 30px;
+  border: 1px solid #a99aef38;
+  border-radius: 12px;
+  background: linear-gradient(115deg, #242238, #192830);
+  min-width: 0;
+}
+.detail-adjustments summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  color: #d5ceff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.detail-adjustments summary::-webkit-details-marker { display: none; }
+.detail-adjustments summary:focus-visible { outline: 2px solid #bcb3ff; outline-offset: 3px; border-radius: 12px; }
+.detail-adjustments[open] .adjust-chevron { transform: rotate(180deg); }
+.detail-adjustments .template-values { margin: 0; padding: 16px; border: 0; border-top: 1px solid #a99aef26; border-radius: 0 0 12px 12px; background: #151a2a; }
+.detail-adjustments h3, .detail-adjustments h4 { margin: 0; }
+.detail-adjustments .template-group { grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); }
+.detail-adjustments .template-value { min-width: 0; }
+.detail-adjustments input, .detail-adjustments select { width: 100%; min-width: 0; padding: 9px; border: 1px solid #a99aef30; border-radius: 8px; background: #1d2335; color: #f0edff; font-size: 13px; }
+.detail-adjustments input:focus, .detail-adjustments select:focus { outline: 2px solid #a99aef; outline-offset: 1px; }
+.detail-adjustments [aria-invalid="true"] { border-color: #ff9c9c; }
+.adjust-note, .adjust-error { margin: 0; color: #b8b7ce; font-size: 12px; line-height: 1.6; }
+.adjust-error { color: #ffb6b6; }
+.adjust-bezier { grid-column: 1 / -1; }
+.detail-preview-parent { display: grid; place-items: center; width: min(65%, 360px) !important; height: 210px !important; max-width: 100%; }
+.detail-preview-parent img { max-width: 100%; max-height: 210px; }
+@media (max-width: 650px) {
+  .detail-adjustments { margin: 20px 18px; }
+}

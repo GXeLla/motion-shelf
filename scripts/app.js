@@ -1,3 +1,6 @@
+import { createDetailDraft, renderDetailAdjustments, setDetailValue } from "./detail-adjustments.js";
+import { applyDeclarationBlock } from "./validation.js";
+import { normalizeKeyframes, normalizePreviewViewportUnits, getPreviewDuration, getAnimationDelay, getResolvedEasing } from "./animations.js";
 import { state, beginProjectBusy, endProjectBusy } from "./state.js";
 
 import {
@@ -634,7 +637,8 @@ function openDetails(id) {
     return;
   }
 
-  state.detailId = id;
+  modalController.closeAll();
+  const draft = createDetailDraft(animation);
 
   const imageSrc = createSafePreview(animation);
 
@@ -693,11 +697,13 @@ function openDetails(id) {
         LIVE PREVIEW
       </span>
 
+      <div class="detail-preview-parent">
       <img
         src="${escapeAttribute(imageSrc)}"
         alt="${escapeAttribute(animation.name)}"
         id="detailPreviewImage"
       >
+      </div>
 
     </div>
 
@@ -717,7 +723,9 @@ function openDetails(id) {
     </div>
 
 
-    ${buildAnimationSections(animation).map((section) => `
+    ${renderDetailAdjustments(draft)}
+
+    ${buildAnimationSections(draft).map((section) => `
     <div class="code-section">
 
       <div class="code-section-heading">
@@ -738,7 +746,7 @@ function openDetails(id) {
 
       </div>
 
-      <pre class="code-block">${escapeHtml(section.code)}</pre>
+      <pre class="code-block" data-code-section="${escapeAttribute(section.key)}">${escapeHtml(section.code)}</pre>
 
     </div>`).join("")}
 
@@ -795,13 +803,38 @@ function openDetails(id) {
     animation,
   );
 
-  if (preview) {
-    import("./animations.js").then(({ applyAnimation }) => {
-      applyAnimation(preview, animation, {
-        forceInfinite: true,
-      });
-    });
+  const previewParent = detailModalContent.querySelector(".detail-preview-parent");
+  const previewStyle = document.createElement("style");
+  detailModalContent.append(previewStyle);
+  // A private keyframe name prevents temporary values touching card previews.
+  const previewName = "msDetailsTemporaryPreview";
+  previewStyle.textContent = normalizePreviewViewportUnits(normalizeKeyframes(draft))
+    .replace(/(@keyframes\s+)[\w-]+/g, `$1${previewName}`);
+
+  function refreshDraftPreview() {
+    previewParent.style.cssText = "";
+    preview.style.cssText = "";
+    applyDeclarationBlock(previewParent, draft.parent);
+    applyDeclarationBlock(preview, draft.css);
+    preview.style.animation = `${previewName} ${getPreviewDuration(draft)} ${getResolvedEasing(draft)} ${getAnimationDelay(draft)} ${draft.iterationCount || "1"} both`;
+    preview.getAnimations().forEach(animation => { animation.currentTime = 0; });
+    for (const section of buildAnimationSections(draft)) {
+      const code = detailModalContent.querySelector(`[data-code-section="${section.key}"]`);
+      if (code) code.textContent = section.code;
+    }
   }
+  refreshDraftPreview();
+
+  detailModalContent.querySelector(".detail-adjustments").addEventListener("input", event => {
+    const input = event.target.closest("[data-adjust-name]");
+    if (!input) return;
+    const valid = setDetailValue(draft, input.dataset.adjustScope, input.dataset.adjustName, input.value.trim());
+    input.setAttribute("aria-invalid", String(!valid));
+    detailModalContent.querySelector(".adjust-error").hidden = !detailModalContent.querySelector('[aria-invalid="true"]');
+    if (!valid) return;
+    detailModalContent.querySelector(".adjust-bezier").hidden = draft.easing !== "custom";
+    refreshDraftPreview();
+  });
 
   /* Each section copies only itself, from the same builder that rendered it --
      so what lands on the clipboard is character for character what is on the
@@ -819,7 +852,7 @@ function openDetails(id) {
         const section = SECTION_COPY[button.dataset.copySection];
         if (!section) return;
 
-        await copyText(section.build(animation));
+        await copyText(section.build(draft));
 
         button.classList.add("copied");
         setTimeout(() => button.classList.remove("copied"), 600);
@@ -835,7 +868,7 @@ function openDetails(id) {
         const action = button.dataset.detailAction;
 
         if (action === "copy") {
-          await copyText(buildWholeAnimation(animation));
+          await copyText(buildWholeAnimation(draft));
 
           showToast("Whole animation copied.", "fa-solid fa-copy");
 
@@ -863,6 +896,7 @@ function openDetails(id) {
     });
 
   modalController.openDetail();
+  state.detailId = id;
 }
 
 function createSafePreview(animation) {

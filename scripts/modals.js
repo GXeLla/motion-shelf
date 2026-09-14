@@ -16,6 +16,9 @@ export function createModalController() {
   const deleteClose = document.getElementById("deleteCloseButton");
 
   function closeAll() {
+    if (!detailBackdrop.hidden) {
+      document.getElementById("detailModalContent").replaceChildren();
+    }
     detailBackdrop.hidden = true;
     editorBackdrop.hidden = true;
     deleteBackdrop.hidden = true;
@@ -29,6 +32,8 @@ export function createModalController() {
     closeAll();
 
     detailBackdrop.hidden = false;
+    detailBackdrop.scrollTop = 0;
+    detailBackdrop.querySelector(".modal").scrollTop = 0;
 
     document.body.style.overflow = "hidden";
   }

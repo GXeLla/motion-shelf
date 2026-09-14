@@ -30,7 +30,6 @@ import {
   normalizeBezier,
   resolveEasing,
 } from "./easing.js";
-import { labelForVariable, resolveParameters } from "./parameters.js";
 import { auditAnimationsAtRuntime, applyRuntimeAuditRecord } from "./runtime-audit.js";
 import { saveAnimation } from "./storage.js";
 
@@ -69,7 +68,6 @@ export function initializeEditor({ modalController, render, showToast }) {
   const liveSection = document.querySelector(".editor-workspace .editor-live-section");
   const editorModal = document.querySelector("#editorModalBackdrop .editor-modal");
   const classPreview = document.getElementById("editorClassPreview");
-  const templateValues = document.getElementById("templateValues");
   const easingRunner = document.getElementById("easingRunner");
   const bezierCurve = document.getElementById("bezierCurve");
   const bezierGuideOne = document.getElementById("bezierGuideOne");
@@ -205,138 +203,7 @@ export function initializeEditor({ modalController, render, showToast }) {
     });
   }
 
-  /*
-   * Imported animations expose their adjustable values as --ms-* custom
-   * properties in the class body. Editing them here rewrites that
-   * declaration, which the live preview already reacts to, so a template can
-   * be retuned without rewriting its keyframes.
-   */
-  /* What the animation being edited says about itself. The declarations in
-     the two textareas are the live truth -- they are what the person is
-     changing -- and this supplies the labels and the grouping around them. */
-  let editingParameters = null;
-
-  const GROUP_TITLES = {
-    timing: "Timing",
-    motion: "Motion",
-    transform: "Transform",
-    image: "Image",
-    shape: "Shape",
-    "3d": "Depth",
-    box: "Size",
-    container: "Container",
-  };
-
-  /*
-   * The order the groups read in: what the animation does first, then how it
-   * is drawn, then the container it needs. Anything unrecognised falls to the
-   * end rather than being dropped.
-   */
-  const GROUP_ORDER = ["timing", "motion", "transform", "3d", "image", "shape", "box", "container"];
-
-  function groupRank(group) {
-    const index = GROUP_ORDER.indexOf(group);
-    return index === -1 ? GROUP_ORDER.length : index;
-  }
-
-  function currentParameters() {
-    return resolveParameters({
-      css: form.elements.css.value,
-      parent: form.elements.parent.value,
-      parameters: editingParameters,
-    });
-  }
-
-  function writeTemplateValue(name, value, scope) {
-    const field = scope === "parent" ? form.elements.parent : form.elements.css;
-    const pattern = new RegExp("(^|\\n)\\s*" + name + "\\s*:[^;]*;?", "m");
-    const declaration = name + ": " + value + ";";
-
-    field.value = pattern.test(field.value)
-      ? field.value.replace(pattern, "$1" + declaration)
-      : declaration + "\n" + field.value;
-
-    saveDraft();
-    updateLivePreview();
-  }
-
-  function renderControl(entry) {
-    return '<label class="template-value">'
-      + "<span>" + escapeHtml(entry.label || labelForVariable(entry.name)) + "</span>"
-      + '<input type="text" spellcheck="false" data-template-value="'
-      + escapeAttribute(entry.name) + '" data-template-scope="' + escapeAttribute(entry.scope || "target")
-      + '" value="' + escapeAttribute(entry.value) + '" />'
-      + "</label>";
-  }
-
-  function renderGroups(entries) {
-    const groups = new Map();
-
-    entries.forEach((entry) => {
-      const group = entry.group || "motion";
-      if (!groups.has(group)) groups.set(group, []);
-      groups.get(group).push(entry);
-    });
-
-    return [...groups.entries()]
-      .sort((a, b) => groupRank(a[0]) - groupRank(b[0]))
-      .map(([group, list]) => '<div class="template-group">'
-        + '<span class="template-group-title">' + escapeHtml(GROUP_TITLES[group] || group) + "</span>"
-        + list.map(renderControl).join("")
-        + "</div>")
-      .join("");
-  }
-
-  /*
-   * The controls are the animation's own, not a fixed list: an animation with
-   * no container needs shows no container section, and a value the animation
-   * does not have gets no control to set it with.
-   */
-  function renderTemplateValues() {
-    const parameters = currentParameters();
-    const hasAny = parameters.target.length > 0 || parameters.parent.length > 0;
-
-    templateValues.hidden = !hasAny;
-
-    if (!hasAny) {
-      templateValues.innerHTML = "";
-      return;
-    }
-
-    const sections = [];
-
-    if (parameters.target.length) {
-      sections.push('<div class="template-section">'
-        + '<span class="template-values-title">Animation</span>'
-        + renderGroups(parameters.target)
-        + "</div>");
-    }
-
-    if (parameters.parent.length) {
-      sections.push('<div class="template-section">'
-        + '<span class="template-values-title">Parent / container</span>'
-        + '<p class="template-section-note">These belong on the element around the animated one'
-        + (parameters.parentClassName
-          ? ", copied out as <code>." + escapeHtml(parameters.parentClassName.replace(/^\./, "")) + "</code>"
-          : "")
-        + ".</p>"
-        + renderGroups(parameters.parent)
-        + "</div>");
-    }
-
-    templateValues.innerHTML = sections.join("");
-  }
-
-  templateValues.addEventListener("input", (event) => {
-    const input = event.target.closest("[data-template-value]");
-    if (!input) return;
-
-    event.stopPropagation();
-    writeTemplateValue(input.dataset.templateValue, input.value.trim(), input.dataset.templateScope);
-  });
-
   function fillForm(data) {
-    editingParameters = data.parameters || null;
     form.elements.name.value = data.name || "";
     form.elements.target.value = data.target || "img";
     form.elements.description.value = data.description || "";
@@ -355,7 +222,6 @@ export function initializeEditor({ modalController, render, showToast }) {
     setBezierInputs(normalizeBezier(data.cubicBezier));
     setDevice(data.device || "desktop", false);
     renderCategoryPicker(normalizeCategories(data.categories));
-    renderTemplateValues();
   }
 
   function setDefaultValues() {
@@ -816,10 +682,6 @@ export function initializeEditor({ modalController, render, showToast }) {
   editorModal.addEventListener("scroll", syncPreviewStickiness, { passive: true });
   form.addEventListener("input", (event) => {
     clearErrors(event.target.name);
-    /* Both textareas hold controls now, so either one changing rebuilds the
-       list -- a person who deletes a parent declaration should see the
-       container section go with it. */
-    if (event.target.name === "css" || event.target.name === "parent") renderTemplateValues();
     saveDraft();
     updateLivePreview();
   });
