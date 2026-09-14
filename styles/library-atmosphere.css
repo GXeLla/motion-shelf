@@ -1,5 +1,7 @@
 /* Midnight navy, violet light and a sparse field of wandering fireflies. */
 .library-page {
+  /* Clip decorative overflow without creating a scroll container for sticky. */
+  overflow-x: clip;
   --bg: #101322;
   --surface: #1b2232;
   --surface-2: #202839;

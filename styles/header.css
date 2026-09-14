@@ -161,6 +161,10 @@ SELECTION BAR
 ================================================== */
 
 .selection-bar {
+  /* Native sticky keeps its layout space and avoids scroll-driven toggles. */
+  position: sticky;
+  top: max(5px, env(safe-area-inset-top));
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -176,7 +180,8 @@ SELECTION BAR
     90deg,
     rgba(84, 169, 234, 0.08),
     rgba(28, 184, 186, 0.03)
-  );
+  ), var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .selection-info {
