@@ -1,52 +1,7 @@
-// One seeded SVG sky, built once; only the depth wrappers move with parallax.
-function buildLibraryStars(root) {
-  const field = root.querySelector("#libraryStars");
-  const beacons = root.querySelector("#libraryBeacons");
-  if (!field || !beacons || field.childElementCount) return;
-  const ns = "http://www.w3.org/2000/svg";
-  let seed = 27091;
-  const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const svgElement = (tag, attributes) => {
-    const element = document.createElementNS(ns, tag);
-    Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
-    return element;
-  };
-  const stars = document.createDocumentFragment();
-  for (let index = 0; index < 540; index += 1) {
-    const dust = index >= 380;
-    const x = random() * 1600;
-    const y = dust ? 170 + 140 * Math.sin(x / 240) + random() * 120 : random() * 1000;
-    stars.append(svgElement("circle", {
-      cx: x.toFixed(2), cy: y.toFixed(2),
-      r: (dust ? 0.3 + random() * 0.45 : 0.4 + random() * 0.9).toFixed(2),
-      fill: index % 5 === 0 ? "#86dcb4" : "#d9fced",
-      opacity: (dust ? 0.12 + random() * 0.22 : 0.25 + random() * 0.5).toFixed(2),
-    }));
-  }
-  field.append(stars);
-
-  // Place the brightest stars around the readable center, away from dense UI.
-  const positions = [[115,110],[375,310],[635,85],[870,225],[1120,120],[1425,275],
-    [1550,595],[95,690],[365,905],[810,840],[1240,760],[1440,935]];
-  positions.forEach(([x, y], index) => {
-    const star = svgElement("g", { class: "library-beacon" });
-    star.style.setProperty("--beacon-duration", `${6 + index % 5}s`);
-    star.style.setProperty("--beacon-delay", `${-index * 1.7}s`);
-    star.append(
-      svgElement("circle", {cx:x,cy:y,r:9,fill:"#71edb6",opacity:0.04}),
-      svgElement("circle", {cx:x,cy:y,r:4,fill:"#a8ffcf",opacity:0.1}),
-      svgElement("path", {d:`M${x-7} ${y}h14 M${x} ${y-7}v14`,stroke:"#b8ffe0","stroke-width":0.65,opacity:0.68}),
-      svgElement("circle", {cx:x,cy:y,r:1.35,fill:"#eafff2"}),
-    );
-    beacons.append(star);
-  });
-}
-
 // Decorative parallax belongs to the library page only. Content never moves.
 export function initializeLibraryAtmosphere(root = document.getElementById("libraryAtmosphere")) {
   if (!root || root.dataset.initialized) return;
   root.dataset.initialized = "true";
-  buildLibraryStars(root);
 
   const layers = [...root.querySelectorAll("[data-depth]")].map(element => ({
     element, depth: Number(element.dataset.depth) || 0,
@@ -102,7 +57,7 @@ export function initializeLibraryAtmosphere(root = document.getElementById("libr
   }
 
   /* Held for the length of a scroll, then released shortly after it stops.
-     The CSS above reads it to park the decorative animations. */
+     The stylesheet reads it to pause the haze during scrolling. */
   let scrollIdle = 0;
 
   function markScrolling() {

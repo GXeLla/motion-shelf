@@ -2,7 +2,7 @@
 
 **Motion Shelf** is a visual CSS animation library for collecting, previewing, editing, and reusing CSS animations.
 
-Its interface keeps the original eight-point teal/blue background and adds two slow morphing color layers plus a randomized field of tiny ambient sparks. The effect is decorative, click-through, and respects reduced-motion preferences.
+Its interface uses a midnight navy background with a faint grid, slow violet and teal light, and softly glowing fireflies. The atmosphere responds subtly to scrolling and pointer movement, stays click-through, and respects reduced-motion preferences.
 
 > **Copy animation. Paste anywhere.**
 

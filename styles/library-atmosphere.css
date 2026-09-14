@@ -1,19 +1,19 @@
-/* Library only: deep forest, emerald aurora and pale jade highlights. */
+/* Midnight navy, violet light and a sparse field of wandering fireflies. */
 .library-page {
-  background: #070f0d;
+  --bg: #101322;
+  --surface: #1b2232;
+  --surface-2: #202839;
+  --surface-3: #283145;
+  background: var(--bg);
 }
 
 .library-page::before,
-.library-page::after {
-  content: none;
-}
+.library-page::after { content: none; }
 
 .library-atmosphere {
   background:
-    radial-gradient(ellipse at 6% 12%, #143e2e 0%, transparent 47%),
-    radial-gradient(ellipse at 94% 60%, #0f362d 0%, transparent 43%),
-    radial-gradient(ellipse at 50% 110%, #102c20 0%, transparent 50%),
-    #070f0d;
+    radial-gradient(ellipse at 50% 0%, #22204080, transparent 62%),
+    linear-gradient(180deg, #111426, #141a29 58%, #101720);
 }
 
 .library-atmosphere .atmosphere-depth {
@@ -26,239 +26,110 @@
   position: absolute;
   inset: -5%;
   background:
-    radial-gradient(ellipse at 12% 24%, #24986142, transparent 34%),
-    radial-gradient(ellipse at 84% 8%, #4cc99a36, transparent 35%),
-    radial-gradient(ellipse at 90% 84%, #137b6147, transparent 31%);
-  animation: library-haze-breathe 26s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 20% 24%, #52428330, transparent 46%),
+    radial-gradient(ellipse at 88% 76%, #246c7224, transparent 42%);
+  animation: library-haze-breathe 28s ease-in-out infinite alternate;
 }
 
-.atmosphere-aurora,
-.atmosphere-contours,
-.atmosphere-stars,
-.atmosphere-beacons,
-.atmosphere-filaments {
+.atmosphere-haze--accent {
+  background:
+    radial-gradient(ellipse at 85% 18%, #49427528, transparent 40%),
+    radial-gradient(ellipse at 9% 90%, #96723e14, transparent 35%);
+  animation-duration: 37s;
+  animation-delay: -18s;
+  animation-direction: alternate-reverse;
+}
+
+.atmosphere-grid {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  background-image:
+    linear-gradient(#aaa2e906 1px, transparent 1px),
+    linear-gradient(90deg, #aaa2e906 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse at 50% 30%, #0009, transparent 78%);
 }
 
-.atmosphere-aurora {
-  overflow: visible;
-  opacity: 0.85;
-}
-
-.aurora-ribbon {
-  transform-origin: center;
-  will-change: transform;
-}
-
-.aurora-ribbon--distant {
-  filter: blur(12px);
-  animation: library-aurora-float 32s ease-in-out infinite alternate;
-}
-
-.aurora-ribbon--near {
-  opacity: 0.52;
-  filter: blur(5px);
-  animation: library-aurora-float 43s ease-in-out -18s infinite alternate-reverse;
-}
-
-.atmosphere-contours {
-  opacity: 0.26;
-  stroke-width: 0.65;
-}
-
-.atmosphere-stars {
-  opacity: 0.9;
-  mask-image: radial-gradient(ellipse at 50% 45%, #0006, #000 78%);
-}
-
-.atmosphere-filaments {
-  opacity: 0.36;
-  stroke-width: 0.65;
-}
-
-.atmosphere-filaments .aurora-tracer {
-  stroke: #b0ffda;
-  stroke-width: 1.35;
-  stroke-dasharray: 45 2400;
-  animation: library-light-trace 22s linear infinite;
-}
-
-.library-beacon {
-  opacity: 0.7;
-  animation: library-beacon-glow var(--beacon-duration) ease-in-out var(--beacon-delay) infinite alternate;
-}
-
-.library-meteor {
-  position: absolute;
-  width: 190px;
-  height: 1px;
-  opacity: 0;
-  border-radius: 100%;
-  background: linear-gradient(90deg, #ecfff5, #a4f6ca88 15%, #56dba133 42%, transparent);
-  box-shadow: 0 0 5px #98ffce66;
-  transform: rotate(-32deg);
-  animation: library-meteor-pass 27s linear infinite;
-}
-
-.library-meteor::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  left: 0;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #edfff6;
-  box-shadow: 0 0 10px #b9ffda;
-}
-
-.library-meteor--one { top: 17%; left: 78%; animation-delay: -2s; }
-.library-meteor--two { top: 40%; left: 32%; animation-duration: 33s; animation-delay: 8s; }
-.library-meteor--three { top: 70%; left: 88%; animation-duration: 39s; animation-delay: 17s; }
-
-.library-atmosphere .ambient-sparks {
-  opacity: 0.68;
-  mask-image: radial-gradient(ellipse at center, #0004, #000 80%);
-}
+.library-atmosphere .ambient-sparks { opacity: 1; mask-image: none; }
 
 .library-atmosphere .ambient-spark {
-  background: #d5ffe8;
-  box-shadow: 0 0 3px #aff7ce66, 0 0 9px #40c98c33;
+  background: var(--spark-color);
+  box-shadow: 0 0 4px 1px var(--spark-glow), 0 0 12px var(--spark-glow);
+  animation: library-firefly-flight var(--spark-duration) linear var(--spark-delay) infinite;
 }
+
+.library-atmosphere .ambient-spark--soft { filter: blur(1px); }
 
 .atmosphere-vignette {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 35%, #050d0b45 10%, transparent 58%),
-    linear-gradient(0deg, #0309078c, transparent 24%, transparent 85%, #03090729);
+  background: radial-gradient(ellipse at 50% 40%, transparent 35%, #080d1838);
 }
 
-/*
- * Pause all decorative animation when the tab is hidden -- and while the page
- * is being scrolled. The aurora, the haze and the meteors repaint a large,
- * blurred surface on every frame, which is precisely the budget a scroll
- * needs; nobody has ever noticed a 26 second drift standing still for the
- * length of a flick, and it starts again a moment after the scroll stops.
- */
+/* Opacity and transform animate without painting full-screen blur filters. */
 .library-atmosphere[data-motion="paused"] *,
-.library-atmosphere[data-motion="paused"] *::before,
-.library-atmosphere[data-motion="paused"] *::after,
-.library-atmosphere[data-scrolling="true"] *,
-.library-atmosphere[data-scrolling="true"] *::before,
-.library-atmosphere[data-scrolling="true"] *::after {
+.library-atmosphere[data-scrolling="true"] .atmosphere-haze {
   animation-play-state: paused !important;
 }
 
 @keyframes library-haze-breathe {
-  from { transform: translate3d(-1%, 1%, 0) scale(1); opacity: 0.65; }
-  to { transform: translate3d(2%, -2%, 0) scale(1.07); opacity: 1; }
+  from { transform: translate3d(-2%, 1%, 0) scale(1); opacity: 0.65; }
+  to { transform: translate3d(2%, -2%, 0) scale(1.05); opacity: 1; }
 }
 
-@keyframes library-aurora-float {
-  from { transform: translate3d(-14px, -12px, 0) rotate(-2deg) scaleY(0.95); }
-  to { transform: translate3d(16px, 24px, 0) rotate(2deg) scaleY(1.06); }
-}
-
-@keyframes library-beacon-glow {
-  0%, 15% { opacity: 0.32; }
-  65%, 100% { opacity: 0.95; }
-}
-
-@keyframes library-light-trace {
-  from { stroke-dashoffset: 2445; }
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes library-meteor-pass {
-  0%, 3% { opacity: 0; transform: translate3d(0, 0, 0) rotate(-32deg); }
-  4% { opacity: 0.85; }
-  9%, 100% { opacity: 0; transform: translate3d(-370px, 231px, 0) rotate(-32deg); }
-}
-
-/*
- * The aurora is the most expensive thing on the page, and its cost scales with
- * the area it covers -- which is exactly what zooming out enlarges. Measured
- * over a 3s scroll: 2.5fps at a 2600px-wide viewport with the blur on, 4.7fps
- * with it off; 9.4 against 15.7 at 1340px. The blur is nearly all of it, and
- * turning it down barely helps -- it is on or off.
- *
- * So past the point where a viewport is clearly a zoomed-out or very large
- * one, the ribbons are drawn without a filter and the layer is faded instead,
- * which keeps them reading as a soft glow rather than a hard-edged shape. At
- * ordinary sizes nothing changes.
- */
-@media (min-width: 1700px) {
-  .library-atmosphere .atmosphere-aurora {
-    opacity: 0.5;
-  }
-
-  .library-atmosphere .aurora-ribbon--distant,
-  .library-atmosphere .aurora-ribbon--near {
-    filter: none;
-  }
-}
-
-@media (max-width: 700px) {
-  .atmosphere-stars { opacity: 0.68; }
-  .atmosphere-filaments { opacity: 0.24; }
-  .library-meteor { width: 110px; }
-  .library-meteor--two, .library-meteor--three { display: none; }
-  .atmosphere-aurora { opacity: 0.65; }
-  .atmosphere-contours { opacity: 0.18; }
-  .aurora-ribbon--distant { filter: blur(8px); }
-  .library-atmosphere .ambient-sparks { opacity: 0.45; }
+/* Rise from below the viewport to above it, wandering sideways along the way.
+   Staggered phases fill the sky immediately; invisible resets stay offscreen. */
+@keyframes library-firefly-flight {
+  0% { transform: translate3d(0, 0, 0) scale(0.65); opacity: 0; }
+  15% { opacity: var(--spark-opacity-soft); }
+  30% { transform: translate3d(var(--spark-drift-mid-x), var(--spark-drift-mid-y), 0); opacity: var(--spark-opacity); }
+  48% { opacity: var(--spark-opacity-soft); }
+  65% { transform: translate3d(var(--spark-drift-x), var(--spark-drift-y), 0) scale(1.12); opacity: var(--spark-opacity-high); }
+  82% { opacity: var(--spark-opacity); }
+  100% { transform: translate3d(var(--spark-end-x), var(--spark-end-y), 0) scale(0.7); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .library-atmosphere .library-beacon { animation: none; opacity: 0.65; }
-  .library-atmosphere .library-meteor,
-  .library-atmosphere .aurora-tracer { display: none; animation: none; }
-  .library-atmosphere .atmosphere-depth,
-  .library-atmosphere .aurora-ribbon { will-change: auto; }
+  .library-atmosphere .atmosphere-depth { will-change: auto; }
   .library-atmosphere .atmosphere-haze,
-  .library-atmosphere .aurora-ribbon,
-  .library-atmosphere .ambient-spark { animation: none; }
+  .library-atmosphere .ambient-spark { animation: none; will-change: auto; }
   .library-atmosphere .ambient-spark { opacity: var(--spark-opacity-soft); }
 }
 
 /* ==================================================
    SCROLLBAR + SCROLL PROGRESS THEME (library page)
-   Emerald aurora palette, matching the atmosphere above.
+   Midnight violet palette, matching the atmosphere above.
    ================================================== */
 
 body.library-page {
-  /* Flat colors pulled straight from this page's own emerald atmosphere
-     (see the aurora/star colors above) -- solid, so it survives browsers
+  /* Flat colors pulled straight from this page's violet atmosphere
+     (see the firefly colors above) -- solid, so it survives browsers
      and OS scrollbar modes that ignore gradients on this element.
      scrollbar-color is inherited, so this alone covers every scrollable
      descendant in Firefox. */
-  scrollbar-color: #30b883 rgba(7, 15, 13, 0.65);
+  scrollbar-color: #8b83d7 rgba(16, 19, 34, 0.65);
 }
 
 /* ::-webkit-scrollbar-* is NOT inherited -- each scrollable element (the
    filters row, modals, the animation grid, etc.) needs its own match,
    not just body's own scrollbar. */
 body.library-page *::-webkit-scrollbar-track {
-  background: rgba(7, 15, 13, 0.65);
+  background: rgba(16, 19, 34, 0.65);
 }
 
 body.library-page *::-webkit-scrollbar-thumb {
-  background-color: #30b883;
+  background-color: #8b83d7;
 }
 
 body.library-page *::-webkit-scrollbar-thumb:hover {
-  background-color: #8befbc;
+  background-color: #bcb3ff;
 }
 
 body.library-page .scroll-progress-fill {
-  background-image: linear-gradient(90deg, #0f362d, #30b883, #a8f5ce, #30b883, #0f362d);
+  background-image: linear-gradient(90deg, #252344, #8b83d7, #d5ceff, #8b83d7, #252344);
   box-shadow:
-    0 0 10px rgba(48, 184, 131, 0.75),
-    0 0 24px rgba(168, 245, 206, 0.55);
+    0 0 10px rgba(139, 131, 215, 0.5),
+    0 0 24px rgba(188, 179, 255, 0.3);
 }
 
 /* A small aurora compass: the outer arc tracks the page, while the ribbons
@@ -277,24 +148,24 @@ body.library-page .scroll-progress-fill {
   width: 64px;
   height: 64px;
   padding: 0;
-  border: 1px solid #8befbc45;
+  border: 1px solid #bcb3ff45;
   border-radius: 50%;
-  color: #ddfff0;
-  background: radial-gradient(circle at 35% 25%, #285944, #0a2119 65%);
-  box-shadow: 0 6px 24px #0008, 0 0 24px #30b88326, inset 0 0 16px #8befbc0d;
+  color: #eeeaff;
+  background: radial-gradient(circle at 35% 25%, #373253, #171b2c 65%);
+  box-shadow: 0 6px 24px #0008, 0 0 24px #8b83d726, inset 0 0 16px #bcb3ff0d;
 }
 .aurora-top-glow {
   position: absolute;
   inset: 7px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, #8befbc40, transparent 70%);
+  background: radial-gradient(ellipse at center, #bcb3ff40, transparent 70%);
   transform: translate(var(--pointer-x), var(--pointer-y));
   pointer-events: none;
 }
 .aurora-top-orbit { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.aurora-top-track { stroke: #8befbc20; stroke-width: 1; }
+.aurora-top-track { stroke: #bcb3ff20; stroke-width: 1; }
 .aurora-top-progress {
-  stroke: #a8f5ce;
+  stroke: #d5ceff;
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-dasharray: var(--page-progress) 100;
@@ -302,29 +173,29 @@ body.library-page .scroll-progress-fill {
   transform-origin: center;
 }
 .aurora-top-ribbon {
-  stroke: #5bdaa780;
+  stroke: #aaa0ef80;
   stroke-width: 0.7;
   transform: translate(var(--pointer-x), var(--pointer-y)) rotate(var(--orbit-turn));
   transform-origin: center;
 }
 .aurora-top-arrow { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.aurora-top-star { stroke: #8befbc; stroke-width: 1; }
+.aurora-top-star { stroke: #bcb3ff; stroke-width: 1; }
 .aurora-top-label {
   position: absolute;
   right: calc(100% + 12px);
   padding: 6px 10px;
-  border: 1px solid #8befbc30;
+  border: 1px solid #bcb3ff30;
   border-radius: 9px;
-  background: #0a2119;
-  color: #ddfff0;
+  background: #171b2c;
+  color: #eeeaff;
   font-size: 12px;
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
-.aurora-top:hover, .aurora-top:focus-visible { border-color: #a8f5ce; box-shadow: 0 6px 24px #0008, 0 0 30px #30b88350; }
-.aurora-top:focus-visible { outline: 2px solid #a8f5ce; outline-offset: 4px; }
+.aurora-top:hover, .aurora-top:focus-visible { border-color: #d5ceff; box-shadow: 0 6px 24px #0008, 0 0 30px #8b83d750; }
+.aurora-top:focus-visible { outline: 2px solid #d5ceff; outline-offset: 4px; }
 .aurora-top:hover .aurora-top-label, .aurora-top:focus-visible .aurora-top-label { opacity: 1; visibility: visible; }
 .library-page:has(.toast.show) .aurora-top { bottom: max(140px, env(safe-area-inset-bottom)); }
 @media (max-width: 650px) {
