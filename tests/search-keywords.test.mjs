@@ -70,7 +70,27 @@ test("every keyword an animation carries still filters", () => {
   assert.ok(finds("heroSlideAlt"), "the name of a collapsed variant");
   assert.ok(finds("packshotGlide"), "the name of the other collapsed variant");
 
+  assert.ok(finds("campaigns/Aldi/banner/style.css"), "the complete campaigns source path");
+  assert.ok(finds("banner/style"), "part of a campaigns source path");
+
   assert.ok(!finds("zzzunrelated"), "a word that appears nowhere");
+});
+
+test("source paths from every archive are searchable", () => {
+  state.animations = library({
+    origin: {
+      ...library()[0].origin,
+      sources: [
+        { repository: "campaigns", folder: "Client", campaign: "CD_24_019_Mesch_newhome_1Flight", file: "campaigns/Client/24_019/src/style.css" },
+        { repository: "previews-only", folder: "UniCreditBankAustria", campaign: "26_000", file: "previews-only/UniCreditBankAustria/26_000/src/bwd/UniCredit/index.html" },
+      ],
+    },
+  });
+
+  assert.ok(finds("019"), "a campaign number within a source path");
+  assert.ok(finds("000"), "a previews-only number within a source path");
+  assert.ok(finds("unicredit/index.html"), "a nested previews-only path");
+  assert.ok(finds("mesch_newhome"), "a campaign name stored separately from its path");
 });
 
 test("an empty search term keeps the whole library", () => {

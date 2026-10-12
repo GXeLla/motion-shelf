@@ -271,26 +271,11 @@ function matchesSearch(animation) {
 }
 
 /*
- * EVERY WORD AN ANIMATION CAN BE FOUND BY
+ * Search card titles, CSS names, imported aliases and source metadata.
+ * Empty values are removed once when building the combined search text.
  *
- * The list is exactly what it has always been -- display name, CSS animation
- * name, class name, the name it carried in its source archive, and the name of
- * every variant collapsed into it -- lowercased and joined into one string.
- * Each of those keywords stays searchable; none of them is dropped.
- *
- * What changed is when that string gets built. The cache key used to be a join
- * of the same fields, so asking the cache cost as much as answering: a hit
- * still spread the variant names into a new array, filtered it and joined it,
- * and saved only the lowercasing. Over ten thousand records one keystroke
- * spent 18 ms that way against 7 ms with no cache at all.
- *
- * A record is a stable object, and the fields above only move when the editor
- * saves it -- which stamps updatedAt in the same breath. Comparing the stamp
- * and the three names it rewrites costs four comparisons and allocates
- * nothing, so a hit genuinely skips the rebuild: 1 ms for the same keystroke.
- * A merge that supersedes a record hands over a different object, which misses
- * on identity and rebuilds by itself. Pushing to a project and auditing do
- * mutate a record in place without stamping it, but neither touches a name.
+ * Cache by record identity, timestamp and editable names to avoid rebuilding
+ * this text on every keystroke. Imports replace records when sources change.
  */
 function searchHaystack(animation) {
   const cached = searchNames.get(animation);
@@ -305,13 +290,24 @@ function searchHaystack(animation) {
   const aliases = [
     animation.origin?.originalName,
     ...(animation.origin?.variantNames || []).map((variant) => variant.name),
-  ].filter(Boolean);
+  ];
+
+  /* Include every source from both archives, even those omitted in tooltips. */
+  const sourceDetails = (animation.origin?.sources || [])
+    .flatMap((source) => [
+      source?.file,
+      source?.repository,
+      source?.folder,
+      source?.brand,
+      source?.campaign,
+    ]);
 
   const value = [
     animation.name,
     animation.animationName,
     animation.className,
     ...aliases,
+    ...sourceDetails,
   ].filter(Boolean).join(" ").toLowerCase();
 
   searchNames.set(animation, {
