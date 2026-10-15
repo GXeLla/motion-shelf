@@ -122,10 +122,6 @@ export function resolveEasing(easing, customBezier) {
   return `cubic-bezier(${format(x1)}, ${format(y1)}, ${format(x2)}, ${format(y2)})`;
 }
 
-export function easingLabel(easing) {
-  return EASING_OPTIONS.find(([value]) => value === easing)?.[1] || easing;
-}
-
 function format(value) {
   return Number(value.toFixed(3));
 }

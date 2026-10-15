@@ -234,7 +234,10 @@ export function animationMatchesFilter(animation, filter) {
   }
 
   if (filter === "local") {
-    return Boolean(animation.localPresent);
+    /* The Local chip now follows the card source status: synced records are
+       the imported Campaigns/Previews library, while custom records stay in
+       the Custom filter. Both are persisted in IndexedDB. */
+    return Boolean(animation.origin);
   }
 
   if (filter === "campaigns" || filter === "previews-only") {
@@ -326,34 +329,34 @@ function searchHaystack(animation) {
    the visible label without making the tooltip a second interface. */
 const FILTERS = [
   {
-    value: "desktop", label: "Desktop", icon: "fa-solid fa-desktop", tooltip: "Designed for desktop screens",
+    value: "desktop", label: "Desktop", icon: "icon-solid icon-desktop", tooltip: "Designed for desktop screens",
   },
   {
-    value: "mobile", label: "Mobile", icon: "fa-solid fa-mobile-screen", tooltip: "Designed for mobile screens",
+    value: "mobile", label: "Mobile", icon: "icon-solid icon-mobile-screen", tooltip: "Designed for mobile screens",
   },
   {
-    value: "favourite", label: "Favourite", icon: "fa-solid fa-star", tooltip: "Your saved effects",
+    value: "favourite", label: "Favourite", icon: "icon-solid icon-star", tooltip: "Your saved effects",
   },
   {
-    value: "local", label: "Local", icon: "fa-solid fa-hard-drive", tooltip: "Available on this computer",
+    value: "local", label: "Local", icon: "icon-solid icon-hard-drive", tooltip: "Synced Campaigns and Previews animations",
   },
   {
-    value: "custom", label: "Custom", icon: "fa-solid fa-pen-ruler", tooltip: "Created in Motion Shelf",
+    value: "custom", label: "Custom", icon: "icon-solid icon-pen-ruler", tooltip: "Created in Motion Shelf",
   },
   {
-    value: "hover", label: "Hover", icon: "fa-solid fa-hand-pointer", tooltip: "Triggered on hover",
+    value: "hover", label: "Hover", icon: "icon-solid icon-hand-pointer", tooltip: "Triggered on hover",
   },
   {
-    value: "infinite", label: "Infinite", icon: "fa-solid fa-infinity", tooltip: "Loops continuously",
+    value: "infinite", label: "Infinite", icon: "icon-solid icon-infinity", tooltip: "Loops continuously",
   },
   {
-    value: "appear", label: "Appear", icon: "fa-solid fa-eye", tooltip: "Entrance animations",
+    value: "appear", label: "Appear", icon: "icon-solid icon-eye", tooltip: "Entrance animations",
   },
   {
-    value: "disappear", label: "Disappear", icon: "fa-solid fa-eye-slash", tooltip: "Exit animations",
+    value: "disappear", label: "Disappear", icon: "icon-solid icon-eye-slash", tooltip: "Exit animations",
   },
   {
-    value: "3d", label: "3D", icon: "fa-solid fa-cube", tooltip: "Perspective effects",
+    value: "3d", label: "3D", icon: "icon-solid icon-cube", tooltip: "Perspective effects",
   },
 ];
 
@@ -395,7 +398,7 @@ export function renderFilterButtons(filterList) {
   categoryRow.className = "filter-row filter-row-categories";
 
   const allButton = createFilterButton(
-    "all", "All", "fa-solid fa-layer-group", state.selectedFilters.length === 0,
+    "all", "All", "icon-solid icon-layer-group", state.selectedFilters.length === 0,
   );
   primaryRow.appendChild(allButton);
 
@@ -419,7 +422,7 @@ export function renderFilterButtons(filterList) {
 
   primaryRow.appendChild(
     createSortButton(
-      "uses", "Most used", "fa-solid fa-fire", state.sortMode === "uses",
+      "uses", "Most used", "icon-solid icon-fire", state.sortMode === "uses",
     ),
   );
 
@@ -525,23 +528,23 @@ export function getAllCategories() {
 
 export function getCategoryIcon(category) {
   const icons = {
-    text: "fa-solid fa-font",
-    scale: "fa-solid fa-expand",
-    rotate: "fa-solid fa-rotate",
-    slide: "fa-solid fa-arrows-left-right",
-    fade: "fa-solid fa-wand-magic-sparkles",
+    text: "icon-solid icon-font",
+    scale: "icon-solid icon-expand",
+    rotate: "icon-solid icon-rotate",
+    slide: "icon-solid icon-arrows-left-right",
+    fade: "icon-solid icon-wand-magic-sparkles",
 
-    "3d": "fa-solid fa-cube",
+    "3d": "icon-solid icon-cube",
 
-    spring: "fa-solid fa-arrows-spin",
-    magnetic: "fa-solid fa-magnet",
-    elastic: "fa-solid fa-arrows-to-circle",
-    timeline: "fa-solid fa-timeline",
-    scroll: "fa-solid fa-scroll",
-    parallax: "fa-solid fa-layer-group",
+    spring: "icon-solid icon-arrows-spin",
+    magnetic: "icon-solid icon-magnet",
+    elastic: "icon-solid icon-arrows-to-circle",
+    timeline: "icon-solid icon-timeline",
+    scroll: "icon-solid icon-scroll",
+    parallax: "icon-solid icon-layer-group",
   };
 
-  return icons[category] || "fa-solid fa-tag";
+  return icons[category] || "icon-solid icon-tag";
 }
 
 function categoryExplanation(category) {

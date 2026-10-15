@@ -428,12 +428,6 @@ MODAL BACKDROP
   --tag-color: #1cb8ba;
 }
 
-/* Static interaction */
-.detail-modal .tag.static,
-.detail-modal .tag.interaction-static {
-  --tag-color: #aaa;
-}
-
 /* ==================================================
   DETAIL SYNC TAG
   ================================================== */

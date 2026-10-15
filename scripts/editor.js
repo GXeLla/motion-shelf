@@ -13,6 +13,7 @@ import {
   createAnimation,
   createPreviewImage,
   findAnimation,
+  isCustomAnimation,
   normalizeKeyframes,
   updateAnimation,
 } from "./animations.js";
@@ -31,7 +32,7 @@ import {
   resolveEasing,
 } from "./easing.js";
 import { auditAnimationsAtRuntime, applyRuntimeAuditRecord } from "./runtime-audit.js";
-import { saveAnimation } from "./storage.js";
+import { saveAnimation, getLastStorageErrorMessage } from "./storage.js";
 
 const AVAILABLE_CATEGORIES = [
   "image", "photo", "text", "scale", "rotate", "slide", "fade", "3d",
@@ -167,6 +168,7 @@ export function initializeEditor({ modalController, render, showToast }) {
   setupCssAutocomplete(form.elements.parent);
 
   function openEditor(id = null) {
+    if (submitting) return;
     state.editingId = id;
     previewIsCompact = false;
     liveSection.classList.remove("is-sticky");
@@ -176,19 +178,19 @@ export function initializeEditor({ modalController, render, showToast }) {
 
     if (id) {
       const animation = findAnimation(id);
-      if (!animation) return;
+      if (!animation || !isCustomAnimation(animation)) return;
       eyebrow.textContent = "EDIT";
       title.textContent = "Edit animation";
       description.textContent = animation.localPresent
-        ? `Editing ${animation.localPath || "the local CSS file"}. Save here, then update local when ready.`
+        ? `Editing ${animation.localPath || "the local CSS file"}. Save here, then use Sync when ready to publish.`
         : "Edit the preset. Your unsaved draft stays available until refresh.";
-      saveButton.innerHTML = '<i class="fa-solid fa-check"></i> Save changes';
+      saveButton.innerHTML = '<i class="icon-solid icon-check"></i> Save changes';
       fillForm(state.editorDrafts.get(id) || animation);
     } else {
       eyebrow.textContent = "CREATE";
       title.textContent = "New animation";
       description.textContent = "Build global styles, animation timing and easing separately with a live infinite preview.";
-      saveButton.innerHTML = '<i class="fa-solid fa-plus"></i> Add animation';
+      saveButton.innerHTML = '<i class="icon-solid icon-plus"></i> Add animation';
       const draft = state.editorDrafts.get("__new__");
       if (draft) fillForm(draft);
       else setDefaultValues();
@@ -207,7 +209,8 @@ export function initializeEditor({ modalController, render, showToast }) {
     form.elements.name.value = data.name || "";
     form.elements.target.value = data.target || "img";
     form.elements.description.value = data.description || "";
-    form.elements.interaction.value = data.interaction || "appear";
+    form.elements.interaction.value = ["appear", "disappear", "hover", "infinite"].includes(data.interaction)
+      ? data.interaction : "appear";
     form.elements.animationName.value = data.animationName || "";
     form.elements.className.value = getScopedClassName(data.className, data.name);
     form.elements.duration.value = Number(data.duration) || 1.2;
@@ -277,7 +280,7 @@ export function initializeEditor({ modalController, render, showToast }) {
       button.innerHTML = `
         <i class="${escapeAttribute(getCategoryIcon(category))}"></i>
         <span>${escapeHtml(formatCategoryLabel(category))}</span>
-        <i class="fa-solid fa-check category-check"></i>`;
+        <i class="icon-solid icon-check category-check"></i>`;
       button.addEventListener("click", () => {
         button.classList.toggle("active");
         saveDraft();
@@ -311,8 +314,17 @@ export function initializeEditor({ modalController, render, showToast }) {
     state.editorDrafts.delete(state.editingId || "__new__");
   }
 
+  let submitting = false;
   async function submit(event) {
     event.preventDefault();
+    if (submitting) return;
+    submitting = true;
+    saveButton.disabled = true;
+    try { await saveEditor(); }
+    finally { submitting = false; saveButton.disabled = false; }
+  }
+
+  async function saveEditor() {
     const data = getFormData();
     const errors = validateAnimationDraft(data);
     const className = getScopedClassName(data.className, data.name);
@@ -326,7 +338,7 @@ export function initializeEditor({ modalController, render, showToast }) {
 
     if (Object.keys(errors).length) {
       showErrors(errors);
-      showToast(`Fix ${Object.keys(errors).length} editor error${Object.keys(errors).length === 1 ? "" : "s"}.`, "fa-solid fa-triangle-exclamation");
+      showToast(`Fix ${Object.keys(errors).length} editor error${Object.keys(errors).length === 1 ? "" : "s"}.`, "icon-solid icon-triangle-exclamation");
       return;
     }
 
@@ -334,19 +346,22 @@ export function initializeEditor({ modalController, render, showToast }) {
     let savedAnimation;
     if (state.editingId) {
       savedAnimation = await updateAnimation(state.editingId, data);
+      if (!savedAnimation) {
+        saveDraft();
+        showToast(getLastStorageErrorMessage() + " Your editor draft is still open.", "icon-solid icon-triangle-exclamation");
+        return;
+      }
       clearDraft();
-      showToast("Animation updated. Push again to update the local CSS file.", "fa-solid fa-check");
+      showToast("Local custom animation updated.", "icon-solid icon-check");
     } else {
       savedAnimation = await createAnimation(data);
+      if (!savedAnimation) {
+        saveDraft();
+        showToast(getLastStorageErrorMessage() + " Your editor draft is still open.", "icon-solid icon-triangle-exclamation");
+        return;
+      }
       clearDraft();
-      showToast("Animation added. Click its card to copy CSS or push it to local.", "fa-solid fa-check");
-    }
-
-    /* An edit invalidates the previous rendered diagnosis. Keep custom
-       animations separate from Sync, then audit only this saved card. */
-    if (savedAnimation) {
-      applyRuntimeAuditRecord(savedAnimation, null, { quarantineBroken: false });
-      await saveAnimation(savedAnimation);
+      showToast("Local custom animation added. Copy it from its card when ready.", "icon-solid icon-check");
     }
 
     modalController.closeAll();
@@ -354,11 +369,19 @@ export function initializeEditor({ modalController, render, showToast }) {
     state.editingId = null;
 
     if (!savedAnimation) return;
+    void analyzeSavedAnimation(savedAnimation);
+  }
 
+  async function analyzeSavedAnimation(savedAnimation) {
+    const savedAt = savedAnimation.updatedAt;
     try {
-      const report = await auditAnimationsAtRuntime([savedAnimation]);
+      const report = await auditAnimationsAtRuntime([structuredClone(savedAnimation)]);
+      // A delete or replacement can happen while the isolated preview runs.
+      if (findAnimation(savedAnimation.id) !== savedAnimation || savedAnimation.updatedAt !== savedAt) return;
       applyRuntimeAuditRecord(savedAnimation, report.records[0], { quarantineBroken: false });
-      await saveAnimation(savedAnimation);
+      if (!await saveAnimation(savedAnimation, { reportError: false })) {
+        showToast("Animation saved, but its preview analysis could not be stored.", "icon-solid icon-triangle-exclamation");
+      }
       render();
     } catch (error) {
       /* Saving a custom animation must never fail because its informational

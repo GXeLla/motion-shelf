@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { state } from '../scripts/state.js';
 import { normalizeAnimation } from '../scripts/storage.js';
 import { buildExportCSS } from '../scripts/animations.js';
-import { syncLibraryToProject, pushAnimationToCode } from '../scripts/code.js';
+import { syncLibraryToProject } from '../scripts/code.js';
 
 test('publishing skips unchanged files, bounds writes, and recovers safely from failures', async (t) => {
   const previous = { ...state };
@@ -109,6 +109,7 @@ test('publishing skips unchanged files, bounds writes, and recovers safely from 
   assert.equal(directory.counts.streams, 13);
   assert.equal(directory.counts.listed, 1, 'no project reread after publishing');
   assert.equal(directory.files.get('same.css').text, '/* unrelated external CSS */');
+  assert.ok(!result.manifest.includes('same.css'), 'unrelated CSS must not enter the animation catalog');
   assert.equal(new Set(state.animations.map((animation) => animation.codeFileName)).size, 12);
   assert.equal(state.animations[0].codeFileName, 'same-3.css');
   assert.equal(state.animations[1].codeFileName, 'same-2.css');
@@ -120,7 +121,7 @@ test('publishing skips unchanged files, bounds writes, and recovers safely from 
   assert.equal(result.written, 0);
   assert.equal(result.unchanged, 12);
   assert.equal(directory.counts.streams, 0, 'unchanged repeat does not open writable streams, including manifest');
-  assert.equal(directory.counts.read, 13, 'each CSS and manifest read once');
+  assert.equal(directory.counts.read, 14, 'each CSS and manifest read once, including rejecting the unrelated CSS');
   const repeat = { ...directory.counts };
 
   directory.resetCounts();
@@ -135,12 +136,6 @@ test('publishing skips unchanged files, bounds writes, and recovers safely from 
   directory.files.get(state.animations[0].codeFileName).text += '\n/* external modification */';
   result = await syncLibraryToProject(state.animations, callbacks);
   assert.equal(result.written, 1, 'actual file is checked, not stale synced flag');
-
-  directory.resetCounts();
-  await pushAnimationToCode('a', callbacks);
-  assert.equal(directory.counts.streams, 0);
-  assert.equal(directory.counts.read, 1);
-  assert.equal(directory.counts.listed, 0, 'single save does not enumerate/reload the project');
 
   const existing = state.animations[0];
   const existingBefore = directory.files.get(existing.codeFileName).text;
@@ -185,10 +180,15 @@ test('publishing skips unchanged files, bounds writes, and recovers safely from 
 
   directory.resetCounts();
   existing.css = 'opacity: .7;';
-  await Promise.all([pushAnimationToCode('a', callbacks), pushAnimationToCode('a', callbacks)]);
+  await Promise.all([syncLibraryToProject(state.animations, callbacks), syncLibraryToProject(state.animations, callbacks)]);
   assert.equal(directory.counts.streams, 1, 'overlapping saves serialize, second skips');
   assert.equal(directory.files.get(existing.codeFileName).text, buildExportCSS(existing));
   t.diagnostic(`First publish: ${initial.streams} streams. Repeat: ${repeat.streams} streams, ${repeat.read} reads.`);
 
-});
+  const foreign = '/* @motion-shelf {"id":"someone-else"} */\n.foreign { opacity: 1; }';
+  directory.add(existing.codeFileName, foreign);
+  result = await syncLibraryToProject(state.animations, callbacks);
+  assert.equal(directory.files.get(existing.codeFileName).text, foreign, "a matching filename does not authorize overwriting another animation");
+  assert.ok(result.failures.includes(existing.name));
 
+});

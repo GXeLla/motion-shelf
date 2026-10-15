@@ -107,7 +107,6 @@ test("deleting rebuilds the catalog and waits its turn behind a write", async (t
     showToast: (message) => messages.push(message),
     render: () => {},
     closeAll: () => {},
-    updateWorkspaceUI: () => {},
     onProgress: () => {},
   };
 
@@ -151,6 +150,20 @@ test("deleting rebuilds the catalog and waits its turn behind a write", async (t
   assert.equal(directory.files.has("animation-c.css"), false, "the file is still removed");
   assert.match(messages.at(-1), /catalog could not be updated/);
 
-  assert.equal(state.projectBusy, false,
-    "the workspace is released once every queued write has finished");
+
+  directory.failManifest = false;
+  const foreign = '/* @motion-shelf {"id":"different-owner"} */';
+  directory.add("animation-d.css", foreign);
+  order.length = 0;
+  await deleteAnimationsFromCode(["d"], callbacks);
+  assert.equal(directory.files.get("animation-d.css").text, foreign);
+  assert.deepEqual(order, [], "identity mismatch must not delete or rewrite the manifest");
+  assert.match(messages.at(-1), /Wrong file/);
+
+  const browserOnly = create("browser-only");
+  browserOnly.name = "Unrelated";
+  directory.add("unrelated.css", "/* not a Motion Shelf animation */");
+  state.animations.push(browserOnly);
+  await deleteAnimationsFromCode([browserOnly.id], callbacks);
+  assert.equal(directory.files.has("unrelated.css"), true, "never guess a filename for a browser-only animation");
 });

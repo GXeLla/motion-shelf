@@ -6,8 +6,8 @@
  * mutation the key cannot see is a mutation that stays in memory and is lost
  * when the tab closes.
  *
- * So this walks the actual mutation paths in the app -- the editor, Push to
- * Code, the runtime audit -- and fails if any of them stops moving the key.
+ * So this walks the actual mutation paths in the app -- the editor, Sync
+ * publishing, the runtime audit -- and fails if any stops moving the key.
  */
 
 import test from "node:test";
@@ -72,7 +72,7 @@ test("an edit moves the key", () => {
   assert.notEqual(keyOf(base()), keyOf(edited));
 });
 
-test("Push to Code moves the key, though it does not stamp updatedAt", () => {
+test("Sync publishing moves the key, though it does not stamp updatedAt", () => {
   const pushed = base();
 
   /* Exactly the writes in code.js writeAnimation(). */

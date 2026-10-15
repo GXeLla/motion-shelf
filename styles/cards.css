@@ -493,10 +493,6 @@
   --tag-color: #ff7c91;
 }
 
-.tag.static {
-  --tag-color: #aaa;
-}
-
 .tag.d3,
 .tag.category-3d {
   --tag-color: #b99cff;
@@ -779,14 +775,6 @@
 }
 
 /* ==================================================
-     CODE ACTION
-     ================================================== */
-
-.card-action.code {
-  color: var(--primary);
-}
-
-/* ==================================================
      PRIMARY ACTION
      ================================================== */
 
@@ -807,8 +795,18 @@
 .code-synced {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 
   gap: 5px;
+
+  min-height: 31px;
+
+  padding: 0 9px;
+
+  border: 1px solid rgba(84, 169, 234, 0.25);
+  border-radius: 8px;
+
+  background: rgba(84, 169, 234, 0.1);
 
   color: var(--primary);
 

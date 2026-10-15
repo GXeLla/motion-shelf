@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="app-version" content="1.30" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -12,37 +13,25 @@
 
     <title>Motion Shelf — Animation Library</title>
 
-    <!-- Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-
-    <link
-      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
-
-    <!-- Font Awesome -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-    />
+    <link rel="stylesheet" href="./styles/fonts.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/icons.css?v=1.30" />
 
     <!-- Global -->
-    <link rel="stylesheet" href="./styles/styles.css" />
+    <link rel="stylesheet" href="./styles/styles.css?v=1.30" />
 
     <!-- Components -->
-    <link rel="stylesheet" href="./styles/base.css" />
-    <link rel="stylesheet" href="./styles/header.css" />
-    <link rel="stylesheet" href="./styles/filters.css" />
-    <link rel="stylesheet" href="./styles/cards.css" />
-    <link rel="stylesheet" href="./styles/modals.css" />
-    <link rel="stylesheet" href="./styles/forms.css" />
-    <link rel="stylesheet" href="./styles/enhancements.css" />
-    <link rel="stylesheet" href="./styles/library-atmosphere.css" />
-    <link rel="stylesheet" href="./styles/toast.css" />
+    <link rel="stylesheet" href="./styles/base.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/header.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/filters.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/cards.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/modals.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/forms.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/enhancements.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/library-atmosphere.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/toast.css?v=1.30" />
 
     <!-- ONLY @keyframes -->
-    <link rel="stylesheet" href="./styles/keyframes.css" />
+    <link rel="stylesheet" href="./styles/keyframes.css?v=1.30" />
   </head>
 
   <body class="library-page">
@@ -69,7 +58,7 @@
       <header class="site-header">
         <div class="brand">
           <div class="brand-mark">
-            <i class="fa-solid fa-wave-square"></i>
+            <i class="icon-solid icon-wave-square"></i>
           </div>
 
           <div class="brand-copy">
@@ -85,42 +74,15 @@
             type="button"
             title="Read the campaign archives, classify and group what they contain, and bring the canonical animations into the library. The archives are opened read only."
           >
-            <i class="fa-solid fa-rotate"></i>
+            <i class="icon-solid icon-rotate"></i>
             <span>Sync</span>
           </button>
-          <div class="project-link" id="projectLink" data-status="unlinked">
-            <button
-              class="project-link-main"
-              id="projectLinkButton"
-              type="button"
-              title="Link the project folder once, then Motion Shelf will reuse it."
-            >
-              <span class="project-link-icon">
-                <i class="fa-solid fa-link"></i>
-              </span>
-              <span class="project-link-copy">
-                <strong id="projectLinkTitle">Link project</strong>
-                <small id="projectLinkPath">Choose the folder containing index.html</small>
-              </span>
-            </button>
-            <button
-              class="project-change-button"
-              id="projectChangeButton"
-              type="button"
-              title="Choose a different project folder"
-              aria-label="Choose a different project folder"
-              hidden
-            >
-              <i class="fa-solid fa-folder-tree"></i>
-            </button>
-          </div>
-
           <button
             class="button primary new-button"
             id="newAnimationButton"
             type="button"
           >
-            <i class="fa-solid fa-plus"></i>
+            <i class="icon-solid icon-plus"></i>
             <span>New</span>
           </button>
 
@@ -129,7 +91,7 @@
             id="selectModeButton"
             type="button"
           >
-            <i class="fa-solid fa-check-double"></i>
+            <i class="icon-solid icon-check-double"></i>
             <span>Select</span>
           </button>
 
@@ -175,7 +137,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
             type="button"
             disabled
           >
-            <i class="fa-solid fa-trash"></i>
+            <i class="icon-solid icon-trash"></i>
             Delete
           </button>
         </div>
@@ -188,7 +150,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
       <main>
         <section class="toolbar">
           <div class="search-wrap">
-            <i class="fa-solid fa-magnifying-glass"></i>
+            <i class="icon-solid icon-magnifying-glass"></i>
 
             <input
               id="searchInput"
@@ -230,7 +192,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
 
         <div class="empty-state" id="emptyState">
           <div class="empty-icon">
-            <i class="fa-regular fa-face-frown"></i>
+            <i class="icon-regular icon-face-frown"></i>
           </div>
 
           <h3>No animations yet</h3>
@@ -238,7 +200,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
           <p>Create your first animation with the New button.</p>
 
           <button class="button primary" id="emptyNewButton" type="button">
-            <i class="fa-solid fa-plus"></i>
+            <i class="icon-solid icon-plus"></i>
             Create animation
           </button>
         </div>
@@ -276,7 +238,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
           type="button"
           aria-label="Close details"
         >
-          <i class="fa-solid fa-xmark"></i>
+          <i class="icon-solid icon-xmark"></i>
         </button>
 
         <div id="detailModalContent"></div>
@@ -300,7 +262,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
           type="button"
           aria-label="Close editor"
         >
-          <i class="fa-solid fa-xmark"></i>
+          <i class="icon-solid icon-xmark"></i>
         </button>
 
         <div class="modal-heading">
@@ -325,7 +287,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
                 <span class="section-kicker">ALWAYS LIVE</span>
                 <h3 id="livePreviewTitle">Safe-frame preview</h3>
               </div>
-              <span class="preview-loop-badge"><i class="fa-solid fa-infinity"></i> Editor loop</span>
+              <span class="preview-loop-badge"><i class="icon-solid icon-infinity"></i> Editor loop</span>
             </div>
 
             <div class="editor-live-stage" id="editorLiveStage">
@@ -336,7 +298,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
                 <img id="editorLiveImage" alt="Live animation preview" />
               </div>
             </div>
-            <div class="editor-preview-meta"><code id="editorClassPreview">.ms-animation</code><span><i class="fa-solid fa-lock"></i> Current animation only</span></div>
+            <div class="editor-preview-meta"><code id="editorClassPreview">.ms-animation</code><span><i class="icon-solid icon-lock"></i> Current animation only</span></div>
             </section>
 
             <div class="editor-controls">
@@ -391,17 +353,17 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
 
               <div class="device-selector" id="deviceSelector">
                 <button type="button" data-device="desktop">
-                  <i class="fa-solid fa-desktop"></i>
+                  <i class="icon-solid icon-desktop"></i>
                   Desktop
                 </button>
 
                 <button type="button" data-device="mobile">
-                  <i class="fa-solid fa-mobile-screen"></i>
+                  <i class="icon-solid icon-mobile-screen"></i>
                   Mobile
                 </button>
 
                 <button type="button" data-device="both">
-                  <i class="fa-solid fa-display"></i>
+                  <i class="icon-solid icon-display"></i>
                   Both
                 </button>
               </div>
@@ -412,7 +374,7 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
             <!-- INTERACTION -->
 
             <label>
-              <span>Interaction</span>
+              <span>Interaction / filter</span>
 
               <select name="interaction">
                 <option value="appear">Appear</option>
@@ -423,7 +385,6 @@ Copied, exported and pushed CSS keeps the animation's real settings and parent r
 
                 <option value="infinite">Infinite</option>
 
-                <option value="static">Static</option>
               </select>
             </label>
 
@@ -627,7 +588,7 @@ transform-style: preserve-3d;"
               class="button primary"
               id="saveAnimationButton"
             >
-              <i class="fa-solid fa-plus"></i>
+              <i class="icon-solid icon-plus"></i>
               Add animation
             </button>
           </div>
@@ -652,12 +613,12 @@ transform-style: preserve-3d;"
           type="button"
           aria-label="Close"
         >
-          <i class="fa-solid fa-xmark"></i>
+          <i class="icon-solid icon-xmark"></i>
         </button>
 
         <div class="modal-heading">
           <span class="eyebrow">
-            <i class="fa-solid fa-radar"></i>
+            <i class="icon-solid icon-radar"></i>
             ARCHIVE SCAN
           </span>
 
@@ -677,7 +638,7 @@ transform-style: preserve-3d;"
           </button>
 
           <button class="button primary" id="scanImportButton" type="button">
-            <i class="fa-solid fa-file-import"></i>
+            <i class="icon-solid icon-file-import"></i>
             <span id="scanImportLabel">Add to library</span>
           </button>
         </div>
@@ -697,7 +658,7 @@ transform-style: preserve-3d;"
           type="button"
           aria-label="Close"
         >
-          <i class="fa-solid fa-xmark"></i>
+          <i class="icon-solid icon-xmark"></i>
         </button>
 
         <div class="modal-heading">
@@ -713,7 +674,7 @@ transform-style: preserve-3d;"
         <div class="delete-options">
           <button class="delete-option" id="deleteLocalButton" type="button">
             <span class="delete-option-icon">
-              <i class="fa-solid fa-database"></i>
+              <i class="icon-solid icon-database"></i>
             </span>
 
             <span>
@@ -725,7 +686,7 @@ transform-style: preserve-3d;"
 
           <button class="delete-option" id="deleteCodeButton" type="button">
             <span class="delete-option-icon danger-icon">
-              <i class="fa-solid fa-folder-open"></i>
+              <i class="icon-solid icon-folder-open"></i>
             </span>
 
             <span>
@@ -745,7 +706,7 @@ transform-style: preserve-3d;"
   ================================================== -->
 
     <div class="toast" id="toast" role="status" aria-live="polite">
-      <i id="toastIcon" class="fa-solid fa-check"></i>
+      <i id="toastIcon" class="icon-solid icon-check"></i>
 
       <span id="toastText"> Done </span>
     </div>
@@ -754,9 +715,52 @@ transform-style: preserve-3d;"
   APP
   ================================================== -->
 
-    <script type="module" src="./scripts/app.js"></script>
-    <script type="module" src="./scripts/library-atmosphere.js"></script>
-    <script type="module" src="./scripts/scroll-progress.js"></script>
-    <script type="module" src="./scripts/back-to-top.js"></script>
+    <!-- Version every module, including transitive imports, without duplicating instances. -->
+    <script type="importmap">
+{
+  "imports": {
+    "./scripts/animation-code.js": "./scripts/animation-code.js?v=1.30",
+    "./scripts/animation-extract.js": "./scripts/animation-extract.js?v=1.30",
+    "./scripts/animation-family.js": "./scripts/animation-family.js?v=1.30",
+    "./scripts/animations.js": "./scripts/animations.js?v=1.30",
+    "./scripts/app.js": "./scripts/app.js?v=1.30",
+    "./scripts/back-to-top.js": "./scripts/back-to-top.js?v=1.30",
+    "./scripts/background.js": "./scripts/background.js?v=1.30",
+    "./scripts/campaign-scan.js": "./scripts/campaign-scan.js?v=1.30",
+    "./scripts/cards.js": "./scripts/cards.js?v=1.30",
+    "./scripts/code.js": "./scripts/code.js?v=1.30",
+    "./scripts/delete-countdown.js": "./scripts/delete-countdown.js?v=1.30",
+    "./scripts/detail-adjustments.js": "./scripts/detail-adjustments.js?v=1.30",
+    "./scripts/easing.js": "./scripts/easing.js?v=1.30",
+    "./scripts/editor.js": "./scripts/editor.js?v=1.30",
+    "./scripts/favourites.js": "./scripts/favourites.js?v=1.30",
+    "./scripts/filesystem.js": "./scripts/filesystem.js?v=1.30",
+    "./scripts/filters.js": "./scripts/filters.js?v=1.30",
+    "./scripts/folder-picker.js": "./scripts/folder-picker.js?v=1.30",
+    "./scripts/icons.js": "./scripts/icons.js?v=1.30",
+    "./scripts/library-atmosphere.js": "./scripts/library-atmosphere.js?v=1.30",
+    "./scripts/modals.js": "./scripts/modals.js?v=1.30",
+    "./scripts/origin.js": "./scripts/origin.js?v=1.30",
+    "./scripts/parameters.js": "./scripts/parameters.js?v=1.30",
+    "./scripts/preview-hint.js": "./scripts/preview-hint.js?v=1.30",
+    "./scripts/preview-safety.js": "./scripts/preview-safety.js?v=1.30",
+    "./scripts/preview-scene.js": "./scripts/preview-scene.js?v=1.30",
+    "./scripts/runtime-audit.js": "./scripts/runtime-audit.js?v=1.30",
+    "./scripts/scroll-progress.js": "./scripts/scroll-progress.js?v=1.30",
+    "./scripts/state.js": "./scripts/state.js?v=1.30",
+    "./scripts/storage.js": "./scripts/storage.js?v=1.30",
+    "./scripts/sync-merge.js": "./scripts/sync-merge.js?v=1.30",
+    "./scripts/sync-ui.js": "./scripts/sync-ui.js?v=1.30",
+    "./scripts/tooltip.js": "./scripts/tooltip.js?v=1.30",
+    "./scripts/utils.js": "./scripts/utils.js?v=1.30",
+    "./scripts/validation.js": "./scripts/validation.js?v=1.30",
+    "./scripts/variant-groups.js": "./scripts/variant-groups.js?v=1.30"
+  }
+}
+    </script>
+    <script type="module" src="./scripts/app.js?v=1.30"></script>
+    <script type="module" src="./scripts/library-atmosphere.js?v=1.30"></script>
+    <script type="module" src="./scripts/scroll-progress.js?v=1.30"></script>
+    <script type="module" src="./scripts/back-to-top.js?v=1.30"></script>
   </body>
 </html>

@@ -678,29 +678,3 @@ export function resolveParameters(animation = {}) {
     parentClassName: stored.parentClassName || "",
   };
 }
-
-/*
- * Only what changed. Comparing the record's current values against the
- * canonical defaults it was published with is what lets a project override one
- * value instead of copying the whole animation.
- */
-export function changedParameters(animation = {}) {
-  const stored = animation.parameters;
-
-  if (!stored) return { target: [], parent: [] };
-
-  const current = parametersFromRecord(animation);
-
-  const diff = (canonical, now) => canonical
-    .map((entry) => {
-      const match = now.find((candidate) => candidate.name === entry.name);
-      if (!match || match.value === entry.value) return null;
-      return { ...entry, value: match.value, canonical: entry.value };
-    })
-    .filter(Boolean);
-
-  return {
-    target: diff(stored.target || [], current.target),
-    parent: diff(stored.parent || [], current.parent),
-  };
-}

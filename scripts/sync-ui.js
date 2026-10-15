@@ -8,10 +8,10 @@
  */
 
 import { state } from "./state.js";
-import { saveAnimations } from "./storage.js";
+import { saveAnimations, isAnimationDeleted, getLastStorageErrorMessage } from "./storage.js";
 import { escapeHtml } from "./utils.js";
 import { syncLibraryToProject } from "./code.js";
-import { mergeImportOrigins, mergeScannedAnimation } from "./sync-merge.js";
+import { mergeImportOrigins, mergeScannedAnimation, uniqueImportedClasses } from "./sync-merge.js";
 import { familyFingerprint } from "./animation-family.js";
 import { parseDeclarations, parseKeyframes } from "./animation-extract.js";
 import {
@@ -25,7 +25,6 @@ import { isQuarantinedAnimation } from "./filters.js";
 import {
   SOURCE_FOLDER_NAMES,
   createHandleAdapter,
-  discoverSourceRoots,
   isSameArchive,
   loadRememberedRoots,
   loadScanCache,
@@ -85,7 +84,7 @@ const STAT_LABELS = [
   ["parseErrors", "Sync Errors", "Source files that could not be processed"],
 ];
 
-export function initializeSync({ render, showToast, updateWorkspaceUI = () => {} }) {
+export function initializeSync({ render, showToast }) {
   const button = document.getElementById("syncButton");
   const backdrop = document.getElementById("scanModalBackdrop");
   const statsList = document.getElementById("scanStats");
@@ -148,7 +147,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
 
     (await loadRememberedRoots()).forEach((root) => {
       const match = WANTED.find((name) => isSameArchive(name, root.repository));
-      if (match && !found.has(match)) found.set(match, root);
+      if (match && isSameArchive(match, root.handle.name) && !found.has(match)) found.set(match, root);
     });
 
     for (const wanted of WANTED) {
@@ -164,8 +163,11 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         throw error;
       }
 
-      /* One pick can satisfy both archives when it is their shared parent. */
-      const discovered = await discoverSourceRoots(picked);
+      // Reject a wrong name before inspecting its contents or opening another picker.
+      if (!isSameArchive(wanted, picked.name)) {
+        throw new Error(`Wrong folder. Choose ${wanted}.`);
+      }
+      const discovered = [{ repository: wanted, handle: picked }];
 
       for (const root of discovered) {
         const match = WANTED.find((name) => isSameArchive(name, root.repository));
@@ -209,7 +211,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
     if (busy) return;
 
     if (!supportsSourceScanning()) {
-      showToast("Folder access is not supported. Use Chrome or Edge on localhost.", "fa-solid fa-triangle-exclamation");
+      showToast("Folder access is not supported. Use Chrome or Edge on localhost.", "icon-solid icon-triangle-exclamation");
       return;
     }
 
@@ -223,7 +225,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       if (!roots.length) {
         showToast(
           "Neither " + SOURCE_FOLDER_NAMES.slice(0, 2).join(" nor ") + " could be located.",
-          "fa-solid fa-triangle-exclamation",
+          "icon-solid icon-triangle-exclamation",
         );
         return;
       }
@@ -359,7 +361,7 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
     } catch (error) {
       if (error && error.name === "AbortError") return;
       console.error("Sync failed:", error);
-      showToast("The sync could not be completed.", "fa-solid fa-triangle-exclamation");
+      showToast(error?.message?.startsWith("Wrong folder") ? error.message : "The sync could not be completed.", "icon-solid icon-triangle-exclamation");
     } finally {
       busy = false;
       button.disabled = false;
@@ -384,9 +386,10 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
       const imported = state.animations.filter((animation) => animation.origin);
 
       const byFamily = new Map();
+      const unmatched = [];
       imported.forEach((animation) => {
         const key = semanticFamilyKey(animation);
-        if (!key) return;
+        if (!key) { unmatched.push(animation); return; }
 
         const existing = byFamily.get(key);
         /* Several legacy cards can now resolve to one semantic family. Keep
@@ -396,8 +399,6 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
           ? { ...existing, origin: mergeImportOrigins(existing.origin, animation.origin) }
           : animation);
       });
-
-      const manualClasses = new Set(manual.map((animation) => animation.className));
 
       let added = 0;
       let refreshed = 0;
@@ -409,11 +410,8 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         const key = animation.origin.familyFingerprint;
         const existing = byFamily.get(key);
 
-        /* Never take a class name a hand made animation already uses. */
-        let record = animation;
-        if (manualClasses.has(record.className)) {
-          record = { ...record, className: record.className + "-imported" };
-        }
+        const record = animation;
+        if (isAnimationDeleted(existing?.id || record.id)) return;
 
         if (existing) {
           const merged = mergeScannedAnimation(record, existing);
@@ -430,8 +428,16 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         next.push(mergeScannedAnimation(record));
       });
 
-      state.animations = [...next, ...byFamily.values(), ...manual];
-      await saveAnimations(state.animations);
+      const candidates = [
+        ...uniqueImportedClasses([...byFamily.values(), ...unmatched, ...next], manual), ...manual,
+      ].filter(animation => !isAnimationDeleted(animation.id));
+      if (!await saveAnimations(candidates)) {
+        title.textContent = "Sync not saved";
+        description.textContent = getLastStorageErrorMessage() + " Your scan results are kept here so you can retry.";
+        showToast(description.textContent, "icon-solid icon-triangle-exclamation");
+        return;
+      }
+      state.animations = candidates;
 
       pending = [];
       render();
@@ -452,21 +458,19 @@ export function initializeSync({ render, showToast, updateWorkspaceUI = () => {}
         added + " usable added, " + refreshed + " refreshed, " + unchanged + " unchanged"
         + (quarantined ? ", " + quarantined + " quarantined" : "")
         + ". " + manual.length + " of your own kept.",
-        "fa-solid fa-check",
+        "icon-solid icon-check",
       );
 
-      /* Sharing is the point of Sync: write the catalog when a project is
-         linked, so a commit carries it to everyone. */
-      if (state.projectHandle && state.projectPermission === "granted") {
-        setLabel("Saving...");
-        await syncLibraryToProject(state.animations, {
-          showToast, render, updateWorkspaceUI,
-          onProgress: ({ processed, total }) => setLabel("Saving " + processed + " / " + total),
-        });
-      }
+      /* Sync chooses a project folder only when it needs to publish. There is
+         no persistent project-link control in the header. */
+      setLabel("Saving...");
+      await syncLibraryToProject(state.animations, {
+        showToast, render,
+        onProgress: ({ processed, total }) => setLabel("Saving " + processed + " / " + total),
+      });
     } catch (error) {
       console.error("Could not apply sync:", error);
-      showToast("Could not apply the scanned animations.", "fa-solid fa-triangle-exclamation");
+      showToast("Could not apply the scanned animations.", "icon-solid icon-triangle-exclamation");
     } finally {
       busy = false;
       button.disabled = false;

@@ -14,17 +14,30 @@ const ANIMATION_STORE = "animations";
 const META_STORE = "meta";
 const RECORD_SCHEMA = 1;
 const MIGRATION_KEY = "session-v4-migrated";
+const DELETED_KEY = "deleted-animation-ids";
+let deletedIds = new Set();
+export function isAnimationDeleted(id) { return deletedIds.has(id); }
 
 let databasePromise = null;
 let persistedFingerprints = new Map();
 let onPersistenceError = (error) => console.error("Could not persist animations:", error);
 let writeQueue = Promise.resolve();
+let lastStorageError = null;
+
+export function storageErrorMessage(error, backend = supportsAnimationDatabase() ? "IndexedDB" : "sessionStorage") {
+  return error?.name === "QuotaExceededError"
+    ? `Browser storage (${backend}) is full or its storage limit was reached. Your changes were not saved. Free space and try again.`
+    : `Could not save to ${backend}. Browser storage may be unavailable or blocked. Your changes were not saved.`;
+}
+
+export function getLastStorageErrorMessage() { return storageErrorMessage(lastStorageError); }
 
 export function setStorageErrorHandler(handler) {
   onPersistenceError = typeof handler === "function" ? handler : onPersistenceError;
 }
 
 function reportPersistenceError(error) {
+  lastStorageError = error;
   console.error("Could not persist animations:", error);
   onPersistenceError(error);
 }
@@ -106,7 +119,7 @@ function fingerprint(animation) {
   return [
     animation.updatedAt,
 
-    /* Written by Push to Code (scripts/code.js), which does not stamp
+    /* Written by Sync publishing (scripts/code.js), which does not stamp
        updatedAt. */
     animation.codeFileName,
     animation.codeSynced ? 1 : 0,
@@ -177,10 +190,14 @@ function removeLegacyRecords(ids) {
 async function loadDatabaseAnimations() {
   const db = await openAnimationDatabase();
   const transaction = db.transaction([ANIMATION_STORE, META_STORE], "readonly");
-  const animations = await requestResult(transaction.objectStore(ANIMATION_STORE).getAll());
-  const migrated = await requestResult(transaction.objectStore(META_STORE).get(MIGRATION_KEY));
+  const [animations, migrated, deleted] = await Promise.all([
+    requestResult(transaction.objectStore(ANIMATION_STORE).getAll()),
+    requestResult(transaction.objectStore(META_STORE).get(MIGRATION_KEY)),
+    requestResult(transaction.objectStore(META_STORE).get(DELETED_KEY)),
+  ]);
   await transactionDone(transaction);
-  return { animations, migrated: Boolean(migrated) };
+  deletedIds = new Set(deleted?.ids || []);
+  return { animations: animations.filter(a => !deletedIds.has(a.id)), migrated: Boolean(migrated) };
 }
 
 async function migrateLegacyAnimations(animations) {
@@ -238,25 +255,29 @@ export async function loadAnimations() {
   }
 }
 
-async function writeRecords(records, { removeIds = [] } = {}) {
+async function writeRecords(records, { removeIds = [], remember = false } = {}) {
   const db = await openAnimationDatabase();
-  const transaction = db.transaction(ANIMATION_STORE, "readwrite");
+  const transaction = db.transaction([ANIMATION_STORE, META_STORE], "readwrite");
+  records = records.filter(a => !deletedIds.has(a.id));
+  const nextDeleted = new Set([...deletedIds, ...(remember ? removeIds : [])]);
   const store = transaction.objectStore(ANIMATION_STORE);
   records.forEach((animation) => store.put(storedRecord(animation)));
   removeIds.forEach((id) => store.delete(id));
+  if (remember) transaction.objectStore(META_STORE).put({ ids: [...nextDeleted] }, DELETED_KEY);
   await transactionDone(transaction);
+  deletedIds = nextDeleted;
   records.forEach((animation) => persistedFingerprints.set(animation.id, fingerprint(animation)));
   removeIds.forEach((id) => persistedFingerprints.delete(id));
 }
 
-export async function saveAnimation(animation) {
-  if (!animation) return false;
+export async function saveAnimation(animation, { reportError = true } = {}) {
+  if (!animation || isAnimationDeleted(animation.id)) return false;
   if (!supportsAnimationDatabase()) return saveLegacyRecord(animation);
   try {
     await queueWrite(() => writeRecords([animation]));
     return true;
   } catch (error) {
-    reportPersistenceError(error);
+    if (reportError) reportPersistenceError(error);
     return false;
   }
 }
@@ -279,12 +300,16 @@ export async function saveAnimationBatch(animations) {
   }
 }
 
-export async function removeAnimationRecords(ids) {
+export async function removeAnimationRecords(ids, { remember = false } = {}) {
   const removeIds = [...new Set(Array.isArray(ids) ? ids : [ids])].filter(Boolean);
   if (!removeIds.length) return true;
-  if (!supportsAnimationDatabase()) return removeLegacyRecords(removeIds);
+  if (!supportsAnimationDatabase()) {
+    const saved = removeLegacyRecords(removeIds);
+    if (saved && remember) removeIds.forEach(id => deletedIds.add(id));
+    return saved;
+  }
   try {
-    await queueWrite(() => writeRecords([], { removeIds }));
+    await queueWrite(() => writeRecords([], { removeIds, remember }));
     return true;
   } catch (error) {
     reportPersistenceError(error);
@@ -363,6 +388,8 @@ export function normalizeAnimation(animation) {
     codeFileName: animation.codeFileName || null,
 
     codeSynced: Boolean(animation.codeSynced),
+
+    locallyEdited: Boolean(animation.locallyEdited),
 
     localPresent: Boolean(animation.localPresent),
 

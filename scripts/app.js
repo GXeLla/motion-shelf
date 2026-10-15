@@ -1,13 +1,14 @@
 import { createDetailDraft, renderDetailAdjustments, setDetailValue } from "./detail-adjustments.js";
 import { applyDeclarationBlock } from "./validation.js";
 import { normalizeKeyframes, normalizePreviewViewportUnits, getPreviewDuration, getAnimationDelay, getResolvedEasing } from "./animations.js";
-import { state, beginProjectBusy, endProjectBusy } from "./state.js";
+import { state } from "./state.js";
 
 import {
   loadAnimations,
   saveAnimationBatch,
   saveAnimations,
   setStorageErrorHandler,
+  storageErrorMessage,
   removeAnimationRecords,
 } from "./storage.js";
 
@@ -23,6 +24,8 @@ import {
   findAnimation,
   applyPreviewBackdrop,
   createPreviewImage,
+  describeAnimationSource,
+  isCustomAnimation,
 } from "./animations.js";
 
 import {
@@ -49,8 +52,8 @@ import { createModalController } from "./modals.js";
 import { initializeEditor } from "./editor.js";
 
 import {
-  pushAnimationToCode,
   deleteAnimationsFromCode,
+  prepareCodeDeletion,
   copyText,
 } from "./code.js";
 
@@ -61,16 +64,11 @@ import {
   formatDateTimeDDMMYY,
 } from "./utils.js";
 
-import {
-  connectProject,
-  getProjectDisplayPath,
-  loadAnimationsFromProject,
-  loadAnimationsFromRepository,
-  restoreProjectLink,
-  supportsProjectFolders,
-} from "./filesystem.js";
+import { loadAnimationsFromRepository } from "./filesystem.js";
 
 import { initializeAmbientBackground } from "./background.js";
+import { initializeIcons } from "./icons.js";
+import { confirmDelayedDeletion } from "./delete-countdown.js";
 
 import { initializeSync } from "./sync-ui.js";
 import {
@@ -124,27 +122,18 @@ const toastIcon = document.getElementById("toastIcon");
 
 const toastText = document.getElementById("toastText");
 
-const projectLink = document.getElementById("projectLink");
-
-const projectLinkButton = document.getElementById("projectLinkButton");
-
-const projectChangeButton = document.getElementById("projectChangeButton");
-
-const projectLinkTitle = document.getElementById("projectLinkTitle");
-
-const projectLinkPath = document.getElementById("projectLinkPath");
-
 /* ==================================================
 INITIALIZE
 ================================================== */
 
 initializeAmbientBackground();
+initializeIcons();
 
 /* One tooltip element for the page; the cards only carry data-tooltip. */
 initializeTooltips();
 
-setStorageErrorHandler(() => {
-  showToast("Animation changes could not be saved. Your current session is still open.", "fa-solid fa-triangle-exclamation");
+setStorageErrorHandler((error) => {
+  showToast(storageErrorMessage(error), "icon-solid icon-triangle-exclamation");
 });
 
 state.animations = [];
@@ -166,18 +155,16 @@ initializeFilters({
 initializeSync({
   render,
   showToast,
-  updateWorkspaceUI,
 });
 
 
 const storedAnimationsReady = initializeStoredAnimations();
 const repositoryReady = storedAnimationsReady.then(initializeRepositoryAnimations);
-const projectReady = storedAnimationsReady.then(initializeProjectWorkspace);
 
 /* Custom/session animations never enter the source Sync pipeline. Analyze
    them independently once their stored and project-backed records are loaded,
    so their cards receive the same perceptual hints without inflating Sync. */
-Promise.allSettled([repositoryReady, projectReady]).then(auditCustomAnimations);
+Promise.allSettled([repositoryReady]).then(auditCustomAnimations);
 
 /* ==================================================
 MAIN RENDER
@@ -218,7 +205,6 @@ function render() {
 
   renderFilterButtons(filterList);
 
-  updateWorkspaceUI();
 }
 
 async function auditCustomAnimations() {
@@ -260,9 +246,9 @@ async function auditCustomAnimations() {
 }
 
 async function initializeStoredAnimations() {
-  state.animations = (await loadAnimations()).filter(
-    (animation) => !animation.localPresent && animation.source !== "local",
-  ).map((animation) => ({ ...animation, codeSynced: false }));
+  // Project folders are no longer reopened at startup. Keep their stored
+  // records too, or previously saved custom animations would disappear.
+  state.animations = await loadAnimations();
   render();
 }
 
@@ -278,14 +264,6 @@ emptyNewButton.addEventListener("click", () => {
   editor.openEditor();
 });
 
-projectLinkButton.addEventListener("click", () => {
-  runProjectLinkAction(false);
-});
-
-projectChangeButton.addEventListener("click", () => {
-  runProjectLinkAction(true);
-});
-
 async function initializeRepositoryAnimations() {
   try {
     const animations = await loadAnimationsFromRepository();
@@ -295,131 +273,15 @@ async function initializeRepositoryAnimations() {
     if (animations.skipped?.length) {
       showToast(
         `${animations.skipped.length} animation${animations.skipped.length === 1 ? "" : "s"} listed in the catalog could not be loaded. Run Sync to rebuild it.`,
-        "fa-solid fa-triangle-exclamation",
+        "icon-solid icon-triangle-exclamation",
       );
     }
 
     render();
   } catch (error) {
     console.error("Could not load committed animations:", error);
-    showToast("Could not load the committed animation catalog.", "fa-solid fa-triangle-exclamation");
+    showToast("Could not load the committed animation catalog.", "icon-solid icon-triangle-exclamation");
   }
-}
-
-async function initializeProjectWorkspace() {
-  if (!supportsProjectFolders()) {
-    state.projectPermission = "unsupported";
-    updateWorkspaceUI();
-    render();
-    return;
-  }
-
-  beginProjectBusy();
-  updateWorkspaceUI();
-
-  try {
-    const handle = await restoreProjectLink();
-    updateWorkspaceUI();
-
-    if (handle) {
-      const result = await loadAnimationsFromProject();
-
-      if (result.errors.length) {
-        showToast(
-          `${result.errors.length} local CSS file${result.errors.length === 1 ? "" : "s"} could not be read.`,
-          "fa-solid fa-triangle-exclamation",
-        );
-      }
-    }
-  } finally {
-    endProjectBusy();
-    updateWorkspaceUI();
-    render();
-  }
-}
-
-async function runProjectLinkAction(changeFolder) {
-  if (state.projectBusy) return;
-  beginProjectBusy();
-  updateWorkspaceUI();
-
-  try {
-    if (
-      changeFolder ||
-      !state.projectHandle ||
-      state.projectPermission !== "granted"
-    ) {
-      await connectProject({ changeFolder });
-    }
-
-    const result = await loadAnimationsFromProject();
-    render();
-    showToast(
-      `Linked ${getProjectDisplayPath()} · ${result.animations.length} animation${result.animations.length === 1 ? "" : "s"} loaded.`,
-      "fa-solid fa-folder-check",
-    );
-  } catch (error) {
-    if (error?.name === "AbortError") return;
-    if (error?.name === "NotAllowedError") {
-      showToast("Folder permission was not granted.", "fa-solid fa-triangle-exclamation");
-      return;
-    }
-    console.error("Project link failed:", error);
-    showToast(error?.message || "Could not link the project folder.", "fa-solid fa-triangle-exclamation");
-  } finally {
-    endProjectBusy();
-    updateWorkspaceUI();
-  }
-}
-
-function updateWorkspaceUI() {
-  projectLinkButton.disabled = state.projectBusy;
-  projectChangeButton.disabled = state.projectBusy;
-
-  if (state.projectBusy) {
-    projectLink.dataset.status = "busy";
-    projectLinkTitle.textContent = "Reading project";
-    projectLinkPath.textContent = state.projectName
-      ? `${state.projectName}/animations`
-      : "Checking folder access…";
-    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-spinner"></i>';
-    return;
-  }
-
-  if (state.projectPermission === "unsupported") {
-    projectLink.dataset.status = "unsupported";
-    projectLinkTitle.textContent = "Folder access unavailable";
-    projectLinkPath.textContent = "Use Chrome or Edge on localhost";
-    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
-    projectChangeButton.hidden = true;
-    return;
-  }
-
-  if (state.projectPermission === "granted" && state.projectHandle) {
-    const localCount = state.animations.filter((animation) => animation.localPresent).length;
-    projectLink.dataset.status = "linked";
-    projectLinkTitle.textContent = "Project linked";
-    projectLinkPath.textContent = `${getProjectDisplayPath()} · ${localCount} local`;
-    projectLinkButton.title = "Refresh every CSS animation from the linked folder";
-    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-rotate"></i>';
-    projectChangeButton.hidden = false;
-    return;
-  }
-
-  if (state.projectHandle || state.projectName) {
-    projectLink.dataset.status = "reconnect";
-    projectLinkTitle.textContent = "Reconnect project";
-    projectLinkPath.textContent = `${getProjectDisplayPath()} · click once to allow access`;
-    projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-link-slash"></i>';
-    projectChangeButton.hidden = false;
-    return;
-  }
-
-  projectLink.dataset.status = "unlinked";
-  projectLinkTitle.textContent = "Link project";
-  projectLinkPath.textContent = "Choose the folder containing index.html";
-  projectLink.querySelector(".project-link-icon").innerHTML = '<i class="fa-solid fa-link"></i>';
-  projectChangeButton.hidden = true;
 }
 
 /* ==================================================
@@ -465,19 +327,24 @@ animationGrid.addEventListener("click", async (event) => {
     await copyText(buildWholeAnimation(animation));
     target.classList.add("copied");
     setTimeout(() => target.classList.remove("copied"), 500);
-    showToast(`${animation.name} copied.`, "fa-solid fa-copy");
+    showToast(`${animation.name} copied.`, "icon-solid icon-copy");
     return;
   }
 
   if (action === "favourite") {
     const animation = findAnimation(id);
-    const saved = toggleFavourite(id);
+    let saved;
+    try { saved = toggleFavourite(id); }
+    catch (error) {
+      showToast(storageErrorMessage(error, "localStorage"), "icon-solid icon-triangle-exclamation");
+      return;
+    }
 
     showToast(
       saved
         ? `${animation?.name || "Animation"} saved to favourites.`
         : `${animation?.name || "Animation"} removed from favourites.`,
-      saved ? "fa-solid fa-star" : "fa-regular fa-star",
+      saved ? "icon-solid icon-star" : "icon-regular icon-star",
     );
 
     /* Only when the Favourite filter is up does the star change which cards
@@ -498,16 +365,8 @@ animationGrid.addEventListener("click", async (event) => {
   }
 
   if (action === "edit") {
-    editor.openEditor(id);
-    return;
-  }
-
-  if (action === "push") {
-    await pushAnimationToCode(id, {
-      showToast,
-      render,
-      updateWorkspaceUI,
-    });
+    const animation = findAnimation(id);
+    if (animation && isCustomAnimation(animation)) editor.openEditor(id);
 
     return;
   }
@@ -580,51 +439,37 @@ deleteSelectedButton.addEventListener("click", () => {
   modalController.openDelete();
 });
 
-document.getElementById("deleteLocalButton").addEventListener("click", async () => {
+let deletionInProgress = false;
+async function scheduleDeletion(fromCode) {
+  if (deletionInProgress || !state.selectedIds.size) return;
+  deletionInProgress = true;
   const ids = [...state.selectedIds];
-
-  state.animations = state.animations.filter(
-    (animation) => !ids.includes(animation.id),
-  );
-
-  const persisted = await removeAnimationRecords(ids);
-
-  state.selectedIds.clear();
-
-  state.selectionMode = false;
-
-  modalController.closeAll();
-
-  render();
-
-  if (persisted) {
-    showToast(
-      `${ids.length} ${
-        ids.length === 1 ? "animation" : "animations"
-      } deleted locally.`,
-      "fa-solid fa-trash",
-    );
-  }
-});
-
-document
-  .getElementById("deleteCodeButton")
-  .addEventListener("click", async () => {
-    const ids = [...state.selectedIds];
-
-    await deleteAnimationsFromCode(ids, {
-      showToast,
-      render,
-      closeAll: modalController.closeAll,
-      updateWorkspaceUI,
+  try {
+    // Obtain and validate the folder during the click's user activation.
+    if (fromCode) await prepareCodeDeletion(ids);
+    modalController.closeAll();
+    const deleted = await confirmDelayedDeletion(ids.length, async () => {
+      if (fromCode) return deleteAnimationsFromCode(ids, {
+        showToast, render, closeAll: modalController.closeAll,
+      });
+      if (!await removeAnimationRecords(ids, { remember: true })) return false;
+      const removed = new Set(ids);
+      state.animations = state.animations.filter(a => !removed.has(a.id));
+      render();
+      showToast(`${ids.length} animation${ids.length === 1 ? "" : "s"} deleted locally.`, "icon-solid icon-trash");
+      return true;
     });
-
-    state.selectedIds.clear();
-
-    state.selectionMode = false;
-
-    render();
-  });
+    if (deleted) {
+      ids.forEach(id => state.selectedIds.delete(id));
+      state.selectionMode = false;
+      render();
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") showToast(error.message || "Could not delete animations.", "icon-solid icon-triangle-exclamation");
+  } finally { deletionInProgress = false; }
+}
+document.getElementById("deleteLocalButton").addEventListener("click", () => scheduleDeletion(false));
+document.getElementById("deleteCodeButton").addEventListener("click", () => scheduleDeletion(true));
 
 /* ==================================================
 DETAILS
@@ -637,6 +482,8 @@ function openDetails(id) {
     return;
   }
 
+  const source = describeAnimationSource(animation);
+
   modalController.closeAll();
   const draft = createDetailDraft(animation);
 
@@ -646,7 +493,7 @@ function openDetails(id) {
 <div class="modal-heading">
 
   <span class="eyebrow">
-    <i class="fa-solid fa-wand-magic-sparkles"></i>
+    <i class="icon-solid icon-wand-magic-sparkles"></i>
     ANIMATION
   </span>
 
@@ -661,7 +508,7 @@ function openDetails(id) {
     ${
       animation.localPresent
         ? `<div class="detail-local-source">
-            <i class="fa-solid fa-hard-drive"></i>
+            <i class="icon-solid icon-hard-drive"></i>
             <span>Local source: ${escapeHtml(animation.localPath || animation.codeFileName || "animations")}</span>
           </div>`
         : ""
@@ -670,7 +517,7 @@ function openDetails(id) {
   <div class="detail-meta">
 
     <span>
-      <i class="fa-regular fa-calendar"></i>
+      <i class="icon-regular icon-calendar"></i>
       Created ${formatDateTimeDDMMYY(animation.createdAt)}
     </span>
 
@@ -678,7 +525,7 @@ function openDetails(id) {
       animation.updatedAt && animation.updatedAt !== animation.createdAt
         ? `
           <span>
-            <i class="fa-regular fa-clock"></i>
+            <i class="icon-regular icon-clock"></i>
             Updated ${formatDateTimeDDMMYY(animation.updatedAt)}
           </span>
         `
@@ -731,7 +578,7 @@ function openDetails(id) {
       <div class="code-section-heading">
 
         <h3>
-          <i class="fa-brands fa-css3-alt"></i>
+          <i class="icon-solid ${section.key === "animation" ? "icon-tag" : section.key === "keyframes" ? "icon-timeline" : "icon-layer-group"}"></i>
           ${escapeHtml(section.label)}
         </h3>
 
@@ -740,7 +587,7 @@ function openDetails(id) {
           type="button"
           data-copy-section="${escapeAttribute(section.key)}"
         >
-          <i class="fa-solid fa-copy"></i>
+          <i class="icon-solid icon-copy"></i>
           Copy
         </button>
 
@@ -758,40 +605,26 @@ function openDetails(id) {
         type="button"
         data-detail-action="copy"
       >
-        <i class="fa-solid fa-copy"></i>
+        <i class="icon-solid icon-copy"></i>
         Copy whole animation
       </button>
 
 
-      <button
-        class="button secondary"
-        type="button"
-        data-detail-action="edit"
-      >
-        <i class="fa-solid fa-pen"></i>
-        Edit
-      </button>
+      ${isCustomAnimation(animation) ? `
+        <button
+          class="button secondary"
+          type="button"
+          data-detail-action="edit"
+        >
+          <i class="icon-solid icon-pen"></i>
+          Edit local custom animation
+        </button>
+      ` : ""}
 
-
-      ${
-        animation.codeSynced
-          ? `
-            <span class="code-synced detail-synced">
-              <i class="fa-solid fa-circle-check"></i>
-              Local
-            </span>
-          `
-          : `
-            <button
-              class="button primary"
-              type="button"
-              data-detail-action="push"
-            >
-              <i class="fa-solid fa-folder-arrow-up"></i>
-              ${animation.localPresent ? "Update local" : "Push to local"}
-            </button>
-          `
-      }
+      <span class="code-synced detail-synced" data-tooltip="${escapeAttribute(source.tooltip)}">
+        <i class="icon-solid ${escapeAttribute(source.icon)}"></i>
+        ${escapeHtml(source.label)}
+      </span>
 
     </div>
   `;
@@ -857,7 +690,7 @@ function openDetails(id) {
         button.classList.add("copied");
         setTimeout(() => button.classList.remove("copied"), 600);
 
-        showToast(section.label, "fa-solid fa-copy");
+        showToast(section.label, "icon-solid icon-copy");
       });
     });
 
@@ -870,27 +703,17 @@ function openDetails(id) {
         if (action === "copy") {
           await copyText(buildWholeAnimation(draft));
 
-          showToast("Whole animation copied.", "fa-solid fa-copy");
+          showToast("Whole animation copied.", "icon-solid icon-copy");
 
           return;
         }
 
-        if (action === "edit") {
+        if (action === "edit" && isCustomAnimation(animation)) {
           modalController.closeAll();
 
           editor.openEditor(id);
 
           return;
-        }
-
-        if (action === "push") {
-          modalController.closeAll();
-
-          await pushAnimationToCode(id, {
-              showToast,
-              render,
-              updateWorkspaceUI,
-          });
         }
       });
     });
@@ -912,7 +735,7 @@ function buildDetailTags(animation) {
   if (animation.localPresent) {
     tags.push(`
       <span class="tag synced">
-        <i class="fa-solid fa-hard-drive"></i>
+        <i class="icon-solid icon-hard-drive"></i>
         Local
       </span>
     `);
@@ -927,7 +750,7 @@ function buildDetailTags(animation) {
       <span class="tag desktop ${
         selectedFilters.includes("desktop") ? "filter-match" : ""
       }">
-        <i class="fa-solid fa-desktop"></i>
+        <i class="icon-solid icon-desktop"></i>
         Desktop
       </span>
     `);
@@ -938,7 +761,7 @@ function buildDetailTags(animation) {
       <span class="tag mobile ${
         selectedFilters.includes("mobile") ? "filter-match" : ""
       }">
-        <i class="fa-solid fa-mobile-screen"></i>
+        <i class="icon-solid icon-mobile-screen"></i>
         Mobile
       </span>
     `);
@@ -948,21 +771,19 @@ function buildDetailTags(animation) {
    * INTERACTION
    */
 
-  if (animation.interaction) {
+  if (animation.interaction && animation.interaction !== "static") {
     tags.push(`
       <span class="tag interaction-${escapeAttribute(animation.interaction)} ${
         selectedFilters.includes(animation.interaction) ? "filter-match" : ""
       }">
         <i class="${
           animation.interaction === "hover"
-            ? "fa-solid fa-hand-pointer"
+            ? "icon-solid icon-hand-pointer"
             : animation.interaction === "infinite"
-              ? "fa-solid fa-infinity"
+              ? "icon-solid icon-infinity"
               : animation.interaction === "appear"
-                ? "fa-solid fa-eye"
-                : animation.interaction === "disappear"
-                  ? "fa-solid fa-eye-slash"
-                  : "fa-solid fa-pause"
+                ? "icon-solid icon-eye"
+                : "icon-solid icon-eye-slash"
         }"></i>
         ${escapeHtml(animation.interaction)}
       </span>
@@ -979,7 +800,7 @@ function buildDetailTags(animation) {
         <span class="tag ${
           category === "3d" ? "d3" : `category-${escapeAttribute(category)}`
         } ${selectedFilters.includes(category) ? "filter-match" : ""}">
-          <i class="fa-solid fa-tag"></i>
+          <i class="icon-solid icon-tag"></i>
           ${category === "3d" ? "3D" : escapeHtml(category)}
         </span>
       `);
@@ -993,7 +814,7 @@ function buildDetailTags(animation) {
 TOAST
 ================================================== */
 
-function showToast(message, icon = "fa-solid fa-check") {
+function showToast(message, icon = "icon-solid icon-check") {
   toastText.textContent = message;
 
   toastIcon.className = icon;

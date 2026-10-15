@@ -13,8 +13,8 @@
  */
 
 export const ARCHIVES = [
-  { value: "campaigns", label: "Campaigns", icon: "fa-solid fa-building" },
-  { value: "previews-only", label: "Previews only", icon: "fa-solid fa-clock-rotate-left" },
+  { value: "campaigns", label: "Campaigns", icon: "icon-solid icon-building" },
+  { value: "previews-only", label: "Previews only", icon: "icon-solid icon-clock-rotate-left" },
 ];
 
 /* The archive folder has been spelled both ways over the years. */
@@ -52,10 +52,6 @@ export function sourceBrand(source) {
   const folder = String(source?.folder || "").trim();
   if (!/^\d+(?:[_-]\d+)*$/.test(folder)) return folder;
   return sourceCampaign(source).split(/[_-]+/).find((entry) => entry && !/^\d+$/.test(entry)) || folder;
-}
-
-export function animationBrands(animation) {
-  return new Set(sourcesOf(animation).map(sourceBrand).filter(Boolean));
 }
 
 export function animationCampaigns(animation, brand = "", archive = "") {
@@ -163,7 +159,7 @@ export function describeOrigin(animation, filter = {}) {
     return {
       kind: "custom",
       label: "Custom",
-      icon: "fa-solid fa-pen-ruler",
+      icon: "icon-solid icon-pen-ruler",
       tooltip: "Written here in Motion Shelf, not imported from an archive.",
     };
   }
@@ -205,10 +201,10 @@ export function describeOrigin(animation, filter = {}) {
       ? "Previous only"
       : archive === "campaigns" && brand ? brand : archiveLabel(archive) || "Imported",
     icon: hasBothSources
-      ? "fa-solid fa-code-branch"
+      ? "icon-solid icon-code-branch"
       : archive === "previews-only"
-      ? "fa-solid fa-clock-rotate-left"
-      : "fa-solid fa-bullhorn",
+      ? "icon-solid icon-clock-rotate-left"
+      : "icon-solid icon-bullhorn",
     tooltip: [
       hasBothSources
         ? "Found in Previous only and Campaigns."

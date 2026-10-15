@@ -74,18 +74,6 @@ export function escapeAttribute(value) {
   return escapeHtml(value);
 }
 
-export function escapeSvg(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-export function capitalize(value) {
-  return String(value).charAt(0).toUpperCase() + String(value).slice(1);
-}
-
 export function formatCategoryLabel(value) {
   return String(value)
     .replace(/[-_]+/g, " ")

@@ -1,4 +1,4 @@
-import { state, beginProjectBusy, endProjectBusy } from "./state.js";
+import { state } from "./state.js";
 
 import {
   findAnimation,
@@ -6,7 +6,7 @@ import {
   getCodeFileName,
 } from "./animations.js";
 
-import { removeAnimationRecords, saveAnimation, saveAnimations } from "./storage.js";
+import { removeAnimationRecords, saveAnimations } from "./storage.js";
 
 import {
   ensureProjectHandle,
@@ -18,15 +18,10 @@ import {
 const WRITE_CONCURRENCY = 4;
 let projectWriteQueue = Promise.resolve();
 
-function queueProjectWrite(write, updateWorkspaceUI) {
-  beginProjectBusy();
-  updateWorkspaceUI();
+function queueProjectWrite(write) {
   const result = projectWriteQueue.then(write);
   projectWriteQueue = result.catch(() => {});
-  return result.finally(() => {
-    endProjectBusy();
-    updateWorkspaceUI();
-  });
+  return result;
 }
 
 function isCssFileName(fileName) {
@@ -121,15 +116,17 @@ async function writeAnimation(directory, plan) {
       plan.fileName = plan.nextName();
       continue;
     }
-    if (!existing || plan.fileName === animation.codeFileName ||
-      existing.text === exportedCss || getFileAnimationId(existing.text) === animation.id) break;
+    if (!existing || existing.text === exportedCss || getFileAnimationId(existing.text) === animation.id) break;
+    if (plan.fileName === animation.codeFileName) {
+      throw new Error(`Wrong file: ${plan.fileName} belongs to a different animation.`);
+    }
     plan.fileName = plan.nextName();
   }
 
   const changed = await writeChangedText(directory, plan.fileName, exportedCss, existing);
   animation.codeFileName = plan.fileName;
   // Editing can continue while a stream is open. Only the exported snapshot
-  // was saved; a newer editor value still needs another push.
+  // was saved; a newer editor value still needs another Sync.
   animation.codeSynced = buildExportCSS(animation) === exportedCss;
   animation.localPresent = true;
   animation.localPath = getProjectDisplayPath(plan.fileName);
@@ -140,69 +137,20 @@ async function writeAnimation(directory, plan) {
   return { changed, fileName: plan.fileName };
 }
 
-export async function pushAnimationToCode(
-  id,
-  { showToast, render, updateWorkspaceUI = () => {} },
-) {
-  const animation = findAnimation(id);
-
-  if (!animation) {
-    return;
-  }
-
-  if (!supportsProjectFolders()) {
-    showToast(
-      "Your browser does not support folder access. Use Chrome or Edge.",
-      "fa-solid fa-triangle-exclamation",
-    );
-
-    return;
-  }
-
-  try {
-    await ensureProjectHandle();
-    updateWorkspaceUI();
-
-    const { changed, fileName } = await queueProjectWrite(async () => {
-      const directory = await getAnimationsDirectory({ create: true });
-      return writeAnimation(directory, createWritePlans([animation])[0]);
-    }, updateWorkspaceUI);
-
-    await saveAnimation(animation);
-
-    render();
-
-    updateWorkspaceUI();
-
-    showToast(
-      changed ? `Saved locally in animations/${fileName}` : `Already up to date: animations/${fileName}`,
-      "fa-solid fa-folder-check",
-    );
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      return;
-    }
-
-    console.error("Push failed:", error);
-
-    showToast(
-      "Could not write the animation.",
-      "fa-solid fa-triangle-exclamation",
-    );
-  }
-}
-
 /*
- * Rebuilds animations/manifest.json from whatever CSS files actually exist in
- * the folder. The manifest is what every visitor loads, so it is derived from
- * the directory rather than tracked by hand.
+ * Only files carrying Motion Shelf identity metadata enter the shared catalog.
+ * Unrelated CSS in the directory is left untouched and never imported.
  */
-export async function writeAnimationsManifest(animationsHandle) {
+export async function writeAnimationsManifest(animationsHandle, verifiedFiles = new Set()) {
   const files = [];
 
   for await (const [fileName, handle] of animationsHandle.entries()) {
     if (handle.kind !== "file") continue;
-    if (!fileName.toLowerCase().endsWith(".css")) continue;
+    if (!isCssFileName(fileName)) continue;
+    if (!verifiedFiles.has(fileName)) {
+      const file = await readFile(animationsHandle, fileName);
+      if (!file || !getFileAnimationId(file.text)) continue;
+    }
     files.push(fileName);
   }
 
@@ -222,24 +170,23 @@ export async function writeAnimationsManifest(animationsHandle) {
  */
 export async function syncLibraryToProject(
   animations,
-  { showToast, render, updateWorkspaceUI = () => {}, onProgress = () => {} },
+  { showToast, render, onProgress = () => {} },
 ) {
   if (!animations.length) {
-    showToast("There is nothing to sync yet.", "fa-solid fa-triangle-exclamation");
+    showToast("There is nothing to sync yet.", "icon-solid icon-triangle-exclamation");
     return null;
   }
 
   if (!supportsProjectFolders()) {
     showToast(
       "Your browser does not support folder access. Use Chrome or Edge.",
-      "fa-solid fa-triangle-exclamation",
+      "icon-solid icon-triangle-exclamation",
     );
     return null;
   }
 
   try {
     await ensureProjectHandle();
-    updateWorkspaceUI();
 
     const result = await queueProjectWrite(async () => {
       const directory = await getAnimationsDirectory({ create: true });
@@ -285,37 +232,38 @@ export async function syncLibraryToProject(
       let manifest = null;
       let manifestError = null;
       try {
-        manifest = await writeAnimationsManifest(directory);
+        manifest = await writeAnimationsManifest(directory, new Set(completed.map(animation => animation.codeFileName)));
         for (const animation of completed) animation.repositoryPresent = true;
       } catch (error) {
         manifestError = error;
         console.error("Could not update the animation catalog:", error);
       }
-      await saveAnimations(state.animations);
-      return { written, unchanged, processed, failures, manifest, manifestError };
-    }, updateWorkspaceUI);
+      const persisted = await saveAnimations(state.animations);
+      return { written, unchanged, processed, failures, manifest, manifestError, persisted };
+    });
 
     render();
-    updateWorkspaceUI();
 
-    if (result.manifestError) {
+    if (!result.persisted) {
+      showToast("Project files were processed, but the browser library could not be saved. Retry Sync before refreshing.", "icon-solid icon-triangle-exclamation");
+    } else if (result.manifestError) {
       showToast(
         result.written + " saved, " + result.unchanged + " unchanged" +
           (result.failures.length ? ", " + result.failures.length + " failed" : "") +
           ". The shared catalog could not be updated; retry Sync.",
-        "fa-solid fa-triangle-exclamation",
+        "icon-solid icon-triangle-exclamation",
       );
     } else if (result.failures.length) {
       showToast(
         result.written + " saved, " + result.unchanged + " unchanged, " + result.failures.length + " could not be written.",
-        "fa-solid fa-triangle-exclamation",
+        "icon-solid icon-triangle-exclamation",
       );
     } else {
       showToast(
         result.written
           ? result.written + " saved, " + result.unchanged + " unchanged. Commit and push to share them."
           : "All " + result.unchanged + " animations are already up to date.",
-        "fa-solid fa-users",
+        "icon-solid icon-users",
       );
     }
 
@@ -324,14 +272,14 @@ export async function syncLibraryToProject(
     if (error?.name === "AbortError") return null;
 
     console.error("Sync failed:", error);
-    showToast("Could not sync the library.", "fa-solid fa-triangle-exclamation");
+    showToast(error?.message?.startsWith("Wrong ") ? error.message : "Could not sync the library.", "icon-solid icon-triangle-exclamation");
     return null;
   }
 }
 
 export async function deleteAnimationsFromCode(
   ids,
-  { showToast, render, closeAll, updateWorkspaceUI = () => {} },
+  { showToast, render, closeAll },
 ) {
   if (!ids.length) {
     return;
@@ -340,7 +288,7 @@ export async function deleteAnimationsFromCode(
   if (!supportsProjectFolders()) {
     showToast(
       "Your browser does not support folder access.",
-      "fa-solid fa-triangle-exclamation",
+      "icon-solid icon-triangle-exclamation",
     );
 
     return;
@@ -348,14 +296,16 @@ export async function deleteAnimationsFromCode(
 
   try {
     await ensureProjectHandle();
-    updateWorkspaceUI();
 
-    /* Deletion takes its turn in the same queue as Push and Sync, so it can
+    /* Deletion takes its turn in the same queue as Sync, so it can
        never interleave with a write that is still streaming into the folder
        it is removing files from. */
     const { failures, manifestError } = await queueProjectWrite(async () => {
       const animationsHandle = await getAnimationsDirectory({ create: false });
       const removalFailures = [];
+
+      // Validate the complete batch before deleting any file.
+      await validateDeletionFiles(animationsHandle, ids);
 
       for (const id of ids) {
         const animation = findAnimation(id);
@@ -364,7 +314,8 @@ export async function deleteAnimationsFromCode(
           continue;
         }
 
-        const fileName = animation.codeFileName || getCodeFileName(animation);
+        const fileName = animation.codeFileName;
+        if (!fileName) continue; // Browser-only animations have no project file.
 
         try {
           await animationsHandle.removeEntry(fileName);
@@ -389,36 +340,38 @@ export async function deleteAnimationsFromCode(
       }
 
       return { failures: removalFailures, manifestError: catalogError };
-    }, updateWorkspaceUI);
+    });
 
     if (failures.length) {
       showToast(
         "Some code files could not be deleted.",
-        "fa-solid fa-triangle-exclamation",
+        "icon-solid icon-triangle-exclamation",
       );
 
       return;
     }
 
+    if (!await removeAnimationRecords(ids, { remember: true })) {
+      showToast("Files removed, but browser deletion could not be saved. Retry deletion.", "icon-solid icon-triangle-exclamation");
+      return false;
+    }
     const removedIds = new Set(ids);
     state.animations = state.animations.filter(
       (animation) => !removedIds.has(animation.id),
     );
 
-    await removeAnimationRecords(ids);
-
     closeAll();
 
     render();
 
-    updateWorkspaceUI();
 
     showToast(
       manifestError
         ? "Animations deleted, but the shared catalog could not be updated. Run Sync."
         : "Animations deleted locally and from code.",
-      manifestError ? "fa-solid fa-triangle-exclamation" : "fa-solid fa-trash",
+      manifestError ? "icon-solid icon-triangle-exclamation" : "icon-solid icon-trash",
     );
+    return true;
   } catch (error) {
     if (error?.name === "AbortError") {
       return;
@@ -427,7 +380,7 @@ export async function deleteAnimationsFromCode(
     if (error?.name === "NotFoundError") {
       showToast(
         "The animations folder was not found.",
-        "fa-solid fa-triangle-exclamation",
+        "icon-solid icon-triangle-exclamation",
       );
 
       return;
@@ -436,10 +389,29 @@ export async function deleteAnimationsFromCode(
     console.error("Code deletion failed:", error);
 
     showToast(
-      "Could not delete the code files.",
-      "fa-solid fa-triangle-exclamation",
+      error?.message?.startsWith("Wrong ") ? error.message : "Could not delete the code files.",
+      "icon-solid icon-triangle-exclamation",
     );
   }
+}
+
+async function validateDeletionFiles(directory, ids) {
+  for (const id of ids) {
+    const animation = findAnimation(id);
+    if (!animation?.codeFileName) continue;
+    const name = animation.codeFileName;
+    if (!isCssFileName(name)) throw new Error(`Wrong file: invalid CSS filename ${name}.`);
+    const file = await readFile(directory, name);
+    if (file && getFileAnimationId(file.text) !== animation.id) {
+      throw new Error(`Wrong file: ${name} does not match the selected animation.`);
+    }
+  }
+}
+
+export async function prepareCodeDeletion(ids) {
+  await ensureProjectHandle();
+  const directory = await getAnimationsDirectory({ create: false });
+  await validateDeletionFiles(directory, ids);
 }
 
 export async function copyText(text) {

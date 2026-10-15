@@ -9,7 +9,7 @@ import {
   indentCSS,
 } from "./utils.js";
 
-import { removeAnimationRecords, saveAnimation } from "./storage.js";
+import { saveAnimation } from "./storage.js";
 
 import { normalizeBezier, resolveEasing } from "./easing.js";
 
@@ -18,6 +18,33 @@ import { createScenePreview, createSceneBackdrop } from "./preview-scene.js";
 
 export function findAnimation(id) {
   return state.animations.find((animation) => animation.id === id);
+}
+
+/* Imported archive records are reference material: they may be copied and
+ * adjusted in the details preview, but must never be overwritten in the
+ * user's library. An animation without provenance was made locally, whether
+ * it has since been published to the selected project or is still a draft. */
+export function isCustomAnimation(animation) {
+  return !animation?.origin;
+}
+
+/* Every animation record is stored in IndexedDB. The card label distinguishes
+ * a hand-made record from one brought in by Sync, rather than repeating the
+ * common storage mechanism. */
+export function describeAnimationSource(animation) {
+  if (isCustomAnimation(animation)) {
+    return {
+      label: "Custom",
+      icon: "icon-pen-ruler",
+      tooltip: "Custom animation created in Motion Shelf and stored in this browser's IndexedDB.",
+    };
+  }
+
+  return {
+    label: "Synced",
+    icon: "icon-rotate",
+    tooltip: "Animation brought in by Sync and stored in this browser's IndexedDB.",
+  };
 }
 
 export async function createAnimation(data) {
@@ -82,19 +109,20 @@ export async function createAnimation(data) {
     lastCodePush: null,
   };
 
+  if (!await saveAnimation(animation)) return null;
   state.animations.unshift(animation);
-
-  await saveAnimation(animation);
 
   return animation;
 }
 
 export async function updateAnimation(id, data) {
-  const animation = findAnimation(id);
+  const original = findAnimation(id);
 
-  if (!animation) {
+  if (!original || !isCustomAnimation(original)) {
     return null;
   }
+  const animation = { ...original, locallyEdited: true,
+    audit: null, auditSignature: "", previewHint: "", previewAnalysis: null };
 
   animation.name = data.name.trim();
 
@@ -145,19 +173,9 @@ export async function updateAnimation(id, data) {
     animation.codeSynced = false;
   }
 
-  await saveAnimation(animation);
-
-  return animation;
-}
-
-export async function deleteAnimations(ids) {
-  const idSet = new Set(ids);
-
-  state.animations = state.animations.filter(
-    (animation) => !idSet.has(animation.id),
-  );
-
-  await removeAnimationRecords([...idSet]);
+  if (!await saveAnimation(animation)) return null;
+  Object.assign(original, animation);
+  return original;
 }
 
 export function getPreviewDuration(animation) {
@@ -455,10 +473,6 @@ export function createPreviewImage(animation) {
  * stage rather than to the element itself, so however far a keyframe moves,
  * scales or turns the subject, the frame is never left empty.
  */
-export function createPreviewBackdrop(animation) {
-  return createSceneBackdrop(animation);
-}
-
 export function applyPreviewBackdrop(stage, animation) {
   if (!stage) return;
 

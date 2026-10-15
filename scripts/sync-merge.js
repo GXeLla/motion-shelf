@@ -1,6 +1,24 @@
 import { buildExportCSS } from "./animations.js";
 import { normalizeAnimation } from "./storage.js";
 
+// Allocate across the complete batch, including already-suffixed manual names.
+export function uniqueImportedClasses(imported, manual) {
+  const reserved = new Set(manual.map(animation => animation.className));
+  return imported.map(animation => {
+    let name = animation.className;
+    if (reserved.has(name)) {
+      const base = `${name}-imported`;
+      name = base;
+      let suffix = 2;
+      while (reserved.has(name)) name = `${base}-${suffix++}`;
+    }
+    reserved.add(name);
+    return name === animation.className ? animation : {
+      ...animation, className: name, codeSynced: false, updatedAt: Date.now(),
+    };
+  });
+}
+
 function sourceKey(source) {
   return [source.repository, source.folder, source.brand, source.campaign, source.file, source.type].join("\u0001");
 }

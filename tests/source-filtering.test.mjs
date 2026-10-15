@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { animationMatchesFilter } from "../scripts/filters.js";
+
 import {
   animationCampaigns,
   collectCampaigns,
@@ -8,6 +10,14 @@ import {
   sourceBrand,
   sourceCampaign,
 } from "../scripts/origin.js";
+
+test("Local filter follows the Synced card status, not the legacy project-file flag", () => {
+  const synced = { origin: { sources: [{ repository: "campaigns" }] }, localPresent: false };
+  const custom = { origin: null, localPresent: true };
+
+  assert.equal(animationMatchesFilter(synced, "local"), true);
+  assert.equal(animationMatchesFilter(custom, "local"), false);
+});
 
 test("campaign provenance comes from the folder below the brand", () => {
   const source = { folder: "Brand A", file: "Brand A/CD_24_458_launch/style.css" };

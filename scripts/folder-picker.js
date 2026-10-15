@@ -49,7 +49,7 @@ export function createFolderPicker({ label, options, value, onSelect }) {
   const searchWrap = document.createElement("div");
 
   searchWrap.className = "folder-picker-search-wrap";
-  searchWrap.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+  searchWrap.innerHTML = '<i class="icon-solid icon-magnifying-glass"></i>';
   searchWrap.appendChild(search);
 
   panel.append(searchWrap, list);
@@ -94,7 +94,7 @@ export function createFolderPicker({ label, options, value, onSelect }) {
     else delete trigger.dataset.tooltip;
 
     trigger.innerHTML = `
-      <i class="fa-solid fa-folder-tree"></i>
+      <i class="icon-solid icon-folder-tree"></i>
 
       <span class="folder-picker-label">${escapeHtml(current.label)}</span>
 
@@ -102,7 +102,7 @@ export function createFolderPicker({ label, options, value, onSelect }) {
 
       <span class="folder-picker-count">${chosen ? chosen.count : current.options.length}</span>
 
-      <i class="fa-solid fa-chevron-down folder-picker-caret"></i>
+      <i class="icon-solid icon-chevron-down folder-picker-caret"></i>
     `;
   }
 
@@ -130,7 +130,7 @@ export function createFolderPicker({ label, options, value, onSelect }) {
           title="${escapeHtml(entry.name)}"
           aria-selected="${entry.folder === current.value ? "true" : "false"}"
         >
-          <i class="fa-solid fa-check folder-picker-tick"></i>
+          <i class="icon-solid icon-check folder-picker-tick"></i>
           <span class="folder-picker-name">${escapeHtml(entry.name)}</span>
           <span class="folder-picker-option-count">${entry.count}</span>
         </button>

@@ -15,14 +15,24 @@ Then open `http://localhost:4173` in Chrome or Edge.
 
 ## Main workflow
 
-1. Click **Link project** in the header and choose the root folder containing `index.html`.
-2. Motion Shelf remembers that directory handle and reads every `.css` file in `animations/`.
-3. A **LOCAL** badge means the CSS file currently exists in the linked folder. It does not mean the file is committed or pushed to GitHub.
-4. Click a card anywhere outside its buttons to copy its complete CSS.
-5. Use **View details** to open the full modal, or **Edit** to change the animation.
-6. Use **Push to local** or **Update local** to write the CSS file. The same linked folder is reused, so the picker is not opened for every save.
+Deletion waits five seconds and shows a draining circle with a 5–1 countdown.
+Refresh or Cancel during that interval keeps the saved records. Once deletion
+completes, a browser deletion marker prevents the bundled catalog or a late
+preview audit from restoring the card. Project-file deletion obtains folder
+permission before the countdown and validates the full batch before removing
+files; browser-only animations never use a guessed filename.
 
-On a later visit, the app reloads the saved folder handle. If the browser needs permission again, the header shows **Reconnect project**; clicking it reauthorizes the same folder. Browsers expose the selected folder name, not its full operating-system path, so the header shows `project-name/animations`.
+Source pickers accept the requested `campaigns` or `previews-only` folder name
+(`previous-only` is also accepted). A wrong name stops immediately with
+“Wrong folder”, without scanning it or reopening the picker. Publishing and
+project deletion require a `motion-shelf` directory with a Motion Shelf
+`index.html` and a valid `animations/manifest.json`. Existing CSS files must
+match the record's filename and metadata ID before overwrite or deletion.
+
+1. Click a card anywhere outside its buttons to copy its complete CSS.
+2. Use **View details** to open the full modal. Its **Adjust animation for copy** controls work for every animation and only affect the preview and copied CSS.
+3. Both **Custom** and **Synced** animation records are stored in browser IndexedDB; the label describes how the record entered the library.
+4. When **Sync** needs to publish the catalog, it asks for the project folder then; there is no persistent project-link control in the header.
 
 ## Filtering, sorting and favourites
 
@@ -34,7 +44,7 @@ Filters narrow, and no more than two are ever active; selecting a third drops th
 | --- | --- |
 | **Favourite** | Animations you have starred. |
 | **Custom** | Hand-made animations -- anything without the `origin` block a sync writes. |
-| **Local** | Animations whose CSS file exists in the linked project folder. |
+| **Local** | Synced animations with source provenance; excludes custom animations. |
 | **Campaigns** | Animations a sync read out of the `campaigns` archive. |
 | **Previews only** | Animations a sync read out of `previews-only`. |
 
@@ -89,7 +99,15 @@ legend onto a second line at every viewport width, 2200px included.
 
 Tooltips are one element on `<body>`, drawn by `scripts/tooltip.js` from any `[data-tooltip]` attribute. They cannot be pseudo-elements on the badge: a card used to clip its corners with `overflow: hidden` and add paint containment through `content-visibility`, so a tooltip drawn inside one was cut off at the card edge -- exactly where it started to be worth reading. The shared element sits outside everything that clips, flips below its anchor when the top of the window is in the way (or when the anchor asks for it with `data-tooltip-place="below"`, as the header legend does), and is pulled back inside the window rather than hanging off the side.
 
-Every card says where it came from, next to its title: **Custom** for anything written here by hand, or the archive and -- when the animation came out of a single folder -- the brand: `Campaigns | Aldi`. The tooltip gives the occurrence count and the first few relative source paths. That badge answers "where is this from"; the separate **LOCAL** badge answers the different question of whether the CSS file is in the linked project folder, and both can appear at once. `scripts/origin.js` holds the reading of `origin.sources` -- archive-name normalisation included, since the second archive has been spelled `previews-only` and `previous-only` over the years.
+Every card says where it came from, next to its title: **Custom** for anything written here by hand, or the archive and brand. The tooltip gives the occurrence count and source paths. The action row has one **Custom** or **Synced** status chip; the former LOCAL badge has been removed. `scripts/origin.js` reads `origin.sources`, including normalisation of the historical `previews-only` and `previous-only` spellings.
+
+All UI assets are local. `assets/icons/sprite.svg` contains the selected vector
+symbols once, retaining the former glyph shapes and proportions. `scripts/icons.js`
+renders references by ID and updates dynamic icons while preserving their host
+elements. `styles/icons.css` keeps their sizing and inherited colours. No icon
+font, external icon stylesheet, or `fa-*` classes are used. Atkinson Hyperlegible
+is hosted locally as WOFF2 in `assets/fonts/`; the generated SVG preview scenes
+remain local too. See `assets/icons/README.md` for usage and attribution.
 
 Favourites are stored in `localStorage` under `motion-shelf.favourites.v1`, as a list of animation ids. They are deliberately not part of the shared animation record: a star written into an animation file would travel to the whole team through git, turning one person's shortlist into everybody's. Ids are safe to key on because each animation file carries its own id in its metadata block.
 
@@ -142,16 +160,16 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 
 | File | Responsibility |
 | --- | --- |
-| `scripts/app.js` | App startup, background initialization, rendering, header folder status, card actions, details, deletion and toast messages. |
+| `scripts/app.js` | App startup, background initialization, rendering, card actions, details, deletion and toast messages. |
 | `scripts/background.js` | Creates the tiny randomized spark field once per page load; CSS controls all spark movement and glow. |
-| `scripts/filesystem.js` | Stores the project directory handle in IndexedDB, scans `animations/*.css`, parses metadata, merges local files into state and exposes the displayed local path. |
-| `scripts/code.js` | Copies CSS to the clipboard, writes/removes CSS files through the already-linked folder handle, and publishes the whole library plus `animations/manifest.json` for **Sync for everyone**. |
+| `scripts/filesystem.js` | Validates selected project folders and loads the bundled animation catalog and CSS metadata. |
+| `scripts/code.js` | Copies CSS to the clipboard, writes/removes CSS files through an on-demand validated folder selection, and publishes the whole library plus `animations/manifest.json` for **Sync for everyone**. |
 | `scripts/editor.js` | Form lifecycle, drafts, categories, live infinite preview, draggable bezier UI, inline errors and CSS autocomplete. |
 | `scripts/validation.js` | Validates CSS declarations, animation fields and keyframe syntax; safely applies declarations to the live preview. |
 | `scripts/easing.js` | CSS/GSAP easing preset map, cubic-bezier normalization and CSS easing output. |
 | `scripts/animations.js` | Animation data creation/update, the shared preview keyframes stylesheet, metadata and final CSS export. |
 | `scripts/storage.js` | Loads complete animation records from IndexedDB, safely migrates legacy session data, and persists individual or batched record changes. |
-| `scripts/state.js` | Shared runtime state, selection, filters, sort order, drafts and linked-project status. |
+| `scripts/state.js` | Shared runtime state, selection, filters, sort order, drafts and current file-access state. |
 | `scripts/cards.js` | Builds cards in batches as the grid is scrolled, safe-frame preview, local badges, tags and card buttons, and the in-place card patches for starring and selecting. |
 | `scripts/filters.js` | Search, dynamic categories, maximum-two-filter behavior, the pinned/scrolling chip split and the display order. |
 | `scripts/favourites.js` | Reads and writes the starred animations. localStorage only, keyed by animation id. |
@@ -172,7 +190,7 @@ The metadata comment lets Motion Shelf reconstruct the card after refresh. CSS f
 | File | Responsibility |
 | --- | --- |
 | `styles/styles.css` | Design tokens, typography and global resets. |
-| `styles/enhancements.css` | Layered animated background, morphing color glows, sparks, linked-folder header, LOCAL/copy UI, safe frame, live editor, bezier graph, validation and autocomplete. |
+| `styles/enhancements.css` | Layered animated background, morphing color glows, sparks, source badges, copy UI, safe frame, live editor, bezier graph, validation and autocomplete. |
 | `styles/base.css` | Shared buttons, headings, app container and empty state. |
 | `styles/header.css` | Main header, legend, tooltips and selection bar. |
 | `styles/filters.css` | Search and filter controls. |
@@ -360,9 +378,9 @@ The animation library now uses IndexedDB with complete records stored individual
 
 Scanning now overlaps up to twelve metadata opens per archive adapter; cached and skipped files release their retained snapshots. Cached results still validate size and modification time, so a rescan reads only changed/new file bodies. Canonical representatives, source samples and variant names are independent of scan arrival order. `scripts/sync-merge.js` keeps timestamps, identity and filenames for unchanged imported content so a repeat Sync does not manufacture file changes.
 
-Publishing compares actual file content and saves only changed/missing exports, with at most four saves in flight. The manifest is checked after the CSS saves complete and also stays untouched when identical. Successful saves update their records without rereading the whole folder. Progress includes skipped files and failures; overlapping saves are queued. Explicit project-folder loading uses eight concurrent reads and indexed merges while preserving unsaved edits.
+Publishing compares actual file content and saves only changed/missing exports, with at most four saves in flight. The manifest is checked after the CSS saves complete and also stays untouched when identical. Successful saves update their records without rereading the whole folder. Progress includes skipped files and failures; overlapping saves are queued.
 
-**Push to local** writes one animation. Confirming a **Sync** writes the whole library into `animations/` and regenerates `animations/manifest.json` from the files that are actually there, whenever a project folder is linked. The manifest is what every visitor loads, so once the change is committed and pushed the whole team sees the same catalog. Syncing writes files; it does not commit or push for you.
+Every animation record is stored in browser IndexedDB. The card label instead identifies its origin: **Custom** was created in Motion Shelf; **Synced** was brought in by Sync. When Sync needs to write the library into `animations/` and regenerate `animations/manifest.json`, it asks for the project folder at that point. The manifest is what every visitor loads, so once the change is committed and pushed the whole team sees the same catalog. Syncing writes files; it does not commit or push for you.
 
 ## Important developer rules
 
@@ -391,4 +409,3 @@ To adjust the library effect, change the following values in `styles/library-atm
 - Parallax depth: `data-depth` on each layer in `index.html`; motion distances are bounded in `scripts/library-atmosphere.js`.
 
 To change spark density, edit `DEFAULT_SPARK_COUNT` and `SMALL_SCREEN_SPARK_COUNT` in `scripts/background.js`.
-- Use **Change folder** in the header only when switching projects; normal refreshes and pushes reuse the existing link.

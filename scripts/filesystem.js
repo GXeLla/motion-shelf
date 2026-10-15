@@ -1,46 +1,33 @@
 import { state } from "./state.js";
-import { normalizeAnimation, saveAnimations } from "./storage.js";
-import { createId, slugify } from "./utils.js";
+import { normalizeAnimation, saveAnimations, isAnimationDeleted } from "./storage.js";
+import { slugify } from "./utils.js";
 
-const DB_NAME = "motion-shelf.workspace.v1";
-const STORE_NAME = "handles";
-const ROOT_KEY = "project-root";
 const REPOSITORY_LOAD_CONCURRENCY = 8;
 
 export function supportsProjectFolders() {
-  return "showDirectoryPicker" in window && "indexedDB" in window;
+  return "showDirectoryPicker" in window;
 }
 
-export async function restoreProjectLink() {
-  if (!supportsProjectFolders()) {
-    state.projectPermission = "unsupported";
-    return null;
-  }
-
+export async function validateProjectFolder(handle) {
   try {
-    const handle = await readStoredHandle();
-    if (!handle) {
-      state.projectPermission = "unlinked";
-      return null;
-    }
-
-    state.projectHandle = handle;
-    state.projectName = handle.name;
-    state.projectPermission = await handle.queryPermission({ mode: "readwrite" });
-    return state.projectPermission === "granted" ? handle : null;
-  } catch (error) {
-    console.warn("Could not restore the project folder:", error);
-    state.projectPermission = "unlinked";
-    return null;
+    if (handle.name.toLowerCase() !== "motion-shelf") throw new Error();
+    const index = await (await handle.getFileHandle("index.html")).getFile();
+    const html = await index.text();
+    if (!html.includes('id="animationGrid"') || !html.includes("Motion Shelf")) throw new Error();
+    const directory = await handle.getDirectoryHandle("animations", { create: false });
+    const manifest = JSON.parse(await (await (await directory.getFileHandle("manifest.json")).getFile()).text());
+    if (!Array.isArray(manifest.files) || manifest.files.some(name => typeof name !== "string" || !/\.css$/i.test(name) || /[\\/\0]/.test(name))) throw new Error();
+  } catch {
+    throw new Error("Wrong folder. Choose the motion-shelf project containing index.html and animations/manifest.json.");
   }
 }
 
-export async function connectProject({ changeFolder = false } = {}) {
+export async function connectProject() {
   if (!supportsProjectFolders()) {
     throw new Error("Folder access is not supported. Use Chrome or Edge on localhost.");
   }
 
-  let handle = changeFolder ? null : state.projectHandle;
+  let handle = state.projectHandle;
 
   if (handle) {
     const permission = await handle.queryPermission({ mode: "readwrite" });
@@ -50,9 +37,9 @@ export async function connectProject({ changeFolder = false } = {}) {
     }
   } else {
     handle = await window.showDirectoryPicker({ mode: "readwrite", id: "motion-shelf-project" });
+    await validateProjectFolder(handle);
   }
 
-  await storeHandle(handle);
   state.projectHandle = handle;
   state.projectName = handle.name;
   state.projectPermission = "granted";
@@ -76,6 +63,7 @@ export async function ensureProjectHandle() {
       state.projectPermission = "granted";
       return handle;
     }
+    throw new DOMException("Folder permission was not granted.", "NotAllowedError");
   }
 
   return connectProject();
@@ -84,61 +72,6 @@ export async function ensureProjectHandle() {
 export async function getAnimationsDirectory({ create = true } = {}) {
   const root = await ensureProjectHandle();
   return root.getDirectoryHandle("animations", { create });
-}
-
-export async function loadAnimationsFromProject() {
-  const root = state.projectHandle;
-  if (!root || state.projectPermission !== "granted") {
-    return { animations: [], errors: [], loaded: false };
-  }
-
-  let directory;
-  try {
-    directory = await root.getDirectoryHandle("animations", { create: true });
-  } catch (error) {
-    return { animations: [], errors: [error], loaded: false };
-  }
-
-  const localAnimations = [];
-  const errors = [];
-  const entries = [];
-
-  for await (const [fileName, handle] of directory.entries()) {
-    if (handle.kind !== "file" || !fileName.toLowerCase().endsWith(".css")) continue;
-    entries.push({ fileName, handle });
-  }
-
-  // Bound file access, retaining listing order even when reads finish out of order.
-  const loaded = new Array(entries.length);
-  let cursor = 0;
-  await Promise.all(Array.from({ length: Math.min(8, entries.length) }, async () => {
-    while (cursor < entries.length) {
-      const index = cursor++;
-      const { fileName, handle } = entries[index];
-      try {
-        const file = await handle.getFile();
-        const cssText = await file.text();
-        loaded[index] = { animation: parseAnimationFile(cssText, fileName, file.lastModified) };
-      } catch (error) {
-        console.warn(`Could not load animations/${fileName}:`, error);
-        loaded[index] = { error: { fileName, error } };
-      }
-    }
-  }));
-
-  loaded.forEach((result) => {
-    if (result.error) errors.push(result.error);
-    else localAnimations.push(result.animation);
-  });
-
-  mergeLocalAnimations(localAnimations);
-  /* Records the session deliberately left out of state -- project-backed ones
-     dropped at startup so the folder can supply them again -- must not be
-     deleted from storage just because a load ran. Removal belongs to Sync and
-     to explicit deletes. */
-  await saveAnimations(state.animations, { replace: false });
-
-  return { animations: localAnimations, errors, loaded: true };
 }
 
 export async function loadAnimationsFromRepository() {
@@ -164,7 +97,7 @@ export async function loadAnimationsFromRepository() {
     }
   });
 
-  const animations = loaded.filter(Boolean);
+  const animations = loaded.filter(a => a && !isAnimationDeleted(a.id));
   mergeRepositoryAnimations(animations);
   await saveAnimations(state.animations, { replace: false });
   animations.skipped = skipped;
@@ -208,7 +141,7 @@ export function parseAnimationFile(cssText, fileName, lastModified = Date.now(),
     ...metadata,
     id,
     name,
-    description: metadata.description ?? "CSS animation loaded from the linked project folder.",
+    description: metadata.description ?? "CSS animation loaded from the animation catalog.",
     animationName,
     keyframes,
     css,
@@ -230,6 +163,10 @@ function mergeRepositoryAnimations(repositoryAnimations) {
   const findExisting = indexExistingAnimations();
   const merged = repositoryAnimations.map((repository) => {
     const existing = findExisting(repository);
+    if (existing && !existing.origin && (existing.locallyEdited ||
+      (!existing.codeSynced && Number(existing.updatedAt) > Number(repository.updatedAt)))) {
+      return normalizeAnimation({ ...repository, ...existing, repositoryPresent: true });
+    }
     if (existing?.localPresent) return normalizeAnimation({ ...repository, ...existing, repositoryPresent: true, source: "local" });
     return repository;
   });
@@ -237,56 +174,20 @@ function mergeRepositoryAnimations(repositoryAnimations) {
   state.animations = [...merged, ...extras].sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
 }
 
-function mergeLocalAnimations(localAnimations) {
-  const findExisting = indexExistingAnimations();
-  const localIds = new Set(localAnimations.map((animation) => animation.id));
-  const sessionOnly = state.animations.filter(
-    (animation) => !animation.localPresent && animation.source !== "local" && !localIds.has(animation.id),
-  );
-
-  const mergedLocal = localAnimations.map((local) => {
-    const existing = findExisting(local, true);
-
-    if (!existing) return local;
-
-    if (existing.localPresent && !existing.codeSynced) {
-      return normalizeAnimation({
-        ...local,
-        ...existing,
-        localPresent: true,
-        localPath: local.localPath,
-        source: "local",
-        rawCss: local.rawCss,
-      });
-    }
-
-    return normalizeAnimation({ ...existing, ...local, id: existing.id || local.id, repositoryPresent: existing.repositoryPresent });
-  });
-
-  state.animations = [...mergedLocal, ...sessionOnly].sort(
-    (a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0),
-  );
-}
-
 /* Preserve the first-match merge policy without searching the whole library
    again for each file (quadratic work on large imports). */
 function indexExistingAnimations() {
   const ids = new Map();
   const files = new Map();
-  const names = new Map();
-  const nameKey = (animation) => JSON.stringify([animation.name, animation.animationName]);
   state.animations.forEach((animation, index) => {
     if (!ids.has(animation.id)) ids.set(animation.id, index);
     if (!files.has(animation.codeFileName)) files.set(animation.codeFileName, index);
-    const key = nameKey(animation);
-    if (!names.has(key)) names.set(key, index);
   });
 
-  return (animation, matchName = false) => {
+  return (animation) => {
     const index = Math.min(
       ids.get(animation.id) ?? Infinity,
       files.get(animation.codeFileName) ?? Infinity,
-      matchName ? names.get(nameKey(animation)) ?? Infinity : Infinity,
     );
     return state.animations[index];
   };
@@ -336,42 +237,4 @@ function titleFromFile(fileName) {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ") || "Local Animation";
-}
-
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(STORE_NAME)) {
-        request.result.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function storeHandle(handle) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, "readwrite");
-    transaction.objectStore(STORE_NAME).put(handle, ROOT_KEY);
-    transaction.oncomplete = () => {
-      db.close();
-      resolve();
-    };
-    transaction.onerror = () => reject(transaction.error);
-  });
-}
-
-async function readStoredHandle() {
-  if (!("indexedDB" in window)) return null;
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, "readonly");
-    const request = transaction.objectStore(STORE_NAME).get(ROOT_KEY);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => db.close();
-  });
 }

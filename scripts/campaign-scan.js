@@ -562,42 +562,6 @@ export async function pickSourceRoot() {
   return window.showDirectoryPicker({ mode: "read", id: "motion-shelf-campaign-sources" });
 }
 
-/*
- * Looks for campaigns/ and previews-only/ at or below the chosen folder.
- * The developer picks whichever folder contains them, so no absolute path is
- * ever assumed or stored.
- */
-export async function discoverSourceRoots(rootHandle, { maxDepth = 3 } = {}) {
-  const found = [];
-  const queue = [{ handle: rootHandle, depth: 0, path: "" }];
-
-  if (SOURCE_FOLDER_NAMES.includes(rootHandle.name.toLowerCase())) {
-    return [{ repository: rootHandle.name, handle: rootHandle, path: "" }];
-  }
-
-  while (queue.length) {
-    const current = queue.shift();
-    if (current.depth > maxDepth) continue;
-
-    for await (const [name, handle] of current.handle.entries()) {
-      if (handle.kind !== "directory" || SKIP_DIRECTORIES.has(name)) continue;
-
-      const path = current.path ? `${current.path}/${name}` : name;
-
-      if (SOURCE_FOLDER_NAMES.includes(name.toLowerCase())) {
-        found.push({ repository: name, handle, path: "" });
-        continue;
-      }
-
-      if (current.depth < maxDepth) {
-        queue.push({ handle, depth: current.depth + 1, path });
-      }
-    }
-  }
-
-  return found;
-}
-
 /* Adapter over a directory handle. Paths stay relative to that handle. */
 export function createHandleAdapter(rootHandle) {
   const directories = new Map([["", rootHandle]]);
@@ -762,7 +726,7 @@ function openCacheDatabase() {
  * A cached entry is a parse result, so a stale one would quietly keep serving
  * animations produced by the old code long after it was replaced.
  */
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 export async function loadScanCache(repository) {
   if (typeof indexedDB === "undefined") return new Map();

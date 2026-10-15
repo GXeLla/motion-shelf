@@ -79,6 +79,21 @@ async function freshStorage(tag) {
   return import("../scripts/storage.js?upgrade-test=" + tag);
 }
 
+test("explicit deletion survives reload and rejects a late audit save", async (t) => {
+  const fake = withDatabase(t, []);
+  const storage = await freshStorage("delete-original");
+  const record = storage.normalizeAnimation({ id: "removed", name: "Removed", keyframes: "from {opacity:0} to {opacity:1}" });
+  await storage.saveAnimation(record);
+  assert.equal(await storage.removeAnimationRecords([record.id], { remember: true }), true);
+  assert.equal(await storage.saveAnimation(record), false);
+  assert.equal(fake.stores.animations.has(record.id), false);
+  const reload = await freshStorage("delete-reload");
+  assert.deepEqual(await reload.loadAnimations(), []);
+  assert.equal(reload.isAnimationDeleted(record.id), true);
+  await reload.saveAnimationBatch([record]);
+  assert.equal(fake.stores.animations.has(record.id), false);
+});
+
 function withDatabase(t, seed) {
   const fake = fakeIndexedDb(seed);
   const previousIndexedDb = globalThis.indexedDB;

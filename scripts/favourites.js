@@ -37,6 +37,7 @@ function save() {
     localStorage.setItem(FAVOURITES_KEY, JSON.stringify([...favourites]));
   } catch (error) {
     console.error("Could not save favourites:", error);
+    throw error;
   }
 }
 
@@ -56,11 +57,12 @@ export function toggleFavourite(id) {
     favourites.add(key);
   }
 
-  save();
+  try { save(); }
+  catch (error) {
+    if (favourites.has(key)) favourites.delete(key);
+    else favourites.add(key);
+    throw error;
+  }
 
   return favourites.has(key);
-}
-
-export function favouriteCount() {
-  return favourites.size;
 }

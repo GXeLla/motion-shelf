@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeImportOrigins, mergeScannedAnimation } from "../scripts/sync-merge.js";
+import { mergeImportOrigins, mergeScannedAnimation, uniqueImportedClasses } from "../scripts/sync-merge.js";
 import { buildExportCSS } from "../scripts/animations.js";
 import { parseAnimationFile } from "../scripts/filesystem.js";
 import { normalizeAnimation } from "../scripts/storage.js";
@@ -10,6 +10,15 @@ const scanned = {
   css: "opacity: 0;", keyframes: "from { opacity: 0; } to { opacity: 1; }",
   origin: { familyFingerprint: "fade", occurrences: 4, sources: [] },
 };
+
+test("imported class names cannot collide with custom suffixed names or each other", () => {
+  const manual = [{className:"fade"}, {className:"fade-imported"}, {className:"fade-imported-2"}];
+  const imported = [{id:"a",className:"fade"}, {id:"b",className:"fade"}, {id:"c",className:"unique"}];
+  const result = uniqueImportedClasses(imported, manual);
+  assert.deepEqual(result.map(a=>a.className), ["fade-imported-3", "fade-imported-4", "unique"]);
+  assert.equal(result[2], imported[2]);
+  assert.equal(imported[0].className,"fade");
+});
 
 function savedAnimation() {
   return normalizeAnimation({

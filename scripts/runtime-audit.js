@@ -436,7 +436,7 @@ function buildAuditSummary(container) {
 
   const brokenCount = element("b", "", "0");
   const summary = element("summary");
-  summary.append("Broken Animations ", brokenCount, element("i", "fa-solid fa-chevron-down"));
+  summary.append("Broken Animations ", brokenCount, element("i", "icon-solid icon-chevron-down"));
 
   const brokenList = element("div");
   const details = element("details", "runtime-audit-broken");

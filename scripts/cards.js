@@ -12,6 +12,8 @@ import {
   applyAnimation,
   applyPreviewBackdrop,
   createPreviewImage,
+  describeAnimationSource,
+  isCustomAnimation,
   stopPreviewAnimation,
 } from "./animations.js";
 
@@ -239,7 +241,7 @@ export function refreshCardFavourite(animationGrid, id) {
   button.title = starred ? "Remove from favourites" : "Save to favourites";
   button.setAttribute("aria-label", button.title);
   button.setAttribute("aria-pressed", starred ? "true" : "false");
-  button.innerHTML = `<i class="${starred ? "fa-solid" : "fa-regular"} fa-star"></i>`;
+  button.innerHTML = `<i class="${starred ? "icon-solid" : "icon-regular"} icon-star"></i>`;
 }
 
 /* Same reasoning for ticking a card in selection mode. */
@@ -322,7 +324,7 @@ export function createCard(animation) {
   const copyHint = document.createElement("span");
   copyHint.className = "card-copy-hint";
   copyHint.innerHTML =
-    '<i class="fa-solid fa-copy"></i> Click card to copy CSS';
+    '<i class="icon-solid icon-copy"></i> Click card to copy CSS';
   preview.appendChild(copyHint);
 
   /*
@@ -338,9 +340,7 @@ export function createCard(animation) {
       ? "HOVER"
       : animation.interaction === "infinite"
         ? "LOOP"
-        : animation.interaction === "static"
-          ? "STATIC"
-          : "MOTION";
+        : "MOTION";
 
   preview.appendChild(previewType);
 
@@ -350,7 +350,7 @@ export function createCard(animation) {
     hint.className = "card-preview-hint";
     hint.dataset.tooltip = previewHint;
     hint.setAttribute("aria-label", previewHint);
-    hint.innerHTML = '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>';
+    hint.innerHTML = '<i class="icon-solid icon-circle-info" aria-hidden="true"></i>';
     preview.appendChild(hint);
   }
 
@@ -385,8 +385,8 @@ export function createCard(animation) {
     favouriteButton.setAttribute("aria-pressed", favourited ? "true" : "false");
 
     favouriteButton.innerHTML = `<i class="${
-      favourited ? "fa-solid" : "fa-regular"
-    } fa-star"></i>`;
+      favourited ? "icon-solid" : "icon-regular"
+    } icon-star"></i>`;
 
     preview.appendChild(favouriteButton);
   }
@@ -409,7 +409,7 @@ export function createCard(animation) {
         />
   
         <span class="selection-check">
-          <i class="fa-solid fa-check"></i>
+          <i class="icon-solid icon-check"></i>
         </span>
       `;
 
@@ -447,8 +447,7 @@ export function createCard(animation) {
   /*
    * Where it came from. Every card says this: an archive and, when the
    * animation came out of a single one, the brand folder inside it -- or
-   * Custom for anything written here by hand. The LOCAL badge is a different
-   * question (is the file in the linked folder) and keeps its own place.
+   * Custom for anything written here by hand.
    */
   const origin = describeOrigin(animation, {
     archive: activeArchive(),
@@ -470,16 +469,6 @@ export function createCard(animation) {
 
   titleRow.appendChild(originBadge);
 
-  if (!animation.repositoryPresent) {
-    const localBadge = document.createElement("span");
-    localBadge.className = "local-source-badge";
-    localBadge.dataset.tooltip = animation.localPresent
-      ? animation.localPath || "Saved in the linked animations folder"
-      : "Created locally and not yet committed to the animation catalog.";
-    localBadge.innerHTML = '<i class="fa-solid fa-hard-drive"></i> LOCAL';
-    titleRow.appendChild(localBadge);
-  }
-
   const description = document.createElement("p");
 
   description.className = "card-description";
@@ -491,7 +480,7 @@ export function createCard(animation) {
   localPath.className = "card-local-path";
   if (animation.localPresent && !animation.repositoryPresent) {
     localPath.innerHTML = `
-      <i class="fa-solid fa-folder-open"></i>
+      <i class="icon-solid icon-folder-open"></i>
       <span>${escapeHtml(animation.localPath || animation.codeFileName || "animations")}</span>
     `;
   }
@@ -502,7 +491,7 @@ export function createCard(animation) {
 
   dateMeta.innerHTML = `
   <span>
-    <i class="fa-regular fa-calendar"></i>
+    <i class="icon-regular icon-calendar"></i>
     Created ${formatDateTimeDDMMYY(animation.createdAt)}
   </span>
 
@@ -510,7 +499,7 @@ export function createCard(animation) {
     animation.updatedAt && animation.updatedAt !== animation.createdAt
       ? `
         <span>
-          <i class="fa-regular fa-clock"></i>
+          <i class="icon-regular icon-clock"></i>
           Updated ${formatDateTimeDDMMYY(animation.updatedAt)}
         </span>
       `
@@ -543,52 +532,34 @@ export function createCard(animation) {
 
   actions.className = "card-actions";
 
-  const editButton = document.createElement("button");
+  if (isCustomAnimation(animation)) {
+    const editButton = document.createElement("button");
 
-  editButton.type = "button";
+    editButton.type = "button";
 
-  editButton.className = "card-action";
+    editButton.className = "card-action";
 
-  editButton.dataset.action = "edit";
+    editButton.dataset.action = "edit";
 
-  editButton.dataset.id = animation.id;
+    editButton.dataset.id = animation.id;
 
-  editButton.innerHTML = `
-      <i class="fa-solid fa-pen"></i>
-      Edit
-    `;
-
-  actions.appendChild(editButton);
-
-  if (!animation.codeSynced) {
-    const pushButton = document.createElement("button");
-
-    pushButton.type = "button";
-
-    pushButton.className = "card-action code";
-
-    pushButton.dataset.action = "push";
-
-    pushButton.dataset.id = animation.id;
-
-    pushButton.innerHTML = `
-        <i class="fa-solid fa-folder-arrow-up"></i>
-        ${animation.localPresent ? "Update local" : "Push to local"}
+    editButton.innerHTML = `
+        <i class="icon-solid icon-pen"></i>
+        Edit
       `;
 
-    actions.appendChild(pushButton);
-  } else {
-    const synced = document.createElement("span");
-
-    synced.className = "code-synced";
-
-    synced.innerHTML = `
-      <i class="fa-solid fa-circle-check"></i>
-        ${animation.repositoryPresent ? "Included" : "Local"}
-      `;
-
-    actions.appendChild(synced);
+    actions.appendChild(editButton);
   }
+
+  /* Show whether this animation was created here or imported by Sync. */
+  const sourceStatus = document.createElement("span");
+  const source = describeAnimationSource(animation);
+
+  sourceStatus.className = "code-synced";
+  sourceStatus.dataset.tooltip = source.tooltip;
+  sourceStatus.innerHTML = `<i class="icon-solid ${escapeAttribute(source.icon)}"></i> ${escapeHtml(source.label)}`;
+
+  actions.appendChild(sourceStatus);
 
   const detailsButton = document.createElement("button");
 
@@ -602,7 +573,7 @@ export function createCard(animation) {
 
   detailsButton.innerHTML = `
       View details
-      <i class="fa-solid fa-arrow-right"></i>
+      <i class="icon-solid icon-arrow-right"></i>
     `;
 
   actions.appendChild(detailsButton);
@@ -672,7 +643,7 @@ export function buildTags(animation) {
     tags.push({
       label: "Desktop",
       className: "desktop",
-      icon: "fa-solid fa-desktop",
+      icon: "icon-solid icon-desktop",
       matched: selectedFilters.includes("desktop"),
     });
   }
@@ -681,18 +652,17 @@ export function buildTags(animation) {
     tags.push({
       label: "Mobile",
       className: "mobile",
-      icon: "fa-solid fa-mobile-screen",
+      icon: "icon-solid icon-mobile-screen",
       matched: selectedFilters.includes("mobile"),
     });
   }
 
-  if (animation.interaction) {
+  if (animation.interaction && animation.interaction !== "static") {
     const icons = {
-      hover: "fa-solid fa-hand-pointer",
-      infinite: "fa-solid fa-infinity",
-      appear: "fa-solid fa-eye",
-      disappear: "fa-solid fa-eye-slash",
-      static: "fa-solid fa-pause",
+      hover: "icon-solid icon-hand-pointer",
+      infinite: "icon-solid icon-infinity",
+      appear: "icon-solid icon-eye",
+      disappear: "icon-solid icon-eye-slash",
     };
 
     tags.push({
@@ -702,7 +672,7 @@ export function buildTags(animation) {
 
       className: `interaction-${animation.interaction}`,
 
-      icon: icons[animation.interaction] || "fa-solid fa-wand-magic-sparkles",
+      icon: icons[animation.interaction] || "icon-solid icon-wand-magic-sparkles",
 
       matched: selectedFilters.includes(animation.interaction),
     });
