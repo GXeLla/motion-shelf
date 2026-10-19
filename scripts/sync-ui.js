@@ -10,8 +10,7 @@
 import { state } from "./state.js";
 import { saveAnimations, isAnimationDeleted, getLastStorageErrorMessage } from "./storage.js";
 import { escapeHtml } from "./utils.js";
-import { syncLibraryToProject } from "./code.js";
-import { mergeImportOrigins, mergeScannedAnimation, uniqueImportedClasses } from "./sync-merge.js";
+import { planNewImports } from "./sync-merge.js";
 import { familyFingerprint } from "./animation-family.js";
 import { parseDeclarations, parseKeyframes } from "./animation-extract.js";
 import {
@@ -88,6 +87,7 @@ export function initializeSync({ render, showToast }) {
   const button = document.getElementById("syncButton");
   const backdrop = document.getElementById("scanModalBackdrop");
   const statsList = document.getElementById("scanStats");
+  const newAnimationsList = document.getElementById("scanNewAnimations");
   const brokenList = document.getElementById("scanBrokenList");
   const description = document.getElementById("scanModalDescription");
   const title = document.getElementById("scanModalTitle");
@@ -126,16 +126,22 @@ export function initializeSync({ render, showToast }) {
       .join("");
   }
 
-  function renderFinalResults({ added, refreshed, unchanged, audit, usable }) {
+  function renderFinalResults({ added, unchanged, audit, usable }) {
     statsList.innerHTML = [
       ["New Animations Added", added],
-      ["Existing Animations Updated", refreshed],
-      ["Unchanged Animations", unchanged],
+      ["Already in Library", unchanged],
       ["Usable Animations Kept", usable],
     ].map(([label, value]) => (
       `<div class="scan-stat"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`
     )).join("");
     renderAuditSummary(brokenList, audit);
+  }
+
+  function renderNewAnimations(animations, saved = false) {
+    newAnimationsList.hidden = !animations.length;
+    newAnimationsList.innerHTML = animations.length
+      ? `<details open><summary>${saved ? "New animations added" : "New animations to add"} (${animations.length})</summary><ul>${animations.map(animation => `<li>${escapeHtml(animation.name)}</li>`).join("")}</ul></details>`
+      : "";
   }
 
   /*
@@ -231,6 +237,7 @@ export function initializeSync({ render, showToast }) {
       }
 
       setLabel("Scanning...");
+      renderNewAnimations([]);
       title.textContent = "Scanning animations";
       description.textContent = "Discovering, normalizing and grouping source animations before runtime validation.";
       statsList.innerHTML = "";
@@ -326,6 +333,7 @@ export function initializeSync({ render, showToast }) {
       );
 
       pending = result.animations;
+      renderNewAnimations([]);
 
       title.textContent = "Sync results";
       confirmButton.hidden = false;
@@ -352,12 +360,19 @@ export function initializeSync({ render, showToast }) {
       /* The live progress modal may have been closed while work continued.
          Always bring it back for the actionable final audit/import result. */
       openModal();
-      description.textContent = "Canonical animations were scanned and checked in safe runtime preview frames.";
-      const usablePending = pending.filter((animation) => animation.audit?.status !== "broken / quarantined").length;
-      confirmLabel.textContent = pending.length
-        ? "Sync " + usablePending + " usable animation" + (usablePending === 1 ? "" : "s")
-        : "Audit current library";
-      confirmButton.disabled = false;
+      const plan = planPending();
+      statsList.innerHTML = [
+        ["New Animations to Add", plan.added],
+        ["Already in Library", plan.unchanged],
+      ].map(([label, value]) => `<div class="scan-stat"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`).join("");
+      description.textContent = plan.added
+        ? `${plan.added} new animation${plan.added === 1 ? "" : "s"} to add.`
+        : "Nothing new to add.";
+      renderNewAnimations(plan.newAnimations);
+      confirmLabel.textContent = plan.added
+        ? `Add ${plan.added} new animation${plan.added === 1 ? "" : "s"}`
+        : "Nothing to add";
+      confirmButton.disabled = !plan.added;
     } catch (error) {
       if (error && error.name === "AbortError") return;
       console.error("Sync failed:", error);
@@ -370,67 +385,23 @@ export function initializeSync({ render, showToast }) {
   }
 
   /*
-   * Imported animations join the library as ordinary records. Anything the
-   * user made by hand is left alone: only entries carrying import provenance
-   * are ever replaced by a newer canonical version of themselves.
+   * Sync only appends new animations. Existing records stay exactly as saved.
    */
+  function planPending() {
+    return planNewImports(state.animations, pending, {
+      familyKey: semanticFamilyKey, isDeleted: isAnimationDeleted,
+    });
+  }
+
   async function applyPending() {
     if (busy) return;
-
     busy = true;
     button.disabled = true;
     confirmButton.disabled = true;
 
     try {
-      const manual = state.animations.filter((animation) => !animation.origin);
-      const imported = state.animations.filter((animation) => animation.origin);
-
-      const byFamily = new Map();
-      const unmatched = [];
-      imported.forEach((animation) => {
-        const key = semanticFamilyKey(animation);
-        if (!key) { unmatched.push(animation); return; }
-
-        const existing = byFamily.get(key);
-        /* Several legacy cards can now resolve to one semantic family. Keep
-           one stable card while carrying every source forward into the scan
-           merge that follows. */
-        byFamily.set(key, existing
-          ? { ...existing, origin: mergeImportOrigins(existing.origin, animation.origin) }
-          : animation);
-      });
-
-      let added = 0;
-      let refreshed = 0;
-      let unchanged = 0;
-      let quarantined = 0;
-      const next = [];
-
-      pending.forEach((animation) => {
-        const key = animation.origin.familyFingerprint;
-        const existing = byFamily.get(key);
-
-        const record = animation;
-        if (isAnimationDeleted(existing?.id || record.id)) return;
-
-        if (existing) {
-          const merged = mergeScannedAnimation(record, existing);
-          if (merged === existing) unchanged += 1;
-          else refreshed += 1;
-          byFamily.set(key, merged);
-          return;
-        }
-
-        /* Keep rejected candidates for future recovery and provenance, but
-           never describe them as normal animations added to the library. */
-        if (isQuarantinedAnimation(record)) quarantined += 1;
-        else added += 1;
-        next.push(mergeScannedAnimation(record));
-      });
-
-      const candidates = [
-        ...uniqueImportedClasses([...byFamily.values(), ...unmatched, ...next], manual), ...manual,
-      ].filter(animation => !isAnimationDeleted(animation.id));
+      const { candidates, added, unchanged, newAnimations } = planPending();
+      if (!added) return;
       if (!await saveAnimations(candidates)) {
         title.textContent = "Sync not saved";
         description.textContent = getLastStorageErrorMessage() + " Your scan results are kept here so you can retry.";
@@ -443,31 +414,22 @@ export function initializeSync({ render, showToast }) {
       render();
 
       title.textContent = "Sync complete";
-      description.textContent = "The library was updated and checked in isolated runtime preview frames.";
+      description.textContent = "The library was saved locally in this browser and checked in isolated runtime preview frames.";
       renderFinalResults({
         added,
-        refreshed,
         unchanged,
         audit: pendingAudit || { total: 0, totals: { valid: 0, "auto-fixable": 0, "preview-only fix": 0, "no visible effect": 0, broken: 0, "manual review required": 0 }, records: [] },
         usable: state.animations.filter((animation) => !isQuarantinedAnimation(animation)).length,
       });
+      renderNewAnimations(newAnimations, true);
       confirmButton.hidden = true;
       dismissButton.textContent = "Done";
 
       showToast(
-        added + " usable added, " + refreshed + " refreshed, " + unchanged + " unchanged"
-        + (quarantined ? ", " + quarantined + " quarantined" : "")
-        + ". " + manual.length + " of your own kept.",
+        added + " new animation" + (added === 1 ? "" : "s") + " added. Existing animations kept unchanged.",
         "icon-solid icon-check",
       );
 
-      /* Sync chooses a project folder only when it needs to publish. There is
-         no persistent project-link control in the header. */
-      setLabel("Saving...");
-      await syncLibraryToProject(state.animations, {
-        showToast, render,
-        onProgress: ({ processed, total }) => setLabel("Saving " + processed + " / " + total),
-      });
     } catch (error) {
       console.error("Could not apply sync:", error);
       showToast("Could not apply the scanned animations.", "icon-solid icon-triangle-exclamation");

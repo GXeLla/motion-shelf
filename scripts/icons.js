@@ -2,7 +2,7 @@
 // tooltips, category-check classes and references held by the UI remain valid.
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STYLES = new Set(['icon-solid', 'icon-regular', 'icon-brands']);
-const sprite = new URL('../assets/icons/sprite.svg?v=1.30', import.meta.url).href;
+const sprite = new URL('../assets/icons/sprite.svg?v=1.31', import.meta.url).href;
 
 function updateIcon(host) {
   if (!(host instanceof Element) || host.tagName !== 'I') return;

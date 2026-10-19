@@ -539,6 +539,8 @@ function openDetails(id) {
 
     <div class="detail-preview">
 
+      <div class="safe-frame" aria-hidden="true"><span>SAFE FRAME</span></div>
+
       <span class="live-animation-label">
         <span class="live-animation-dot"></span>
         LIVE PREVIEW

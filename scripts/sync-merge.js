@@ -1,6 +1,28 @@
 import { buildExportCSS } from "./animations.js";
 import { normalizeAnimation } from "./storage.js";
 
+export function planNewImports(current, scanned, { familyKey = animation => animation.origin?.familyFingerprint, isDeleted = () => false } = {}) {
+  const ids = new Set(current.map(animation => animation.id));
+  const families = new Set(current.flatMap(animation => animation.origin
+    ? [animation.origin.familyFingerprint, familyKey(animation)].filter(Boolean) : []));
+  const additions = [];
+  let existing = 0;
+  for (const animation of scanned) {
+    const key = animation.origin?.familyFingerprint;
+    if (isDeleted(animation.id)) continue;
+    if (ids.has(animation.id) || (key && families.has(key))) {
+      existing++;
+      continue;
+    }
+    if (animation.audit?.status === "broken / quarantined") continue;
+    ids.add(animation.id);
+    if (key) families.add(key);
+    additions.push(mergeScannedAnimation(animation));
+  }
+  const newAnimations = uniqueImportedClasses(additions, current);
+  return { candidates: [...current, ...newAnimations], newAnimations, added: newAnimations.length, unchanged: existing };
+}
+
 // Allocate across the complete batch, including already-suffixed manual names.
 export function uniqueImportedClasses(imported, manual) {
   const reserved = new Set(manual.map(animation => animation.className));

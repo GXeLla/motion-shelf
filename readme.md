@@ -1,6 +1,6 @@
 # Motion Shelf
 
-Current release: **1.30**. Asset versions live in `index.html` (styles and module import map) and `scripts/icons.js` (SVG sprite). Scan-cache version 2 refreshes derived scan results without deleting saved animations or favourites.
+Current release: **1.31**. Asset versions live in `index.html` (styles and module import map) and `scripts/icons.js` (SVG sprite). Scan-cache version 2 refreshes derived scan results without deleting saved animations or favourites.
 
 **Motion Shelf** is a visual CSS animation library for collecting, previewing, editing, and reusing CSS animations.
 

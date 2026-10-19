@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="app-version" content="1.30" />
+    <meta name="app-version" content="1.31" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -13,25 +13,25 @@
 
     <title>Motion Shelf — Animation Library</title>
 
-    <link rel="stylesheet" href="./styles/fonts.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/icons.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/fonts.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/icons.css?v=1.31" />
 
     <!-- Global -->
-    <link rel="stylesheet" href="./styles/styles.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/styles.css?v=1.31" />
 
     <!-- Components -->
-    <link rel="stylesheet" href="./styles/base.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/header.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/filters.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/cards.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/modals.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/forms.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/enhancements.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/library-atmosphere.css?v=1.30" />
-    <link rel="stylesheet" href="./styles/toast.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/base.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/header.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/filters.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/cards.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/modals.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/forms.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/enhancements.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/library-atmosphere.css?v=1.31" />
+    <link rel="stylesheet" href="./styles/toast.css?v=1.31" />
 
     <!-- ONLY @keyframes -->
-    <link rel="stylesheet" href="./styles/keyframes.css?v=1.30" />
+    <link rel="stylesheet" href="./styles/keyframes.css?v=1.31" />
   </head>
 
   <body class="library-page">
@@ -100,7 +100,7 @@
             id="previewNotice"
             type="button"
             data-tooltip-place="below"
-            data-tooltip="Card previews replay on hover with a generated stand-in subject.
+            data-tooltip="Card previews loop while visible in the viewport with a generated stand-in subject.
 They use a card-safe frame so viewport-scale travel stays understandable in the library.
 Copied, exported and pushed CSS keeps the animation's real settings and parent requirements."
           >
@@ -630,6 +630,7 @@ transform-style: preserve-3d;"
         </div>
 
         <dl class="scan-stats" id="scanStats"></dl>
+        <div class="scan-new-animations" id="scanNewAnimations" hidden></div>
         <div class="scan-broken-list" id="scanBrokenList" hidden></div>
 
         <div class="scan-actions">
@@ -719,48 +720,48 @@ transform-style: preserve-3d;"
     <script type="importmap">
 {
   "imports": {
-    "./scripts/animation-code.js": "./scripts/animation-code.js?v=1.30",
-    "./scripts/animation-extract.js": "./scripts/animation-extract.js?v=1.30",
-    "./scripts/animation-family.js": "./scripts/animation-family.js?v=1.30",
-    "./scripts/animations.js": "./scripts/animations.js?v=1.30",
-    "./scripts/app.js": "./scripts/app.js?v=1.30",
-    "./scripts/back-to-top.js": "./scripts/back-to-top.js?v=1.30",
-    "./scripts/background.js": "./scripts/background.js?v=1.30",
-    "./scripts/campaign-scan.js": "./scripts/campaign-scan.js?v=1.30",
-    "./scripts/cards.js": "./scripts/cards.js?v=1.30",
-    "./scripts/code.js": "./scripts/code.js?v=1.30",
-    "./scripts/delete-countdown.js": "./scripts/delete-countdown.js?v=1.30",
-    "./scripts/detail-adjustments.js": "./scripts/detail-adjustments.js?v=1.30",
-    "./scripts/easing.js": "./scripts/easing.js?v=1.30",
-    "./scripts/editor.js": "./scripts/editor.js?v=1.30",
-    "./scripts/favourites.js": "./scripts/favourites.js?v=1.30",
-    "./scripts/filesystem.js": "./scripts/filesystem.js?v=1.30",
-    "./scripts/filters.js": "./scripts/filters.js?v=1.30",
-    "./scripts/folder-picker.js": "./scripts/folder-picker.js?v=1.30",
-    "./scripts/icons.js": "./scripts/icons.js?v=1.30",
-    "./scripts/library-atmosphere.js": "./scripts/library-atmosphere.js?v=1.30",
-    "./scripts/modals.js": "./scripts/modals.js?v=1.30",
-    "./scripts/origin.js": "./scripts/origin.js?v=1.30",
-    "./scripts/parameters.js": "./scripts/parameters.js?v=1.30",
-    "./scripts/preview-hint.js": "./scripts/preview-hint.js?v=1.30",
-    "./scripts/preview-safety.js": "./scripts/preview-safety.js?v=1.30",
-    "./scripts/preview-scene.js": "./scripts/preview-scene.js?v=1.30",
-    "./scripts/runtime-audit.js": "./scripts/runtime-audit.js?v=1.30",
-    "./scripts/scroll-progress.js": "./scripts/scroll-progress.js?v=1.30",
-    "./scripts/state.js": "./scripts/state.js?v=1.30",
-    "./scripts/storage.js": "./scripts/storage.js?v=1.30",
-    "./scripts/sync-merge.js": "./scripts/sync-merge.js?v=1.30",
-    "./scripts/sync-ui.js": "./scripts/sync-ui.js?v=1.30",
-    "./scripts/tooltip.js": "./scripts/tooltip.js?v=1.30",
-    "./scripts/utils.js": "./scripts/utils.js?v=1.30",
-    "./scripts/validation.js": "./scripts/validation.js?v=1.30",
-    "./scripts/variant-groups.js": "./scripts/variant-groups.js?v=1.30"
+    "./scripts/animation-code.js": "./scripts/animation-code.js?v=1.31",
+    "./scripts/animation-extract.js": "./scripts/animation-extract.js?v=1.31",
+    "./scripts/animation-family.js": "./scripts/animation-family.js?v=1.31",
+    "./scripts/animations.js": "./scripts/animations.js?v=1.31",
+    "./scripts/app.js": "./scripts/app.js?v=1.31",
+    "./scripts/back-to-top.js": "./scripts/back-to-top.js?v=1.31",
+    "./scripts/background.js": "./scripts/background.js?v=1.31",
+    "./scripts/campaign-scan.js": "./scripts/campaign-scan.js?v=1.31",
+    "./scripts/cards.js": "./scripts/cards.js?v=1.31",
+    "./scripts/code.js": "./scripts/code.js?v=1.31",
+    "./scripts/delete-countdown.js": "./scripts/delete-countdown.js?v=1.31",
+    "./scripts/detail-adjustments.js": "./scripts/detail-adjustments.js?v=1.31",
+    "./scripts/easing.js": "./scripts/easing.js?v=1.31",
+    "./scripts/editor.js": "./scripts/editor.js?v=1.31",
+    "./scripts/favourites.js": "./scripts/favourites.js?v=1.31",
+    "./scripts/filesystem.js": "./scripts/filesystem.js?v=1.31",
+    "./scripts/filters.js": "./scripts/filters.js?v=1.31",
+    "./scripts/folder-picker.js": "./scripts/folder-picker.js?v=1.31",
+    "./scripts/icons.js": "./scripts/icons.js?v=1.31",
+    "./scripts/library-atmosphere.js": "./scripts/library-atmosphere.js?v=1.31",
+    "./scripts/modals.js": "./scripts/modals.js?v=1.31",
+    "./scripts/origin.js": "./scripts/origin.js?v=1.31",
+    "./scripts/parameters.js": "./scripts/parameters.js?v=1.31",
+    "./scripts/preview-hint.js": "./scripts/preview-hint.js?v=1.31",
+    "./scripts/preview-safety.js": "./scripts/preview-safety.js?v=1.31",
+    "./scripts/preview-scene.js": "./scripts/preview-scene.js?v=1.31",
+    "./scripts/runtime-audit.js": "./scripts/runtime-audit.js?v=1.31",
+    "./scripts/scroll-progress.js": "./scripts/scroll-progress.js?v=1.31",
+    "./scripts/state.js": "./scripts/state.js?v=1.31",
+    "./scripts/storage.js": "./scripts/storage.js?v=1.31",
+    "./scripts/sync-merge.js": "./scripts/sync-merge.js?v=1.31",
+    "./scripts/sync-ui.js": "./scripts/sync-ui.js?v=1.31",
+    "./scripts/tooltip.js": "./scripts/tooltip.js?v=1.31",
+    "./scripts/utils.js": "./scripts/utils.js?v=1.31",
+    "./scripts/validation.js": "./scripts/validation.js?v=1.31",
+    "./scripts/variant-groups.js": "./scripts/variant-groups.js?v=1.31"
   }
 }
     </script>
-    <script type="module" src="./scripts/app.js?v=1.30"></script>
-    <script type="module" src="./scripts/library-atmosphere.js?v=1.30"></script>
-    <script type="module" src="./scripts/scroll-progress.js?v=1.30"></script>
-    <script type="module" src="./scripts/back-to-top.js?v=1.30"></script>
+    <script type="module" src="./scripts/app.js?v=1.31"></script>
+    <script type="module" src="./scripts/library-atmosphere.js?v=1.31"></script>
+    <script type="module" src="./scripts/scroll-progress.js?v=1.31"></script>
+    <script type="module" src="./scripts/back-to-top.js?v=1.31"></script>
   </body>
 </html>

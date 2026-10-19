@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeImportOrigins, mergeScannedAnimation, uniqueImportedClasses } from "../scripts/sync-merge.js";
+import { mergeImportOrigins, mergeScannedAnimation, uniqueImportedClasses, planNewImports } from "../scripts/sync-merge.js";
 import { buildExportCSS } from "../scripts/animations.js";
 import { parseAnimationFile } from "../scripts/filesystem.js";
 import { normalizeAnimation } from "../scripts/storage.js";
@@ -10,6 +10,33 @@ const scanned = {
   css: "opacity: 0;", keyframes: "from { opacity: 0; } to { opacity: 1; }",
   origin: { familyFingerprint: "fade", occurrences: 4, sources: [] },
 };
+
+test("add-only sync preserves existing records even when rescanned data changes", () => {
+  const saved = savedAnimation();
+  const current = [saved, { ...saved, id: "legacy-duplicate" }];
+  const snapshot = structuredClone(current);
+  const result = planNewImports(current, [{ ...scanned, id: "rescanned", duration: 99, audit: { status: "valid", reason: "changed" } }]);
+  assert.equal(result.added, 0);
+  assert.equal(result.unchanged, 1);
+  assert.deepEqual(result.candidates, snapshot);
+  assert.equal(result.candidates[0], saved);
+  assert.equal(result.candidates[1], current[1]);
+});
+
+test("add-only sync lists only new usable records and preserves existing class names", () => {
+  const saved = savedAnimation();
+  const fresh = { ...scanned, id: "new", name: "New motion", origin: { familyFingerprint: "new-family" } };
+  const result = planNewImports([saved], [
+    scanned, fresh, fresh,
+    { ...fresh, id: "deleted", origin: { familyFingerprint: "deleted" } },
+    { ...fresh, id: "broken", origin: { familyFingerprint: "broken" }, audit: { status: "broken / quarantined" } },
+  ], { isDeleted: id => id === "deleted" });
+  assert.equal(result.added, 1);
+  assert.deepEqual(result.newAnimations.map(animation => animation.name), ["New motion"]);
+  assert.equal(result.candidates[0], saved);
+  assert.notEqual(result.newAnimations[0].className, saved.className);
+  assert.equal(planNewImports(result.candidates, [fresh]).added, 0);
+});
 
 test("imported class names cannot collide with custom suffixed names or each other", () => {
   const manual = [{className:"fade"}, {className:"fade-imported"}, {className:"fade-imported-2"}];

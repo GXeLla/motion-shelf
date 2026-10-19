@@ -81,7 +81,7 @@ not:
   whatever the animation's own `iterationCount`. A one-shot entrance therefore
   restarts over and over, which reads as stuttering or as a broken animation.
 - **The delay is honoured.** An animation written with a long lead-in leaves the
-  card apparently doing nothing for the first part of a hover.
+  card apparently doing nothing just after it enters the viewport.
 - **A very short duration on a loop reads as flicker**, where in place it would
   be a single quick move.
 - **The subject is a stand-in.** It is the generated plate from
@@ -209,6 +209,10 @@ The animation library carries its emerald scrollbar and scroll-progress theme in
 Pick whichever folder contains `campaigns/` and `previews-only/` (a repositories or work folder); Motion Shelf searches up to three levels down for them by name, so nothing is tied to one machine's paths. If only one of the two exists, the sync runs on that one. Everything a sync finds goes through classification, de-duplication, family matching and template extraction before it reaches the library -- there is no separate cleanup step, and future campaigns follow the same path automatically.
 
 The archives are **strictly read-only**. The picker is opened with `mode: "read"`, so the browser will not return a writable handle at all, and no directory or file is ever requested with `create`. Everything a scan produces is stored inside Motion Shelf.
+
+Confirming Sync saves the imported library locally in this browser's IndexedDB. It does not publish CSS files or request a destination folder or write permission.
+
+Sync is add-only: existing records, settings, names and metadata are preserved. Results count and list only new usable animations; matching saved IDs or animation families are skipped, and a repeat scan with no additions says "Nothing new to add."
 
 What is extracted:
 
@@ -394,7 +398,7 @@ Every animation record is stored in browser IndexedDB. The card label instead id
 
 The library's aurora **Back to top** compass appears after scrolling down. Its ring tracks page progress, and its ribbons use bounded scroll/pointer parallax without a continuous animation loop. It supports keyboard use, mobile safe areas and reduced motion (`scripts/back-to-top.js`).
 
-Card loading pauses while the document is hidden, cancels stale callbacks when a render is replaced, and resumes in batches of twelve near the viewport. Loaded rows keep their space when rerendered; they do not replay entrance fades on tab return. Active card hover previews stop on blur/page hide, even when the browser never sends mouseleave.
+Card loading pauses while the document is hidden, cancels stale callbacks when a render is replaced, and resumes in batches of twelve near the viewport. Loaded rows keep their space when rerendered; they do not replay entrance fades on tab return. Card previews loop automatically whenever their preview frame intersects the viewport, with no offscreen margin, and stop when it leaves. Playback stops on blur/page hide and resumes from fresh viewport observations on return. Removing a card releases its observer registration and active preview rule.
 
 Run regression checks with `node --test tests/*.test.mjs`. File-access tests use isolated fake handles; they do not modify the real animation catalog or source archives.
 

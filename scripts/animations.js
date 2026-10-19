@@ -367,18 +367,52 @@ export function injectAnimationForPreview(animation) {
 
 const activeCardPreviews = new Set();
 const previewStops = new WeakMap();
+const observedCardPreviews = new Map();
+let cardPreviewObserver = null;
+let previewsSuspended = false;
 let previewLifecycleBound = false;
 
 function bindPreviewLifecycle() {
   if (previewLifecycleBound) return;
   previewLifecycleBound = true;
+  let windowInactive = false;
+  const modalOpen = () => Boolean(document.querySelector(".modal-backdrop:not([hidden])"));
+  cardPreviewObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      const preview = observedCardPreviews.get(entry.target);
+      if (!preview) continue;
+      if (!previewsSuspended && !document.hidden && !modalOpen() && entry.target.isConnected
+          && entry.isIntersecting && entry.intersectionRatio > 0) preview.play();
+      else preview.stop();
+    }
+  }, { root: null, rootMargin: "0px", threshold: 0 });
   const stopActive = () => {
+    previewsSuspended = true;
+    cardPreviewObserver.disconnect();
     for (const stop of activeCardPreviews) stop();
   };
-  // Switching tabs need not send mouseleave to the previously hovered card.
-  document.addEventListener("visibilitychange", () => { if (document.hidden) stopActive(); });
-  window.addEventListener("blur", stopActive);
-  window.addEventListener("pagehide", stopActive);
+  const resume = () => {
+    if (document.hidden || windowInactive || modalOpen()) {
+      stopActive();
+      return;
+    }
+    previewsSuspended = false;
+    // Fresh observations avoid resuming cards that moved offscreen while away.
+    cardPreviewObserver.disconnect();
+    for (const target of observedCardPreviews.keys()) cardPreviewObserver.observe(target);
+  };
+  document.addEventListener("visibilitychange", () => document.hidden ? stopActive() : resume());
+  window.addEventListener("blur", () => { windowInactive = true; stopActive(); });
+  window.addEventListener("pagehide", () => { windowInactive = true; stopActive(); });
+  window.addEventListener("focus", () => { windowInactive = false; resume(); });
+  window.addEventListener("pageshow", () => { windowInactive = false; resume(); });
+  // All dialogs, including Sync, expose visibility through their backdrop.
+  // Observe those directly so every close path and overlapping dialog is covered.
+  const modalObserver = new MutationObserver(resume);
+  document.querySelectorAll(".modal-backdrop").forEach(backdrop => {
+    modalObserver.observe(backdrop, { attributes: true, attributeFilter: ["hidden"] });
+  });
+  if (modalOpen()) stopActive();
 }
 
 export function applyAnimation(element, animation, options = {}) {
@@ -407,7 +441,7 @@ export function applyAnimation(element, animation, options = {}) {
   bindPreviewLifecycle();
 
   const playAnimation = () => {
-    if (document.hidden || activeCardPreviews.has(stopAnimation)) return;
+    if (document.hidden || previewsSuspended || activeCardPreviews.has(stopAnimation)) return;
     /* A card can remain in the scroll history after its inactive rule was
        evicted. Re-register it at the moment it is actually needed. */
     injectAnimationForPreview(animation);
@@ -441,21 +475,20 @@ export function applyAnimation(element, animation, options = {}) {
     }
   };
 
-  const hoverTarget = element.closest(".animation-card") || element;
-
-  previewStops.set(element, stopAnimation);
-
-  hoverTarget.addEventListener("mouseenter", playAnimation);
-
-  hoverTarget.addEventListener("mouseleave", stopAnimation);
-
-  element.addEventListener("focus", playAnimation);
-
-  element.addEventListener("blur", stopAnimation);
+  // Observe the stationary frame: the animated subject can move outside it.
+  const target = element.closest(".card-preview") || element;
+  previewStops.get(element)?.();
+  observedCardPreviews.set(target, { play: playAnimation, stop: stopAnimation });
+  previewStops.set(element, () => {
+    cardPreviewObserver.unobserve(target);
+    observedCardPreviews.delete(target);
+    previewStops.delete(element);
+    stopAnimation();
+  });
+  if (!previewsSuspended) cardPreviewObserver.observe(target);
 }
 
-/* Card windowing can remove a hovered card before mouseleave fires. Release
-   both its running animation and its protected preview-rule lease. */
+/* Release observation, playback, and the preview-rule lease on card removal. */
 export function stopPreviewAnimation(element) {
   previewStops.get(element)?.();
 }
